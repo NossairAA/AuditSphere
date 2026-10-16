@@ -55,3 +55,7 @@ Exemple de contrat :
 ## Audit Replay (hors MVP)
 
 Conserver les versions des règles, les jeux de données autorisés et les paramètres d'exécution. Exécuter la simulation en mode sans effet de bord, avec identifiant de campagne, provenance et résultat reproductible.
+
+## Événement livré : affectation de mission
+
+Le topic audit.mission.assigned.v1 est implémenté. audit-service enregistre un événement par nouvel auditeur dans son outbox, puis notification-service crée une notification avec event_id unique. Les deux services possèdent des bases distinctes. Le message contient missionId, recipientSubject, aggregateVersion, occurredAt, eventId, eventType et eventVersion. Les autres événements du catalogue restent proposés. Voir [ADR-0007](../decisions/ADR-0007-notifications-outbox.md) et le [guide de reprise](../technique/09-notifications-kafka.md).

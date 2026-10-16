@@ -18,13 +18,16 @@ class MissionController {
   private final MissionRepository repository;
 
   private final AuditorDirectory directory;
+  private final AssignmentOutbox outbox;
   private final org.springframework.transaction.support.TransactionTemplate tx;
 
   MissionController(
       MissionRepository repository,
       AuditorDirectory directory,
+      AssignmentOutbox outbox,
       org.springframework.transaction.PlatformTransactionManager manager) {
     this.directory = directory;
+    this.outbox = outbox;
     this.tx = new org.springframework.transaction.support.TransactionTemplate(manager);
     this.tx.setTimeout(5);
     this.repository = repository;
@@ -76,6 +79,7 @@ class MissionController {
           m.status = "DRAFT";
           m.assigneeSubjects.addAll(body.assigneeSubjects());
           repository.saveAndFlush(m);
+          outbox.append(m, m.assigneeSubjects);
           return ResponseEntity.created(URI.create("/missions/" + m.id)).body(MissionView.of(m));
         });
   }
@@ -150,11 +154,14 @@ class MissionController {
                   .findForUpdate(id)
                   .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
           checkOwner(m, jwt, body.version());
+          var added = new HashSet<>(body.assigneeSubjects());
+          added.removeAll(m.assigneeSubjects);
           m.assigneeSubjects.clear();
           m.assigneeSubjects.addAll(body.assigneeSubjects());
           // Force a version increment even when the replacement set is unchanged.
           m.assignmentRevision = UUID.randomUUID().toString();
           repository.saveAndFlush(m);
+          outbox.append(m, added);
 
           return MissionView.of(m);
         });

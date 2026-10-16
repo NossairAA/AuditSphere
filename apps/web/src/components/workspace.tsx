@@ -1,7 +1,9 @@
 "use client";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState, createContext, useContext } from "react";
 import {
+  Bell,
   Layers,
   ClipboardList,
   ShieldCheck,
@@ -17,6 +19,8 @@ export type User = {
 const UserContext = createContext<User | null>(null);
 export const useUser = () => useContext(UserContext);
 export default function Workspace({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const notifications = pathname === "/missions/notifications";
   const [user, setUser] = useState<User | null>(null),
     [error, setError] = useState("");
   useEffect(() => {
@@ -43,7 +47,10 @@ export default function Workspace({ children }: { children: React.ReactNode }) {
         </Link>
         <div className="workspace-label">ESPACE DE TRAVAIL</div>
         <nav>
-          <Link href="/missions" className="nav-link active">
+          <Link
+            href="/missions"
+            className={"nav-link" + (!notifications ? " active" : "")}
+          >
             <ClipboardList size={19} /> Missions d’audit{" "}
             <ArrowRight size={15} />
           </Link>
@@ -89,9 +96,21 @@ export default function Workspace({ children }: { children: React.ReactNode }) {
             Organisation <span className="slash">/</span>{" "}
             <strong>Audit interne</strong>
           </span>
-          <span className="private-label">
-            <span /> Espace privé
-          </span>
+          <div className="topbar-actions">
+            <span className="private-label">
+              <span /> Espace privé
+            </span>
+            <Link
+              href="/missions/notifications"
+              className={"header-notifications" + (notifications ? " active" : "")}
+              aria-label="Notifications"
+              aria-current={notifications ? "page" : undefined}
+              title="Notifications"
+            >
+              <Bell size={19} aria-hidden="true" />
+              <span>Notifications</span>
+            </Link>
+          </div>
         </header>
         <main className="content">
           {error ? (

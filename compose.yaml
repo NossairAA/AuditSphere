@@ -1,5 +1,72 @@
 name: auditsphere
 services:
+  kafka-storage:
+    image: apache/kafka:4.0.2
+    user: "0:0"
+    entrypoint: [sh, -ec]
+    command: ["chown 1000:1000 /data && chmod 700 /data"]
+    volumes: [kafka-data:/data]
+    restart: "no"
+  kafka:
+    image: apache/kafka:4.0.2
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx512m
+    volumes: [kafka-data:/tmp/kraft-combined-logs]
+    depends_on:
+      kafka-storage: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD-SHELL, "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list >/dev/null"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+  kafka-init:
+    image: apache/kafka:4.0.2
+    entrypoint: [/opt/kafka/bin/kafka-topics.sh]
+    command: [--bootstrap-server, kafka:9092, --create, --if-not-exists, --topic, audit.mission.assigned.v1, --partitions, "3", --replication-factor, "1", --config, retention.ms=604800000]
+    depends_on:
+      kafka: {condition: service_healthy}
+    restart: "no"
+  notification-db:
+    image: postgres:17.9
+    environment:
+      POSTGRES_DB: notification
+      POSTGRES_USER: notification
+      POSTGRES_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?Run python3 scripts/prepare-notifications.py}
+    ports: ["127.0.0.1:5547:5432"]
+    volumes: [notification-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U notification -d notification"]
+      interval: 5s
+      retries: 20
+  notification-service:
+    build:
+      context: .
+      args: {SERVICE: notification-service}
+    environment:
+      DB_URL: jdbc:postgresql://notification-db:5432/notification
+      DB_USER: notification_runtime
+      DB_PASSWORD: ${NOTIFICATION_RUNTIME_PASSWORD:-not-provisioned}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      OIDC_ISSUER: http://localhost:8180/realms/auditsphere
+      OIDC_JWKS: http://keycloak:8080/realms/auditsphere/protocol/openid-connect/certs
+    depends_on:
+      notification-db: {condition: service_healthy}
+      kafka-init: {condition: service_completed_successfully}
+      keycloak: {condition: service_started}
   web-db:
     image: postgres:17.9
     environment:
@@ -73,6 +140,8 @@ services:
       DB_USER: audit_runtime
       DB_PASSWORD: ${AUDIT_RUNTIME_PASSWORD:-not-provisioned}
       SPRING_FLYWAY_ENABLED: "false"
+      OUTBOX_ENABLED: "true"
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       DIRECTORY_URL: http://keycloak:8080
       DIRECTORY_CLIENT_SECRET: ${DIRECTORY_CLIENT_SECRET:?Run setup-web.py --configure-only}
       OIDC_ISSUER: http://localhost:8180/realms/auditsphere
@@ -87,10 +156,13 @@ services:
     ports: ["127.0.0.1:8080:8080"]
     environment:
       AUDIT_URL: http://audit-service:8081
+      NOTIFICATION_URL: http://notification-service:8082
       OIDC_ISSUER: http://localhost:8180/realms/auditsphere
       OIDC_JWKS: http://keycloak:8080/realms/auditsphere/protocol/openid-connect/certs
-    depends_on: [audit-service]
+    depends_on: [audit-service, notification-service]
 volumes:
+  kafka-data:
+  notification-data:
   realm-import:
   web-data:
   audit-data:

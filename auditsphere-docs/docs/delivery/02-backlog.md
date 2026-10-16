@@ -27,7 +27,7 @@ Pour chaque user story ajoutée, utiliser [le modèle de fonctionnalité](../tem
 | TECH-002 | Monorepo et build Maven | Build local réussi, workflow CI écrit, exécution distante en attente | En cours |
 | TECH-003 | Audit service, Flyway et PostgreSQL | Migration sur base vide et test Testcontainers réussi | Vérifié localement |
 | TECH-004 | Keycloak, gateway et permissions | Jeton invalide refusé, mission hors périmètre inaccessible | Vérifié localement (API) |
-| TECH-005 | Kafka et outbox | Reprise après panne, aucun effet métier doublé après redélivrance | Proposé |
+| TECH-005 | Kafka et outbox | Reprise après panne, aucun effet métier doublé après redélivrance | Vérifié localement, jalon notifications |
 | TECH-006 | Workflow Temporal | Validation, expiration et reprise après arrêt du worker démontrées | Proposé |
 | TECH-007 | Observabilité | Trace corrélée HTTP/Kafka et métriques consultables | Proposé |
 | TECH-008 | CI/CD et Kubernetes | Image analysée, déploiement Helm/GitOps et rollback testés | Proposé |
@@ -45,7 +45,7 @@ US-001 et US-002 sont **En cours** : authentification API et création/consultat
 | WEB-003 | Formulaire de création réservé au responsable et fiche mission | Vérifié localement |
 | WEB-004 | États vide, refus, erreur et mobile | Vérifié localement |
 | WEB-005 | Affectation d’auditeurs depuis l’interface avec annuaire | Vérifié localement |
-| WEB-006 | Exécution CI GitHub du jalon frontend | Échec smoke du jalon 2, nouvelle exécution requise |
+| WEB-006 | Exécution CI GitHub du jalon frontend | Vérifié sur 69de451, nouvelle tranche Kafka à publier |
 
 US-001 couvre maintenant la connexion web locale. US-002 reste partielle pour les dates métier et la modification des affectations.
 
@@ -83,6 +83,20 @@ Le dépannage du frontend local est documenté dans le README. Le démarrage aut
 
 - DEV-DB-01 : accès pgAdmin aux bases web, audit et keycloak vérifié sur 127.0.0.1, ports 5544, 5545 et 5546. Aucune publication de port PostgreSQL dans le profil production.
 
-Publication du jalon de durcissement en cours, résultat CI distant à vérifier avant de commencer Kafka.
+Publication du jalon de durcissement terminée, CI verte sur 69de451.
 
 - DEV-REPO-01 : consignes IA exclues des publications futures, documentation fonctionnelle et technique conservée.
+
+## Jalon notifications Kafka
+
+| ID | Livrable | État |
+| --- | --- | --- |
+| NOTIF-01 | Outbox dans la transaction d’affectation et publication avec bail | Vérifié localement |
+| NOTIF-02 | Consommation idempotente et base propriétaire | Vérifié localement |
+| NOTIF-03 | Notifications dans le BFF et l’interface, accès depuis l’en-tête et isolation par sujet | Vérifié localement |
+| NOTIF-04 | Reprise après panne broker, service et base, rejeu sans doublon | Vérifié localement |
+| NOTIF-05 | CI distante de la tranche Kafka | À exécuter après publication |
+| NOTIF-06 | Quarantaine, alertes, rétention et outil de rejeu supervisé | À réaliser |
+| NOTIF-07 | TLS, ACL, réplication Kafka et mesures de charge | À réaliser avant production |
+
+Les notifications de retard US-009 restent proposées. Le jalon livré porte uniquement sur les affectations aux missions.

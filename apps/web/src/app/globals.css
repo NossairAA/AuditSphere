@@ -212,6 +212,30 @@ p {
   font-size: 12px;
   color: var(--muted);
 }
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.header-notifications {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 8px;
+  color: var(--ink);
+}
+.header-notifications:hover,
+.header-notifications.active {
+  background: #829b8620;
+}
+.header-notifications:focus-visible {
+  outline: 2px solid #538260;
+  outline-offset: 2px;
+}
 .topbar strong {
   font-weight: 500;
   color: var(--ink);
@@ -931,6 +955,10 @@ td {
   .workspace-body {
     margin-left: 0;
     min-height: calc(100vh - 77px);
+  }
+  .topbar-actions .private-label,
+  .header-notifications > span {
+    display: none;
   }
   .topbar {
     height: 55px;

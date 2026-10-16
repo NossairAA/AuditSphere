@@ -11,9 +11,12 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 class GatewayConfig {
   @Bean
   RouteLocator routes(
-      RouteLocatorBuilder builder, @Value("${AUDIT_URL:http://localhost:8081}") String url) {
+      RouteLocatorBuilder builder,
+      @Value("${AUDIT_URL:http://localhost:8081}") String url,
+      @Value("${NOTIFICATION_URL:http://localhost:8082}") String notificationUrl) {
     return builder
         .routes()
+        .route("notifications", r -> r.path("/notifications").uri(notificationUrl))
         .route("audit", r -> r.path("/missions", "/missions/**").uri(url))
         .build();
   }

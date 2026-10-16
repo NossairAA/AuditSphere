@@ -1,0 +1,48 @@
+openapi: 3.0.3
+info:
+  title: AuditSphere Notifications
+  version: 0.1.0
+servers:
+  - url: http://localhost:8080
+security:
+  - bearerAuth: []
+paths:
+  /notifications:
+    get:
+      summary: Notifications du sujet authentifié uniquement
+      parameters:
+        - in: query
+          name: page
+          schema: {type: integer, minimum: 0, maximum: 10000, default: 0}
+        - in: query
+          name: size
+          schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+      responses:
+        '200':
+          description: Page triée par réception décroissante puis identifiant décroissant
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page, size, hasNext]
+                properties:
+                  page: {type: integer}
+                  size: {type: integer}
+                  hasNext: {type: boolean}
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, missionId, occurredAt, receivedAt]
+                      properties:
+                        id: {type: string, format: uuid}
+                        missionId: {type: string, format: uuid}
+                        occurredAt: {type: string, format: date-time}
+                        receivedAt: {type: string, format: date-time}
+        '400': {description: Pagination invalide}
+        '401': {description: Jeton absent ou invalide}
+        '429': {description: Quota gateway dépassé}
+        '503': {description: Service indisponible}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}

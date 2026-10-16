@@ -56,3 +56,7 @@ Affectations et participants livrés localement, tests sur deux sessions réussi
 ## Durcissement avant extension distribuée
 
 Comptes SQL, quotas, annuaire et conflits d’édition traités localement. Avant publication : valider HTTPS réel et la CI, puis la charge et les sauvegardes. La limite distribuée reste nécessaire avant plusieurs réplicas.
+
+## Jalon notifications : 2026-10-17
+
+La CI du durcissement est verte sur 69de451. La première tranche de phase 3 est livrée localement : Kafka, outbox, notification-service, interface et reprises vérifiées. La CI de cette nouvelle tranche reste à lancer. La haute disponibilité, la quarantaine supervisée et l’observabilité sont ouvertes. Voir le [guide notifications](../technique/09-notifications-kafka.md).

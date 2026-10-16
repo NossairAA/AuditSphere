@@ -1,5 +1,11 @@
 # Requires provisioned HTTPS origins and a valid certificate, never started by start-local.sh.
 services:
+  notification-db:
+    ports: !reset []
+  notification-service:
+    environment:
+      OIDC_ISSUER: ${PROD_OIDC_ORIGIN}/realms/auditsphere
+      OIDC_JWKS: ${PROD_OIDC_ORIGIN}/realms/auditsphere/protocol/openid-connect/certs
   web-db:
     ports: !reset []
   audit-db:

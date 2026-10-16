@@ -1,5 +1,16 @@
 # Journal des changements
 
+## [0.7.0] : 2026-10-17
+
+- Accès Notifications déplacé de la barre latérale vers l’en-tête, visible aussi sur mobile.
+
+- Service de notifications Spring Boot et base PostgreSQL dédiée avec comptes runtime et migration distincts.
+- Kafka KRaft local, événements d’affectation sans contenu métier et outbox transactionnelle.
+- Reprises avec bail et consommateur idempotent, validation des pannes Kafka, service et base.
+- Interface Notifications, accès par sujet JWT, pagination et actualisation.
+- 29 tests Java et 10 scénarios navigateur validés localement, compilation réussie.
+- Contrats, ADR-0007 et guide de test ajoutés. CI enrichie, exécution distante de cette tranche en attente.
+
 ## [0.6.0] : 2026-10-16
 
 - Retrait du suivi Git des consignes locales pour assistants IA, documentation du projet conservée.

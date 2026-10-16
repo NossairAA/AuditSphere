@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "audit.mission.assigned.v1",
+  "type": "object",
+  "required": [
+    "eventId",
+    "eventType",
+    "eventVersion",
+    "missionId",
+    "recipientSubject",
+    "aggregateVersion",
+    "occurredAt"
+  ],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "eventType": {
+      "const": "audit.mission.assigned.v1"
+    },
+    "eventVersion": {
+      "const": 1
+    },
+    "missionId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "recipientSubject": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "aggregateVersion": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

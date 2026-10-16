@@ -378,4 +378,131 @@ class MissionIntegrationTest {
     mvc.perform(get("/missions/" + id + "/participants").with(jwt().jwt(j -> j.subject("owner"))))
         .andExpect(status().isOk());
   }
+
+  @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
+  @org.springframework.test.context.bean.override.mockito.MockitoSpyBean AssignmentOutbox outbox;
+
+  @Test
+  void emitsOnlyNewAssignmentsAndRejectsStaleWritesWithoutEvents() throws Exception {
+    String id = create();
+    var key = java.util.UUID.fromString(id);
+    org.junit.jupiter.api.Assertions.assertEquals(
+        1,
+        jdbc.queryForObject(
+            "SELECT count(*) FROM assignment_outbox WHERE mission_id=?", Integer.class, key));
+    for (int version = 0; version < 2; version++) {
+      mvc.perform(
+              put("/missions/" + id + "/assignments")
+                  .with(
+                      jwt()
+                          .jwt(j -> j.subject("owner"))
+                          .authorities(new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER")))
+                  .contentType("application/json")
+                  .content(
+                      "{\"version\":"
+                          + version
+                          + ",\"assigneeSubjects\":[\"assigned\",\"new-auditor\"]}"))
+          .andExpect(status().isOk());
+    }
+    org.junit.jupiter.api.Assertions.assertEquals(
+        2,
+        jdbc.queryForObject(
+            "SELECT count(*) FROM assignment_outbox WHERE mission_id=?", Integer.class, key));
+    mvc.perform(
+            put("/missions/" + id + "/assignments")
+                .with(
+                    jwt()
+                        .jwt(j -> j.subject("owner"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER")))
+                .contentType("application/json")
+                .content("{\"version\":0,\"assigneeSubjects\":[]}"))
+        .andExpect(status().isConflict());
+    org.junit.jupiter.api.Assertions.assertEquals(
+        2,
+        jdbc.queryForObject(
+            "SELECT count(*) FROM assignment_outbox WHERE mission_id=?", Integer.class, key));
+  }
+
+  @Test
+  void outboxFailureRollsBackMissionAndEventTogether() {
+    int missions = jdbc.queryForObject("SELECT count(*) FROM missions", Integer.class);
+    int events = jdbc.queryForObject("SELECT count(*) FROM assignment_outbox", Integer.class);
+    AssignmentOutbox target =
+        org.springframework.test.util.AopTestUtils.getUltimateTargetObject(outbox);
+    org.mockito.Mockito.doAnswer(
+            call -> {
+              call.callRealMethod();
+              throw new IllegalStateException("Simulated transaction failure after outbox insert");
+            })
+        .when(target)
+        .append(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anySet());
+    org.junit.jupiter.api.Assertions.assertThrows(Exception.class, () -> create());
+    org.junit.jupiter.api.Assertions.assertEquals(
+        missions, jdbc.queryForObject("SELECT count(*) FROM missions", Integer.class));
+    org.junit.jupiter.api.Assertions.assertEquals(
+        events, jdbc.queryForObject("SELECT count(*) FROM assignment_outbox", Integer.class));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void publisherRetriesAndReclaimsExpiredLeaseWithoutHoldingTransaction() throws Exception {
+    // Isolate this candidate from other test missions without deleting their outbox rows.
+    jdbc.update(
+        "UPDATE assignment_outbox SET lease_until=now()+interval '1 hour' WHERE published_at IS NULL");
+    var mission = java.util.UUID.fromString(create());
+    var kafka = org.mockito.Mockito.mock(org.springframework.kafka.core.KafkaTemplate.class);
+    org.mockito.Mockito.when(
+            kafka.send(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            call -> {
+              org.junit.jupiter.api.Assertions.assertFalse(
+                  org.springframework.transaction.support.TransactionSynchronizationManager
+                      .isActualTransactionActive());
+              return java.util.concurrent.CompletableFuture.failedFuture(
+                  new IllegalStateException("Broker offline"));
+            });
+    var publisher = new OutboxPublisher(jdbc, kafka, mapper);
+    publisher.publishNext();
+    org.junit.jupiter.api.Assertions.assertNull(
+        jdbc.queryForObject(
+            "SELECT published_at FROM assignment_outbox WHERE mission_id=?",
+            java.sql.Timestamp.class,
+            mission));
+    org.junit.jupiter.api.Assertions.assertEquals(
+        1,
+        jdbc.queryForObject(
+            "SELECT attempts FROM assignment_outbox WHERE mission_id=?", Integer.class, mission));
+    // An unexpired lease cannot be stolen by another publisher.
+    jdbc.update(
+        "UPDATE assignment_outbox SET available_at=now(), lease_until=now()+interval '30 seconds' WHERE mission_id=?",
+        mission);
+    publisher.publishNext();
+    org.mockito.Mockito.verify(kafka, org.mockito.Mockito.times(1))
+        .send(
+            org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.anyString());
+    jdbc.update(
+        "UPDATE assignment_outbox SET lease_until=now()-interval '1 second' WHERE mission_id=?",
+        mission);
+    org.mockito.Mockito.when(
+            kafka.send(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString()))
+        .thenReturn(java.util.concurrent.CompletableFuture.completedFuture(null));
+    publisher.publishNext();
+    org.junit.jupiter.api.Assertions.assertNotNull(
+        jdbc.queryForObject(
+            "SELECT published_at FROM assignment_outbox WHERE mission_id=?",
+            java.sql.Timestamp.class,
+            mission));
+    org.junit.jupiter.api.Assertions.assertEquals(
+        2,
+        jdbc.queryForObject(
+            "SELECT attempts FROM assignment_outbox WHERE mission_id=?", Integer.class, mission));
+  }
 }

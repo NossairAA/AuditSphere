@@ -15,3 +15,5 @@ Utiliser le modèle dans [`docs/templates/adr.md`](../templates/adr.md).
 - [ADR-0005 : Annuaire et affectations](ADR-0005-annuaire-affectations.md)
 
 - [ADR-0006 : Runtime et opérations bornées](ADR-0006-durcissement-runtime.md)
+
+- [ADR-0007 : Notifications Kafka et outbox](ADR-0007-notifications-outbox.md)

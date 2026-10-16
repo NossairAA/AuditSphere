@@ -2,10 +2,10 @@
 
 > Plateforme interne de gestion des audits, risques, contrôles, preuves et plans d'action, avec trajectoire vers l'audit continu.
 
-**Version documentaire :** 0.6.0
-**Statut :** premier socle API vérifié localement / hypothèses métier à valider  
-**Mise à jour :** 2026-10-16  
-**Responsables :** à définir  
+**Version documentaire :** 0.7.0
+**Statut :** missions, interface et notifications Kafka vérifiées localement / hypothèses métier à valider
+**Mise à jour :** 2026-10-17
+**Responsables :** à définir
 **Langue :** français
 
 ## Orientation technique
@@ -56,7 +56,7 @@ L'hypothèse de travail est **l'audit interne d'entreprise** (finance, achats, R
 4. Mettre à jour le backlog, la roadmap et `CHANGELOG.md`.
 5. Référencer une issue ou PR dans la description du changement, si disponible.
 
-**États utilisés** : `Proposé` → `Validé` → `En cours` → `Implémenté` → `Vérifié` (ou `Abandonné`).  
+**États utilisés** : `Proposé` → `Validé` → `En cours` → `Implémenté` → `Vérifié` (ou `Abandonné`).
 **Marqueurs** : `À confirmer`, `Hypothèse`, `Décidé`, `Hors MVP`.
 
 ## Prochaine décision
@@ -68,3 +68,5 @@ Le [jalon 3](docs/technique/06-affectations.md) ajoute les affectations web et u
 Un [audit de sécurité et scalabilité](docs/technique/07-audit-securite-scalabilite.md) documente les risques avant exposition publique et les limites des mesures locales.
 
 Le [guide de durcissement](docs/technique/08-durcissement.md) décrit les remédiations locales et les limites restant avant production.
+
+Le [jalon notifications Kafka](docs/technique/09-notifications-kafka.md) livre l’outbox, un deuxième service métier et des tests de reprise après panne.

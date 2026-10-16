@@ -20,8 +20,8 @@ def sql(service,user,database,query,check=True):
  return result
 backup=root/'.local'/'backups'/(datetime.datetime.now().strftime('%Y%m%d-%H%M%S')+'-'+secrets.token_hex(3))
 backup.mkdir(parents=True,exist_ok=True)
-for db in ['audit','web']:
- service=db+'-db';admin=db+'_admin';runtime=db+'_runtime';owner='audit_migrator' if db=='audit' else 'web_owner'
+for db in ['audit','web','notification']:
+ service=db+'-db';admin=db+'_admin';runtime=db+'_runtime';owner=db+'_migrator' if db!='web' else 'web_owner'
  current=admin if sql(service,admin,db,'SELECT 1;',False).returncode==0 else db
  # SQL uses psql quoting through format, values are generated URL-safe or validated identifiers.
  password=env[db.upper()+'_ADMIN_PASSWORD']
@@ -31,15 +31,17 @@ for db in ['audit','web']:
  sql(service,current,db,f"SELECT format('CREATE ROLE {admin} LOGIN SUPERUSER PASSWORD %L','{password}') WHERE NOT EXISTS(SELECT FROM pg_roles WHERE rolname='{admin}')\\gexec\n")
  runtimepass=env[db.upper()+'_RUNTIME_PASSWORD'];assert all(c.isalnum() or c in '-_' for c in runtimepass)
  sql(service,admin,db,f"SELECT 'CREATE ROLE {runtime} LOGIN' WHERE NOT EXISTS(SELECT FROM pg_roles WHERE rolname='{runtime}')\\gexec\nSELECT 'CREATE ROLE {owner} NOLOGIN' WHERE NOT EXISTS(SELECT FROM pg_roles WHERE rolname='{owner}')\\gexec\n")
- if db=='audit':
-  migrationpass=env['AUDIT_MIGRATION_PASSWORD'];assert all(c.isalnum() or c in '-_' for c in migrationpass)
+ if db!='web':
+  migrationpass=env[db.upper()+'_MIGRATION_PASSWORD'];assert all(c.isalnum() or c in '-_' for c in migrationpass)
   sql(service,admin,db,f"ALTER ROLE {owner} LOGIN PASSWORD '{migrationpass}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;\n")
  sql(service,admin,db,f"SELECT format('ALTER TABLE public.%I OWNER TO {owner}',tablename) FROM pg_tables WHERE schemaname='public'\\gexec\n\nALTER DATABASE {db} OWNER TO {owner};\nALTER SCHEMA public OWNER TO {owner};\nREVOKE CREATE ON SCHEMA public FROM PUBLIC;\nREVOKE ALL ON DATABASE {db} FROM PUBLIC;\nGRANT CONNECT ON DATABASE {db} TO {runtime};\nALTER ROLE {runtime} PASSWORD '{runtimepass}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;\nGRANT USAGE ON SCHEMA public TO {runtime};\nALTER ROLE {runtime} SET statement_timeout='5s';\nALTER ROLE {runtime} SET lock_timeout='2s';\nREVOKE ALL ON ALL TABLES IN SCHEMA public FROM {runtime};\n")
  if db=='web':
   schema=(root/'apps/web/db/001-sessions.sql').read_text()
   sql(service,admin,db,'SET ROLE web_owner;\n'+schema+'\nRESET ROLE;\nGRANT SELECT,INSERT,UPDATE,DELETE ON web_sessions TO web_runtime;\n')
+ elif db=='audit':
+  sql(service,admin,db,"SELECT format('GRANT SELECT,INSERT,UPDATE,DELETE ON %I TO audit_runtime',tablename) FROM pg_tables WHERE schemaname='public' AND tablename IN ('missions','mission_assignments','assignment_outbox')\\gexec\n")
  else:
-  sql(service,admin,db,"SELECT format('GRANT SELECT,INSERT,UPDATE,DELETE ON %I TO audit_runtime',tablename) FROM pg_tables WHERE schemaname='public' AND tablename IN ('missions','mission_assignments')\\gexec\n")
+  sql(service,admin,db,"SELECT 'GRANT SELECT,INSERT ON notifications TO notification_runtime' WHERE EXISTS(SELECT FROM pg_tables WHERE schemaname='public' AND tablename='notifications')\\gexec\n")
  print(db+': runtime sans privilèges administrateur, sauvegarde privée créée.')
 print('Sauvegardes : '+str(backup.relative_to(root)))
 
