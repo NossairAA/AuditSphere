@@ -1,6 +1,7 @@
 "use client";
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
+import { Participants } from "@/components/assignments";
 import {
   ArrowLeft,
   ClipboardList,
@@ -102,6 +103,7 @@ export default function Detail({
               </div>
             </aside>
           </div>
+          <Participants mission={mission} onUpdated={setMission} />
         </>
       )}
     </>

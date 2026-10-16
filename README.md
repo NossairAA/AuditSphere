@@ -81,10 +81,11 @@ Le client web utilise Authorization Code, PKCE, state et nonce avec un secret c�
 
 Les cookies de session sont HttpOnly et SameSite=Lax. Leur valeur est opaque, seul son hash est stocké en base. Les jetons sont stockés côté serveur dans PostgreSQL. Les mutations web exigent une origine exacte et un jeton CSRF. L’exception HTTP est explicitement limitée à localhost, avec cookies Secure en HTTPS. Cette configuration Keycloak start-dev reste réservée au développement.
 
-L’interface crée des missions dont l’utilisateur est responsable. L’affectation d’autres auditeurs reste accessible par l’API et sera ajoutée à l’interface ultérieurement. Le client `auditsphere-demo` conserve le grant mot de passe uniquement pour le smoke local. Aucune donnée réelle ni déploiement de production à ce stade.
+L’interface permet de choisir les auditeurs lors de la création et de modifier l’équipe depuis la fiche. Seul le responsable propriétaire peut modifier les affectations. Un auditeur retiré perd l’accès à la prochaine requête API. Le client `auditsphere-demo` conserve le grant mot de passe uniquement pour le smoke local. Aucune donnée réelle ni déploiement de production à ce stade.
 
 ## Documentation
 
+- [Affectation des auditeurs](auditsphere-docs/docs/technique/06-affectations.md)
 - [Jalon frontend et BFF](auditsphere-docs/docs/technique/05-frontend-bff.md)
 - [Premier jalon backend](auditsphere-docs/docs/technique/04-premier-jalon.md)
 - [Contrat API](contracts/audit-api.yaml)

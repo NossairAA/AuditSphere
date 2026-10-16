@@ -22,6 +22,20 @@ class MissionIntegrationTest {
   @Container @ServiceConnection
   static PostgreSQLContainer<?> db = new PostgreSQLContainer<>("postgres:17.9");
 
+  @org.springframework.test.context.bean.override.mockito.MockitoBean AuditorDirectory directory;
+
+  @org.junit.jupiter.api.BeforeEach
+  void directoryFixture() {
+    org.mockito.Mockito.when(directory.auditors())
+        .thenReturn(
+            java.util.List.of(
+                new AuditorDirectory.Person("assigned", "Auditeur"),
+                new AuditorDirectory.Person("new-auditor", "Nouveau")));
+    org.mockito.Mockito.doCallRealMethod()
+        .when(directory)
+        .validate(org.mockito.ArgumentMatchers.anySet());
+  }
+
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper mapper;
   static final com.nimbusds.jose.jwk.RSAKey signingKey;
@@ -116,22 +130,31 @@ class MissionIntegrationTest {
   @Test
   void listFiltersBySubjectIncludingAssignmentsAndPaginates() throws Exception {
     String id = create();
-    for (String subject : new String[]{"owner", "assigned"}) {
-      var response = mvc.perform(get("/missions?size=100").with(jwt().jwt(j -> j.subject(subject))))
-          .andExpect(status().isOk()).andReturn();
-      org.junit.jupiter.api.Assertions.assertTrue(response.getResponse().getContentAsString().contains(id));
+    for (String subject : new String[] {"owner", "assigned"}) {
+      var response =
+          mvc.perform(get("/missions?size=100").with(jwt().jwt(j -> j.subject(subject))))
+              .andExpect(status().isOk())
+              .andReturn();
+      org.junit.jupiter.api.Assertions.assertTrue(
+          response.getResponse().getContentAsString().contains(id));
     }
-    mvc.perform(get("/missions").with(jwt().jwt(j -> j.subject("unrelated-list-user"))
-        .authorities(new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER"))))
-        .andExpect(status().isOk()).andExpect(jsonPath("total").value(0));
+    mvc.perform(
+            get("/missions")
+                .with(
+                    jwt()
+                        .jwt(j -> j.subject("unrelated-list-user"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("total").value(0));
     mvc.perform(get("/missions?size=1").with(jwt().jwt(j -> j.subject("owner"))))
-        .andExpect(status().isOk()).andExpect(jsonPath("items.length()").value(1));
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("items.length()").value(1));
   }
 
   @Test
   void listRejectsAnonymousAndInvalidPagination() throws Exception {
     mvc.perform(get("/missions")).andExpect(status().isUnauthorized());
-    for (String query : new String[]{"page=-1", "size=0", "size=101"})
+    for (String query : new String[] {"page=-1", "size=0", "size=101"})
       mvc.perform(get("/missions?" + query).with(jwt())).andExpect(status().isBadRequest());
   }
 
@@ -199,5 +222,111 @@ class MissionIntegrationTest {
                 .contentType("application/json")
                 .content(payload.replace("Audit achats", " ")))
         .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void ownerReplacesAssignmentsAndRevokesAccessImmediately() throws Exception {
+    String id = create();
+    mvc.perform(
+            put("/missions/" + id + "/assignments")
+                .with(
+                    jwt()
+                        .jwt(j -> j.subject("owner"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER")))
+                .contentType("application/json")
+                .content("{\"assigneeSubjects\":[\"new-auditor\"]}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("assigneeSubjects[0]").value("new-auditor"));
+    mvc.perform(get("/missions/" + id).with(jwt().jwt(j -> j.subject("assigned"))))
+        .andExpect(status().isNotFound());
+    mvc.perform(
+            get("/missions/" + id + "/participants").with(jwt().jwt(j -> j.subject("assigned"))))
+        .andExpect(status().isNotFound());
+    mvc.perform(get("/missions/" + id).with(jwt().jwt(j -> j.subject("new-auditor"))))
+        .andExpect(status().isOk());
+    var list =
+        mvc.perform(get("/missions").with(jwt().jwt(j -> j.subject("assigned")))).andReturn();
+    org.junit.jupiter.api.Assertions.assertFalse(
+        list.getResponse().getContentAsString().contains(id));
+    mvc.perform(
+            put("/missions/" + id + "/assignments")
+                .with(
+                    jwt()
+                        .jwt(j -> j.subject("owner"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER")))
+                .contentType("application/json")
+                .content("{\"assigneeSubjects\":[]}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("assigneeSubjects.length()").value(0));
+  }
+
+  @Test
+  void assignmentMutationRequiresRoleAndOwnership() throws Exception {
+    String id = create();
+    String endpoint = "/missions/" + id + "/assignments";
+    mvc.perform(put(endpoint).contentType("application/json").content("{\"assigneeSubjects\":[]}"))
+        .andExpect(status().isUnauthorized());
+    for (String subject : new String[] {"assigned", "owner"})
+      mvc.perform(
+              put(endpoint)
+                  .with(jwt().jwt(j -> j.subject(subject)))
+                  .contentType("application/json")
+                  .content("{\"assigneeSubjects\":[]}"))
+          .andExpect(status().isForbidden());
+    mvc.perform(
+            put(endpoint)
+                .with(
+                    jwt()
+                        .jwt(j -> j.subject("other-manager"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER")))
+                .contentType("application/json")
+                .content("{\"assigneeSubjects\":[]}"))
+        .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void rejectsUnknownAuditorsAndDirectoryOutageWithoutChangingAssignments() throws Exception {
+    String id = create();
+    mvc.perform(
+            put("/missions/" + id + "/assignments")
+                .with(
+                    jwt()
+                        .jwt(j -> j.subject("owner"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER")))
+                .contentType("application/json")
+                .content("{\"assigneeSubjects\":[\"unknown\"]}"))
+        .andExpect(status().isBadRequest());
+    mvc.perform(
+            post("/missions")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER")))
+                .contentType("application/json")
+                .content(payload.replace("assigned", "unknown")))
+        .andExpect(status().isBadRequest());
+    org.mockito.Mockito.when(directory.auditors())
+        .thenThrow(
+            new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE));
+    mvc.perform(
+            put("/missions/" + id + "/assignments")
+                .with(
+                    jwt()
+                        .jwt(j -> j.subject("owner"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER")))
+                .contentType("application/json")
+                .content("{\"assigneeSubjects\":[\"new-auditor\"]}"))
+        .andExpect(status().isServiceUnavailable());
+    mvc.perform(get("/missions/" + id).with(jwt().jwt(j -> j.subject("assigned"))))
+        .andExpect(status().isOk());
+  }
+
+  @Test
+  void directoryIsReservedForManagers() throws Exception {
+    mvc.perform(get("/missions/auditors")).andExpect(status().isUnauthorized());
+    mvc.perform(get("/missions/auditors").with(jwt())).andExpect(status().isForbidden());
+    mvc.perform(
+            get("/missions/auditors")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("[0].name").value("Auditeur"));
   }
 }

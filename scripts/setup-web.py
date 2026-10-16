@@ -6,7 +6,7 @@ root=Path(__file__).resolve().parents[1]
 os.umask(0o077)
 if not (root/'.env').exists(): raise SystemExit('Exécuter scripts/init-local.py avant ce script.')
 env=dict(line.split('=',1) for line in (root/'.env').read_text().splitlines() if '=' in line)
-missing={k:secrets.token_urlsafe(32) for k in ['WEB_DB_PASSWORD','WEB_CLIENT_SECRET'] if k not in env}
+missing={k:secrets.token_urlsafe(32) for k in ['WEB_DB_PASSWORD','WEB_CLIENT_SECRET','DIRECTORY_CLIENT_SECRET'] if k not in env}
 if missing:
  with (root/'.env').open('a') as f:
   for k,v in missing.items(): f.write(f'{k}={v}\n')
@@ -34,3 +34,16 @@ existing=call('/admin/realms/auditsphere/clients?clientId=auditsphere-web',token
 if existing:call('/admin/realms/auditsphere/clients/'+existing[0]['id'],client,'PUT',token)
 else:call('/admin/realms/auditsphere/clients',client,'POST',token)
 print('Client web confidentiel configuré avec Authorization Code et PKCE. Aucun secret affiché.')
+
+# Separate read-only account for the Spring directory adapter.
+base='/admin/realms/auditsphere'
+directory={'clientId':'auditsphere-directory','protocol':'openid-connect','publicClient':False,'secret':env['DIRECTORY_CLIENT_SECRET'],'standardFlowEnabled':False,'directAccessGrantsEnabled':False,'serviceAccountsEnabled':True}
+existing=call(base+'/clients?clientId=auditsphere-directory',token=token)
+if existing:call(base+'/clients/'+existing[0]['id'],directory,'PUT',token)
+else:call(base+'/clients',directory,'POST',token)
+client_id=call(base+'/clients?clientId=auditsphere-directory',token=token)[0]['id']
+account=call(base+'/clients/'+client_id+'/service-account-user',token=token)
+management=call(base+'/clients?clientId=realm-management',token=token)[0]['id']
+roles=[call(base+'/clients/'+management+'/roles/'+name,token=token) for name in ['view-users','view-realm']]
+call(base+'/users/'+account['id']+'/role-mappings/clients/'+management,roles,'POST',token)
+print('Annuaire Spring configuré avec les rôles view-users et view-realm, sans droit de modification.')

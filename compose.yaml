@@ -36,6 +36,16 @@ services:
       test: [CMD-SHELL, "pg_isready -U keycloak -d keycloak"]
       interval: 5s
       retries: 20
+  keycloak-import:
+    image: postgres:17.9
+    user: "0:0"
+    entrypoint: ["sh", "-ec"]
+    command:
+      - cp /source/realm.json /target/auditsphere-realm.json && chown 1000:0 /target/auditsphere-realm.json && chmod 600 /target/auditsphere-realm.json
+    volumes:
+      - ./.local/realm.json:/source/realm.json:ro
+      - realm-import:/target
+    restart: "no"
   keycloak:
     image: quay.io/keycloak/keycloak:26.8.0
     command: [start-dev, --import-realm]
@@ -48,9 +58,10 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Run init-local}
       KC_HOSTNAME: http://localhost:8180
-    volumes: [./.local/realm.json:/opt/keycloak/data/import/auditsphere-realm.json:ro]
+    volumes: [realm-import:/opt/keycloak/data/import:ro]
     depends_on:
       keycloak-db: {condition: service_healthy}
+      keycloak-import: {condition: service_completed_successfully}
   audit-service:
     build:
       context: .
@@ -58,6 +69,8 @@ services:
     environment:
       DB_URL: jdbc:postgresql://audit-db:5432/audit
       DB_PASSWORD: ${AUDIT_DB_PASSWORD}
+      DIRECTORY_URL: http://keycloak:8080
+      DIRECTORY_CLIENT_SECRET: ${DIRECTORY_CLIENT_SECRET:?Run setup-web.py --configure-only}
       OIDC_ISSUER: http://localhost:8180/realms/auditsphere
       OIDC_JWKS: http://keycloak:8080/realms/auditsphere/protocol/openid-connect/certs
     depends_on:
@@ -74,6 +87,7 @@ services:
       OIDC_JWKS: http://keycloak:8080/realms/auditsphere/protocol/openid-connect/certs
     depends_on: [audit-service]
 volumes:
+  realm-import:
   web-data:
   audit-data:
   identity-data:

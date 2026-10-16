@@ -17,7 +17,10 @@ import org.springframework.web.server.ResponseStatusException;
 class MissionController {
   private final MissionRepository repository;
 
-  MissionController(MissionRepository repository) {
+  private final AuditorDirectory directory;
+
+  MissionController(MissionRepository repository, AuditorDirectory directory) {
+    this.directory = directory;
     this.repository = repository;
   }
 
@@ -53,6 +56,7 @@ class MissionController {
   @Transactional
   ResponseEntity<MissionView> create(
       @Valid @RequestBody CreateMission body, @AuthenticationPrincipal Jwt jwt) {
+    directory.validate(body.assigneeSubjects());
     Mission m = new Mission();
     m.id = UUID.randomUUID();
     m.title = body.title().strip();
@@ -70,14 +74,26 @@ class MissionController {
 
   @GetMapping
   @Transactional(readOnly = true)
-  MissionPage list(@RequestParam(defaultValue = "0") int page,
-      @RequestParam(defaultValue = "20") int size, @AuthenticationPrincipal Jwt jwt) {
-    if (page < 0 || size < 1 || size > 100) throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
-    var result = repository.findVisible(jwt.getSubject(), org.springframework.data.domain.PageRequest.of(
-        page, size, org.springframework.data.domain.Sort.by(
-            org.springframework.data.domain.Sort.Order.desc("createdAt"),
-            org.springframework.data.domain.Sort.Order.asc("id"))));
-    return new MissionPage(result.getContent().stream().map(MissionView::of).toList(), page, size, result.getTotalElements());
+  MissionPage list(
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "20") int size,
+      @AuthenticationPrincipal Jwt jwt) {
+    if (page < 0 || size < 1 || size > 100)
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+    var result =
+        repository.findVisible(
+            jwt.getSubject(),
+            org.springframework.data.domain.PageRequest.of(
+                page,
+                size,
+                org.springframework.data.domain.Sort.by(
+                    org.springframework.data.domain.Sort.Order.desc("createdAt"),
+                    org.springframework.data.domain.Sort.Order.asc("id"))));
+    return new MissionPage(
+        result.getContent().stream().map(MissionView::of).toList(),
+        page,
+        size,
+        result.getTotalElements());
   }
 
   @GetMapping("/{id}")
@@ -90,5 +106,42 @@ class MissionController {
     if (!m.ownerSubject.equals(jwt.getSubject()) && !m.assigneeSubjects.contains(jwt.getSubject()))
       throw new ResponseStatusException(HttpStatus.NOT_FOUND);
     return MissionView.of(m);
+  }
+
+  record Assignments(
+      @NotNull @Size(max = 100) Set<@NotBlank @Size(max = 255) String> assigneeSubjects) {}
+
+  @GetMapping("/auditors")
+  List<AuditorDirectory.Person> auditors() {
+    return directory.auditors();
+  }
+
+  @PutMapping("/{id}/assignments")
+  @Transactional
+  MissionView assign(
+      @PathVariable UUID id,
+      @Valid @RequestBody Assignments body,
+      @AuthenticationPrincipal Jwt jwt) {
+    Mission m =
+        repository
+            .findForUpdate(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    if (!m.ownerSubject.equals(jwt.getSubject()))
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+    directory.validate(body.assigneeSubjects());
+    m.assigneeSubjects.clear();
+    m.assigneeSubjects.addAll(body.assigneeSubjects());
+    repository.saveAndFlush(m);
+    return MissionView.of(m);
+  }
+
+  @GetMapping("/{id}/participants")
+  @Transactional(readOnly = true)
+  List<AuditorDirectory.Person> participants(
+      @PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+    MissionView mission = get(id, jwt);
+    var subjects = new HashSet<>(mission.assigneeSubjects());
+    subjects.add(mission.ownerSubject());
+    return directory.participants(subjects);
   }
 }

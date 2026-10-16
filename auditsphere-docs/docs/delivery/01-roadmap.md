@@ -48,3 +48,7 @@ Phase 1 en cours : monorepo local, API missions, migrations, Keycloak, gateway e
 ## Avancement du jalon 2
 
 Interface Next.js et parcours de mission livrés localement avec Keycloak et BFF. La prochaine tranche distribuée peut introduire un deuxième service et Kafka. Les affectations web, les dates métier, la CI distante et le durcissement de production restent suivis au backlog.
+
+## Avancement du jalon 3
+
+Affectations et participants livrés localement, tests sur deux sessions réussis. Prochaines tranches : valider la CI distante, puis définir le service de notifications et la publication fiable des événements avec outbox.

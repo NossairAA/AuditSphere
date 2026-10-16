@@ -1069,3 +1069,44 @@ td {
 .table-scroll {
   position: relative;
 }
+
+.auditor-picker {
+  border: 1px solid var(--border, #dbe3df);
+  border-radius: 12px;
+  padding: 20px;
+  margin: 24px 0;
+  min-width: 0;
+}
+.auditor-picker legend {
+  font-weight: 700;
+  padding: 0 8px;
+}
+.auditor-picker p {
+  color: #64756e;
+  font-size: 14px;
+}
+.auditor-picker .auditor-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+  cursor: pointer;
+}
+.auditor-option input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: #286751;
+}
+.participants {
+  padding: 28px;
+  margin-top: 24px;
+  overflow-wrap: anywhere;
+}
+.participants h3 {
+  margin-top: 20px;
+}
+.participants li {
+  margin: 8px 0;
+}

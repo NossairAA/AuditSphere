@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { AuditorPicker } from "@/components/assignments";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, ShieldCheck, Check } from "lucide-react";
@@ -8,7 +9,8 @@ export default function NewMission() {
   const user = useUser(),
     router = useRouter(),
     [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [selected, setSelected] = useState<string[]>([]);
   if (!user?.roles.includes("AUDIT_MANAGER"))
     return (
       <div className="panel empty">
@@ -33,6 +35,7 @@ export default function NewMission() {
           "x-csrf-token": user!.csrf,
         },
         body: JSON.stringify({
+          assigneeSubjects: selected,
           title: form.get("title"),
           perimeter: form.get("perimeter"),
           description: form.get("description"),
@@ -66,7 +69,9 @@ export default function NewMission() {
       <div className="form-layout">
         <form className="panel mission-form" onSubmit={submit}>
           <h2>Nouvelle mission</h2>
-          <p className="form-intro">Tous les champs sont obligatoires.</p>
+          <p className="form-intro">
+            Titre, périmètre et description sont obligatoires.
+          </p>
           {error && <ErrorNotice message={error} />}
           <label htmlFor="title">Titre de la mission</label>
           <input
@@ -93,6 +98,11 @@ export default function NewMission() {
             maxLength={4000}
             rows={6}
             placeholder="Que souhaitez-vous examiner et quels sont les objectifs de cet audit ?"
+          />
+          <AuditorPicker
+            selected={selected}
+            onChange={setSelected}
+            disabled={busy}
           />
           <div className="form-actions">
             <Link href="/missions" className="button secondary">

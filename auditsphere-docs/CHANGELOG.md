@@ -1,5 +1,21 @@
 # Journal des changements
 
+## Audit sécurité et scalabilité : 2026-10-16
+
+- Revue du code et vérification des droits PostgreSQL et paramètres Keycloak actifs.
+- Quinze tests backend relancés, audit npm et scan des secrets sans détection.
+- Sonde de 90 lectures BFF sans erreur, limites de portée documentées.
+- Risques priorisés et plan de remédiation ajoutés, aucun correctif applicatif.
+
+## [0.5.0] : 2026-10-16
+
+- Sélection des auditeurs, modification des affectations et affichage des participants.
+- Annuaire Keycloak en lecture seule côté Spring et validation des comptes actifs.
+- Contrôles de propriété, retrait immédiat des accès et tests sur deux sessions.
+- Préparation privée de l’import Keycloak compatible avec des UID Linux différents.
+- Échec du smoke CI précédent constaté, nouvelle validation distante en attente.
+- ADR-0005 et guide des affectations ajoutés.
+
 ## [0.4.0] : 2026-10-16
 
 - Interface Next.js, React, TypeScript et Tailwind pour les missions.

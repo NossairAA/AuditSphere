@@ -279,3 +279,145 @@ test("échec de renouvellement, durée absolue et indisponibilité affichée", a
   ).toContainText("temporairement indisponible");
   await expect(page.getByRole("button", { name: "Réessayer" })).toBeVisible();
 });
+
+test("affecter à la création, modifier les participants et révoquer une session déjà ouverte", async ({
+  page,
+  browser,
+}) => {
+  await login(page, "manager");
+  const directory = await (await page.request.get("/api/auditors")).json();
+  const auditor = directory.find(
+    (p: { subject: string }) =>
+      p.subject === "00000000-0000-0000-0000-000000000002",
+  );
+  const outsider = directory.find(
+    (p: { subject: string }) =>
+      p.subject === "00000000-0000-0000-0000-000000000003",
+  );
+  expect(auditor).toBeTruthy();
+  expect(outsider).toBeTruthy();
+  await page.goto("/missions/new");
+  const title = "Mission équipe " + Date.now();
+  await page.getByLabel("Titre de la mission").fill(title);
+  await page.getByLabel("Périmètre", { exact: true }).fill("Équipe achats");
+  await page
+    .getByLabel("Objectifs et description")
+    .fill("Vérifier les affectations depuis deux sessions.");
+  await page.getByRole("checkbox", { name: auditor.name, exact: true }).check();
+  await page
+    .getByRole("button", { name: "Créer la mission", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: title, exact: true }),
+  ).toBeVisible();
+  const id = new URL(page.url()).pathname.split("/").pop()!;
+  await expect(
+    page.locator(".participants").getByText(auditor.name, { exact: true }),
+  ).toBeVisible();
+  const auditorContext = await browser.newContext({
+    baseURL: "http://localhost:3000",
+  });
+  const auditorPage = await auditorContext.newPage();
+  try {
+    await login(auditorPage, "auditor");
+    await auditorPage.goto("/missions/" + id);
+    await expect(
+      auditorPage.getByRole("heading", { name: title, exact: true }),
+    ).toBeVisible();
+    await expect(
+      auditorPage.getByRole("button", { name: "Modifier les affectations" }),
+    ).toHaveCount(0);
+    expect((await auditorPage.request.get("/api/auditors")).status()).toBe(403);
+    const identity = await (await page.request.get("/api/session")).json();
+    expect(
+      (
+        await page.request.put(`/api/missions/${id}/assignments`, {
+          headers: {
+            Origin: "http://evil.example",
+            "x-csrf-token": identity.csrf,
+          },
+          data: { assigneeSubjects: [] },
+        })
+      ).status(),
+    ).toBe(403);
+    expect(
+      (
+        await page.request.put(`/api/missions/${id}/assignments`, {
+          headers: {
+            Origin: "http://localhost:3000",
+            "x-csrf-token": identity.csrf,
+          },
+          data: { assigneeSubjects: ["unknown-user"] },
+        })
+      ).status(),
+    ).toBe(400);
+    await page
+      .getByRole("button", { name: "Modifier les affectations" })
+      .click();
+    await page
+      .getByRole("checkbox", { name: auditor.name, exact: true })
+      .uncheck();
+    await page
+      .getByRole("checkbox", { name: outsider.name, exact: true })
+      .check();
+    await page
+      .getByRole("button", { name: "Enregistrer les affectations" })
+      .click();
+    await expect(page.getByText("Affectations enregistrées.")).toBeVisible();
+    await expect(
+      page.locator(".participants").getByText(outsider.name, { exact: true }),
+    ).toBeVisible();
+    await page.screenshot({
+      path: "test-results/participants-desktop.png",
+      fullPage: true,
+    });
+    expect(
+      (await auditorPage.request.get(`/api/missions/${id}`)).status(),
+    ).toBe(404);
+    expect(
+      (
+        await auditorPage.request.get(`/api/missions/${id}/participants`)
+      ).status(),
+    ).toBe(404);
+    const list = await (await auditorPage.request.get("/api/missions")).json();
+    expect(list.items.some((m: { id: string }) => m.id === id)).toBe(false);
+    await auditorPage.reload();
+    await expect(
+      auditorPage.getByRole("heading", { name: "Mission indisponible" }),
+    ).toBeVisible();
+    await auditorContext.clearCookies();
+    await login(auditorPage, "outsider");
+    await auditorPage.goto("/missions/" + id);
+    await expect(
+      auditorPage.getByRole("heading", { name: title, exact: true }),
+    ).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page
+      .getByRole("button", { name: "Modifier les affectations" })
+      .click();
+    await expect(
+      page.getByRole("checkbox", { name: outsider.name, exact: true }),
+    ).toBeChecked();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
+    await page.screenshot({
+      path: "test-results/participants-mobile.png",
+      fullPage: true,
+    });
+    await page
+      .getByRole("checkbox", { name: outsider.name, exact: true })
+      .uncheck();
+    await page
+      .getByRole("button", { name: "Enregistrer les affectations" })
+      .click();
+    await expect(page.getByText("Aucun auditeur affecté.")).toBeVisible();
+    expect(
+      (await auditorPage.request.get(`/api/missions/${id}`)).status(),
+    ).toBe(404);
+  } finally {
+    await auditorContext.close();
+  }
+});

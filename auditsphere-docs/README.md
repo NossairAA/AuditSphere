@@ -2,7 +2,7 @@
 
 > Plateforme interne de gestion des audits, risques, contrôles, preuves et plans d'action, avec trajectoire vers l'audit continu.
 
-**Version documentaire :** 0.4.0
+**Version documentaire :** 0.5.0
 **Statut :** premier socle API vérifié localement / hypothèses métier à valider  
 **Mise à jour :** 2026-10-16  
 **Responsables :** à définir  
@@ -62,3 +62,7 @@ L'hypothèse de travail est **l'audit interne d'entreprise** (finance, achats, R
 ## Prochaine décision
 
 Confirmer le type d'audit prioritaire, les profils utilisateurs, le niveau de sensibilité des documents et les contraintes d'hébergement avant de verrouiller l'architecture.
+
+Le [jalon 3](docs/technique/06-affectations.md) ajoute les affectations web et un annuaire Keycloak en lecture seule.
+
+Un [audit de sécurité et scalabilité](docs/technique/07-audit-securite-scalabilite.md) documente les risques avant exposition publique et les limites des mesures locales.

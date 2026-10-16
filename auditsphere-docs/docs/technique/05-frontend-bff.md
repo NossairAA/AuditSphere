@@ -56,3 +56,7 @@ Pas de déploiement de production. Restent à traiter : TLS de bout en bout, pol
 ## Démarrage
 
 Suivre le [README racine](../../../README.md). La base du BFF est publiée uniquement sur 127.0.0.1:5544 pour le processus Next.js exécuté sur l’hôte. Tous les exemples utilisent des données synthétiques.
+
+## Évolution du jalon 3
+
+La limitation concernant les affectations web est levée par le [jalon suivant](06-affectations.md). Le PUT utilise la même protection CSRF que la création.

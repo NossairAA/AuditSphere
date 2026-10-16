@@ -1,6 +1,10 @@
 import "server-only";
 import { json, session, validMutation } from "./auth";
-export async function missions(request: Request, id?: string) {
+export async function missions(
+  request: Request,
+  id?: string,
+  resource?: "assignments" | "participants" | "auditors",
+) {
   try {
     const data = await session();
     if (!data)
@@ -8,14 +12,18 @@ export async function missions(request: Request, id?: string) {
     if (id && !/^[0-9a-f-]{36}$/i.test(id))
       return json({ error: "Mission introuvable" }, 404);
     const url = new URL(
-      id ? "/missions/" + id : "/missions",
+      resource === "auditors"
+        ? "/missions/auditors"
+        : id
+          ? "/missions/" + id + (resource ? "/" + resource : "")
+          : "/missions",
       process.env.API_ORIGIN || "http://localhost:8080",
     );
     const headers: Record<string, string> = {
       Authorization: "Bearer " + data.accessToken,
     };
     let body: string | undefined;
-    if (request.method === "POST") {
+    if (request.method === "POST" || request.method === "PUT") {
       if (!validMutation(request, data, request.headers.get("x-csrf-token")))
         return json({ error: "Requête refusée" }, 403);
       if (!data.roles.includes("AUDIT_MANAGER"))
@@ -31,14 +39,18 @@ export async function missions(request: Request, id?: string) {
       }
       if (!input || typeof input !== "object" || Array.isArray(input))
         return json({ error: "Formulaire invalide" }, 400);
-      body = JSON.stringify({
-        title: input.title,
-        description: input.description,
-        perimeter: input.perimeter,
-        assigneeSubjects: [],
-      });
+      body = JSON.stringify(
+        request.method === "PUT"
+          ? { assigneeSubjects: input.assigneeSubjects }
+          : {
+              title: input.title,
+              description: input.description,
+              perimeter: input.perimeter,
+              assigneeSubjects: input.assigneeSubjects ?? [],
+            },
+      );
       headers["Content-Type"] = "application/json";
-    } else if (!id) {
+    } else if (!id && !resource) {
       const query = new URL(request.url).searchParams;
       url.searchParams.set("page", query.get("page") || "0");
       url.searchParams.set("size", "20");
