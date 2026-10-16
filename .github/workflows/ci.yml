@@ -25,8 +25,7 @@ jobs:
       - run: npm --prefix apps/web ci
       - run: python3 scripts/init-local.py
       - run: python3 scripts/setup-web.py --configure-only
-      - run: docker compose up -d --build
-      - run: python3 scripts/setup-web.py
+      - run: sh scripts/start-local.sh
       - run: python3 scripts/smoke.py
       - run: npm --prefix apps/web run typecheck
       - run: npm --prefix apps/web run build

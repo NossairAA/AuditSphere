@@ -15,10 +15,14 @@ export function AuditorPicker({
   const [people, setPeople] = useState<Person[] | null>(null);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
+  const [page, setPage] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
     setError("");
-    fetch("/api/auditors", { cache: "no-store", signal: controller.signal })
+    fetch("/api/auditors?page=" + page, {
+      cache: "no-store",
+      signal: controller.signal,
+    })
       .then(async (r) => {
         if (!r.ok)
           throw new Error(
@@ -30,7 +34,7 @@ export function AuditorPicker({
         if (e.name !== "AbortError") setError(e.message);
       });
     return () => controller.abort();
-  }, [retry]);
+  }, [retry, page]);
   return (
     <fieldset className="auditor-picker" disabled={disabled}>
       <legend>Auditeurs affectés</legend>
@@ -71,6 +75,24 @@ export function AuditorPicker({
           </label>
         ))
       )}
+      <div className="form-actions">
+        <button
+          type="button"
+          className="button secondary"
+          disabled={page === 0}
+          onClick={() => setPage((p) => p - 1)}
+        >
+          Page précédente
+        </button>
+        <span>Page {page + 1}</span>
+        <button
+          type="button"
+          className="button secondary"
+          onClick={() => setPage((p) => p + 1)}
+        >
+          Page suivante
+        </button>
+      </div>
       {selected
         .filter((id) => people && !people.some((p) => p.subject === id))
         .map((id) => (
@@ -80,7 +102,7 @@ export function AuditorPicker({
               checked
               onChange={() => onChange(selected.filter((s) => s !== id))}
             />
-            <span>Compte devenu indisponible ({id})</span>
+            <span>Sélection hors de cette page ({id})</span>
           </label>
         ))}
     </fieldset>
@@ -133,7 +155,10 @@ export function Participants({
           "Content-Type": "application/json",
           "x-csrf-token": user!.csrf,
         },
-        body: JSON.stringify({ assigneeSubjects: selected }),
+        body: JSON.stringify({
+          assigneeSubjects: selected,
+          version: mission.version,
+        }),
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error);
@@ -156,9 +181,18 @@ export function Participants({
           <button
             type="button"
             className="button secondary"
-            onClick={() => setRetry((v) => v + 1)}
+            onClick={async () => {
+              const r = await fetch(`/api/missions/${mission.id}`, {
+                cache: "no-store",
+              });
+              if (r.ok) {
+                onUpdated(await r.json());
+                setEditing(false);
+                setError("");
+              } else setError("Mission inaccessible ou service indisponible.");
+            }}
           >
-            Actualiser les participants
+            Recharger la fiche
           </button>
         </>
       )}

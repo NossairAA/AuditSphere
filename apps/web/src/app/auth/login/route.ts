@@ -1,3 +1,4 @@
+import { rateLimit } from "@/lib/rate";
 import { NextResponse } from "next/server";
 import * as oidc from "openid-client";
 import {
@@ -9,14 +10,18 @@ import {
   transactionCookie,
   cookieOptions,
 } from "@/lib/auth";
-export async function GET() {
+export async function GET(request: Request) {
+  const rejection = rateLimit(request);
+  if (rejection) return rejection;
   try {
     const config = await oidcConfig(),
       id = random(),
       verifier = oidc.randomPKCECodeVerifier();
     const state = oidc.randomState(),
       nonce = oidc.randomNonce();
-    await pool.query("DELETE FROM web_sessions WHERE expires_at < now()");
+    await pool.query(
+      "DELETE FROM web_sessions WHERE id_hash IN (SELECT id_hash FROM web_sessions WHERE expires_at < now() LIMIT 200)",
+    );
     await pool.query(
       "INSERT INTO web_sessions(id_hash,kind,data,expires_at) VALUES($1,'oauth',$2,now()+interval '10 minutes')",
       [hash(id), { verifier, state, nonce }],

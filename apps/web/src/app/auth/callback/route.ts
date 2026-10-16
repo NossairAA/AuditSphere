@@ -1,3 +1,4 @@
+import { rateLimit } from "@/lib/rate";
 import { NextRequest, NextResponse } from "next/server";
 import * as oidc from "openid-client";
 import {
@@ -11,6 +12,8 @@ import {
   saveSession,
 } from "@/lib/auth";
 export async function GET(request: NextRequest) {
+  const rejection = rateLimit(request);
+  if (rejection) return rejection;
   const response = NextResponse.redirect(new URL("/missions", origin));
   response.cookies.set(transactionCookie, "", { ...cookieOptions, maxAge: 0 });
   try {

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: AuditSphere Mission API
-  version: 0.3.0
+  version: 0.4.0
 servers:
   - url: http://localhost:8080
 security:
@@ -74,7 +74,11 @@ paths:
         '404': {description: Mission absente ou inaccessible}
   /missions/auditors:
     get:
-      summary: Lister les auditeurs actifs, réservé à AUDIT_MANAGER
+      summary: Lister une page de 50 membres du rôle AUDITOR, comptes actifs seulement
+      parameters:
+        - name: page
+          in: query
+          schema: {type: integer, minimum: 0, maximum: 10000, default: 0}
       responses:
         '200':
           description: Annuaire avec identifiant et nom seulement
@@ -109,6 +113,7 @@ paths:
         '401': {description: Authentification requise}
         '403': {description: Rôle responsable requis}
         '404': {description: Mission absente ou utilisateur non propriétaire}
+        '409': {description: Version périmée, recharger la mission}
         '503': {description: Annuaire indisponible, affectations conservées}
   /missions/{id}/participants:
     get:
@@ -142,8 +147,9 @@ components:
         name: {type: string}
     Assignments:
       type: object
-      required: [assigneeSubjects]
+      required: [version, assigneeSubjects]
       properties:
+        version: {type: integer, format: int64, minimum: 0}
         assigneeSubjects:
           type: array
           uniqueItems: true
@@ -165,9 +171,10 @@ components:
       allOf:
         - $ref: '#/components/schemas/CreateMission'
         - type: object
-          required: [id, status, ownerSubject, createdAt]
+          required: [id, version, status, ownerSubject, createdAt]
           properties:
             id: {type: string, format: uuid}
+            version: {type: integer, format: int64, minimum: 0}
             status: {type: string, enum: [DRAFT]}
             ownerSubject: {type: string}
             createdAt: {type: string, format: date-time}

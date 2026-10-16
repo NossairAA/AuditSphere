@@ -27,7 +27,9 @@ export const pool =
   new Pool({
     connectionString: process.env.SESSION_DATABASE_URL,
     max: 8,
-    connectionTimeoutMillis: 5000,
+    connectionTimeoutMillis: 3000,
+    statement_timeout: 5000,
+    query_timeout: 6000,
   });
 globalDb.sessionPool = pool;
 export const random = () => randomBytes(32).toString("base64url");
@@ -107,9 +109,25 @@ export async function saveSession(
 export async function session(): Promise<Session | null> {
   const id = (await cookies()).get(cookieName)?.value;
   if (!id || !/^[A-Za-z0-9_-]{43}$/.test(id)) return null;
+  // Most reads do not lock or rewrite the session. Touch idle expiry at most once per minute.
+  const found = await pool.query(
+    "SELECT data,expires_at FROM web_sessions WHERE id_hash=$1 AND kind='session' AND expires_at>now()",
+    [hash(id)],
+  );
+  if (!found.rowCount) return null;
+  const current = found.rows[0].data as Session;
+  if (current.absoluteExpiry <= Date.now()) return null;
+  if (current.expiresAt > Date.now() + 30_000) {
+    await pool.query(
+      "UPDATE web_sessions SET expires_at=LEAST(to_timestamp(($2::double precision)/1000),now()+interval '30 minutes') WHERE id_hash=$1 AND expires_at>now() AND expires_at<LEAST(to_timestamp(($2::double precision)/1000),now()+interval '29 minutes')",
+      [hash(id), current.absoluteExpiry],
+    );
+    return current;
+  }
   const db = await pool.connect();
   try {
     await db.query("BEGIN");
+    await db.query("SET LOCAL lock_timeout = '2s'");
     const row = await db.query(
       "SELECT data,expires_at FROM web_sessions WHERE id_hash=$1 AND kind='session' FOR UPDATE",
       [hash(id)],

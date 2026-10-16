@@ -1,5 +1,8 @@
+import { rateLimit } from "@/lib/rate";
 import { session, json } from "@/lib/auth";
-export async function GET() {
+export async function GET(request: Request) {
+  const rejection = rateLimit(request);
+  if (rejection) return rejection;
   try {
     const data = await session();
     return data

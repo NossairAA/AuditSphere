@@ -18,9 +18,15 @@ class MissionController {
   private final MissionRepository repository;
 
   private final AuditorDirectory directory;
+  private final org.springframework.transaction.support.TransactionTemplate tx;
 
-  MissionController(MissionRepository repository, AuditorDirectory directory) {
+  MissionController(
+      MissionRepository repository,
+      AuditorDirectory directory,
+      org.springframework.transaction.PlatformTransactionManager manager) {
     this.directory = directory;
+    this.tx = new org.springframework.transaction.support.TransactionTemplate(manager);
+    this.tx.setTimeout(5);
     this.repository = repository;
   }
 
@@ -32,6 +38,7 @@ class MissionController {
 
   record MissionView(
       UUID id,
+      long version,
       String title,
       String description,
       String perimeter,
@@ -42,6 +49,7 @@ class MissionController {
     static MissionView of(Mission m) {
       return new MissionView(
           m.id,
+          m.version,
           m.title,
           m.description,
           m.perimeter,
@@ -53,21 +61,23 @@ class MissionController {
   }
 
   @PostMapping
-  @Transactional
   ResponseEntity<MissionView> create(
       @Valid @RequestBody CreateMission body, @AuthenticationPrincipal Jwt jwt) {
     directory.validate(body.assigneeSubjects());
-    Mission m = new Mission();
-    m.id = UUID.randomUUID();
-    m.title = body.title().strip();
-    m.description = body.description().strip();
-    m.perimeter = body.perimeter().strip();
-    m.ownerSubject = jwt.getSubject();
-    m.createdAt = Instant.now();
-    m.status = "DRAFT";
-    m.assigneeSubjects.addAll(body.assigneeSubjects());
-    repository.saveAndFlush(m);
-    return ResponseEntity.created(URI.create("/missions/" + m.id)).body(MissionView.of(m));
+    return tx.execute(
+        status -> {
+          Mission m = new Mission();
+          m.id = UUID.randomUUID();
+          m.title = body.title().strip();
+          m.description = body.description().strip();
+          m.perimeter = body.perimeter().strip();
+          m.ownerSubject = jwt.getSubject();
+          m.createdAt = Instant.now();
+          m.status = "DRAFT";
+          m.assigneeSubjects.addAll(body.assigneeSubjects());
+          repository.saveAndFlush(m);
+          return ResponseEntity.created(URI.create("/missions/" + m.id)).body(MissionView.of(m));
+        });
   }
 
   record MissionPage(List<MissionView> items, int page, int size, long total) {}
@@ -109,37 +119,57 @@ class MissionController {
   }
 
   record Assignments(
+      @NotNull @PositiveOrZero Long version,
       @NotNull @Size(max = 100) Set<@NotBlank @Size(max = 255) String> assigneeSubjects) {}
 
   @GetMapping("/auditors")
-  List<AuditorDirectory.Person> auditors() {
-    return directory.auditors();
+  List<AuditorDirectory.Person> auditors(@RequestParam(defaultValue = "0") int page) {
+    if (page < 0 || page > 10000) throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+    return directory.auditors(page);
   }
 
   @PutMapping("/{id}/assignments")
-  @Transactional
   MissionView assign(
       @PathVariable UUID id,
       @Valid @RequestBody Assignments body,
       @AuthenticationPrincipal Jwt jwt) {
-    Mission m =
-        repository
-            .findForUpdate(id)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    // Authorize before accessing the directory, without retaining a database connection.
+    tx.executeWithoutResult(
+        status -> {
+          Mission m =
+              repository
+                  .findById(id)
+                  .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+          checkOwner(m, jwt, body.version());
+        });
+    directory.validate(body.assigneeSubjects());
+    return tx.execute(
+        status -> {
+          Mission m =
+              repository
+                  .findForUpdate(id)
+                  .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+          checkOwner(m, jwt, body.version());
+          m.assigneeSubjects.clear();
+          m.assigneeSubjects.addAll(body.assigneeSubjects());
+          // Force a version increment even when the replacement set is unchanged.
+          m.assignmentRevision = UUID.randomUUID().toString();
+          repository.saveAndFlush(m);
+
+          return MissionView.of(m);
+        });
+  }
+
+  private void checkOwner(Mission m, Jwt jwt, long version) {
     if (!m.ownerSubject.equals(jwt.getSubject()))
       throw new ResponseStatusException(HttpStatus.NOT_FOUND);
-    directory.validate(body.assigneeSubjects());
-    m.assigneeSubjects.clear();
-    m.assigneeSubjects.addAll(body.assigneeSubjects());
-    repository.saveAndFlush(m);
-    return MissionView.of(m);
+    if (m.version != version) throw new ResponseStatusException(HttpStatus.CONFLICT);
   }
 
   @GetMapping("/{id}/participants")
-  @Transactional(readOnly = true)
   List<AuditorDirectory.Person> participants(
       @PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
-    MissionView mission = get(id, jwt);
+    MissionView mission = tx.execute(status -> get(id, jwt));
     var subjects = new HashSet<>(mission.assigneeSubjects());
     subjects.add(mission.ownerSubject());
     return directory.participants(subjects);

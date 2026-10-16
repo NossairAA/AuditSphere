@@ -1,5 +1,18 @@
 # Journal des changements
 
+## [0.6.0] : 2026-10-16
+
+- Préparation de la publication des correctifs, vérification CI distante en attente et accès de maintenance pgAdmin documenté.
+
+- Accès pgAdmin aux trois bases sur la boucle locale, ports retirés du profil production et connexions authentifiées vérifiées.
+
+- Comptes runtime PostgreSQL limités, sauvegardes privées et migrations séparées.
+- Protection Keycloak des connexions, rotation des refresh tokens et profil HTTPS distinct.
+- Quotas BFF et gateway, corps bornés pendant la lecture.
+- Annuaire paginé, validations ciblées et appels externes hors transaction métier.
+- Sessions sans réécriture systématique et conflits explicites sur les affectations.
+- ADR-0006, tests et guide de durcissement ajoutés.
+
 ## Audit sécurité et scalabilité : 2026-10-16
 
 - Revue du code et vérification des droits PostgreSQL et paramètres Keycloak actifs.
@@ -66,3 +79,9 @@
 
 - Validation des cas d'usage métier avec les futurs utilisateurs.
 - Choix du périmètre fonctionnel V1 et des premières métriques SLO.
+
+## Dépannage du frontend local : 2026-10-16
+
+- Aucun processus n’écoutait sur le port 3000 alors que les services Docker fonctionnaient.
+- Frontend compilé relancé en arrière-plan, réponse HTTP 200 vérifiée.
+- Instructions de dépannage ajoutées au README.

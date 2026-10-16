@@ -13,3 +13,5 @@ Utiliser le modèle dans [`docs/templates/adr.md`](../templates/adr.md).
 - [ADR-0004 : Session web côté BFF](ADR-0004-session-bff-nextjs.md)
 
 - [ADR-0005 : Annuaire et affectations](ADR-0005-annuaire-affectations.md)
+
+- [ADR-0006 : Runtime et opérations bornées](ADR-0006-durcissement-runtime.md)

@@ -15,7 +15,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.*;
 
-@SpringBootTest
+@SpringBootTest(properties = "spring.flyway.enabled=true")
 @AutoConfigureMockMvc
 @Testcontainers
 class MissionIntegrationTest {
@@ -26,12 +26,23 @@ class MissionIntegrationTest {
 
   @org.junit.jupiter.api.BeforeEach
   void directoryFixture() {
-    org.mockito.Mockito.when(directory.auditors())
+    org.mockito.Mockito.when(directory.auditors(0))
         .thenReturn(
             java.util.List.of(
                 new AuditorDirectory.Person("assigned", "Auditeur"),
                 new AuditorDirectory.Person("new-auditor", "Nouveau")));
-    org.mockito.Mockito.doCallRealMethod()
+    org.mockito.Mockito.doAnswer(
+            invocation -> {
+              org.junit.jupiter.api.Assertions.assertFalse(
+                  org.springframework.transaction.support.TransactionSynchronizationManager
+                      .isActualTransactionActive(),
+                  "Directory validation must be outside SQL transactions");
+              java.util.Set<String> ids = invocation.getArgument(0);
+              if (!java.util.Set.of("assigned", "new-auditor").containsAll(ids))
+                throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST);
+              return null;
+            })
         .when(directory)
         .validate(org.mockito.ArgumentMatchers.anySet());
   }
@@ -234,7 +245,7 @@ class MissionIntegrationTest {
                         .jwt(j -> j.subject("owner"))
                         .authorities(new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER")))
                 .contentType("application/json")
-                .content("{\"assigneeSubjects\":[\"new-auditor\"]}"))
+                .content("{\"version\":0,\"assigneeSubjects\":[\"new-auditor\"]}"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("assigneeSubjects[0]").value("new-auditor"));
     mvc.perform(get("/missions/" + id).with(jwt().jwt(j -> j.subject("assigned"))))
@@ -255,7 +266,7 @@ class MissionIntegrationTest {
                         .jwt(j -> j.subject("owner"))
                         .authorities(new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER")))
                 .contentType("application/json")
-                .content("{\"assigneeSubjects\":[]}"))
+                .content("{\"version\":1,\"assigneeSubjects\":[]}"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("assigneeSubjects.length()").value(0));
   }
@@ -264,14 +275,17 @@ class MissionIntegrationTest {
   void assignmentMutationRequiresRoleAndOwnership() throws Exception {
     String id = create();
     String endpoint = "/missions/" + id + "/assignments";
-    mvc.perform(put(endpoint).contentType("application/json").content("{\"assigneeSubjects\":[]}"))
+    mvc.perform(
+            put(endpoint)
+                .contentType("application/json")
+                .content("{\"version\":0,\"assigneeSubjects\":[]}"))
         .andExpect(status().isUnauthorized());
     for (String subject : new String[] {"assigned", "owner"})
       mvc.perform(
               put(endpoint)
                   .with(jwt().jwt(j -> j.subject(subject)))
                   .contentType("application/json")
-                  .content("{\"assigneeSubjects\":[]}"))
+                  .content("{\"version\":0,\"assigneeSubjects\":[]}"))
           .andExpect(status().isForbidden());
     mvc.perform(
             put(endpoint)
@@ -280,7 +294,7 @@ class MissionIntegrationTest {
                         .jwt(j -> j.subject("other-manager"))
                         .authorities(new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER")))
                 .contentType("application/json")
-                .content("{\"assigneeSubjects\":[]}"))
+                .content("{\"version\":0,\"assigneeSubjects\":[]}"))
         .andExpect(status().isNotFound());
   }
 
@@ -294,7 +308,7 @@ class MissionIntegrationTest {
                         .jwt(j -> j.subject("owner"))
                         .authorities(new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER")))
                 .contentType("application/json")
-                .content("{\"assigneeSubjects\":[\"unknown\"]}"))
+                .content("{\"version\":0,\"assigneeSubjects\":[\"unknown\"]}"))
         .andExpect(status().isBadRequest());
     mvc.perform(
             post("/missions")
@@ -302,10 +316,11 @@ class MissionIntegrationTest {
                 .contentType("application/json")
                 .content(payload.replace("assigned", "unknown")))
         .andExpect(status().isBadRequest());
-    org.mockito.Mockito.when(directory.auditors())
-        .thenThrow(
+    org.mockito.Mockito.doThrow(
             new org.springframework.web.server.ResponseStatusException(
-                org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE));
+                org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE))
+        .when(directory)
+        .validate(org.mockito.ArgumentMatchers.anySet());
     mvc.perform(
             put("/missions/" + id + "/assignments")
                 .with(
@@ -313,7 +328,7 @@ class MissionIntegrationTest {
                         .jwt(j -> j.subject("owner"))
                         .authorities(new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER")))
                 .contentType("application/json")
-                .content("{\"assigneeSubjects\":[\"new-auditor\"]}"))
+                .content("{\"version\":0,\"assigneeSubjects\":[\"new-auditor\"]}"))
         .andExpect(status().isServiceUnavailable());
     mvc.perform(get("/missions/" + id).with(jwt().jwt(j -> j.subject("assigned"))))
         .andExpect(status().isOk());
@@ -328,5 +343,39 @@ class MissionIntegrationTest {
                 .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER"))))
         .andExpect(status().isOk())
         .andExpect(jsonPath("[0].name").value("Auditeur"));
+  }
+
+  @Test
+  void staleAssignmentVersionIsRejected() throws Exception {
+    String id = create();
+    for (int attempt = 0; attempt < 2; attempt++) {
+      mvc.perform(
+              put("/missions/" + id + "/assignments")
+                  .with(
+                      jwt()
+                          .jwt(j -> j.subject("owner"))
+                          .authorities(new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER")))
+                  .contentType("application/json")
+                  .content("{\"version\":0,\"assigneeSubjects\":[]}"))
+          .andExpect(status().is(attempt == 0 ? 200 : 409));
+    }
+    mvc.perform(get("/missions/" + id).with(jwt().jwt(j -> j.subject("owner"))))
+        .andExpect(jsonPath("version").value(1))
+        .andExpect(jsonPath("assigneeSubjects.length()").value(0));
+  }
+
+  @Test
+  void participantNamesAreResolvedOutsideTheDatabaseTransaction() throws Exception {
+    String id = create();
+    org.mockito.Mockito.when(directory.participants(org.mockito.ArgumentMatchers.anySet()))
+        .thenAnswer(
+            invocation -> {
+              org.junit.jupiter.api.Assertions.assertFalse(
+                  org.springframework.transaction.support.TransactionSynchronizationManager
+                      .isActualTransactionActive());
+              return java.util.List.of(new AuditorDirectory.Person("assigned", "Auditeur"));
+            });
+    mvc.perform(get("/missions/" + id + "/participants").with(jwt().jwt(j -> j.subject("owner"))))
+        .andExpect(status().isOk());
   }
 }

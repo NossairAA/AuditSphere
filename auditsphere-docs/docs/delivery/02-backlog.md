@@ -70,3 +70,17 @@ Affectations web, annuaire, contrôles de propriété et retrait d’accès vér
 | OPS-01 | CI verte, scans Maven et images, restauration et charge | À réaliser, P2 |
 
 [Preuves, limites et critères de remédiation](../technique/07-audit-securite-scalabilite.md).
+
+## Remédiations livrées dans le jalon de durcissement
+
+SEC-01 est corrigé pour les identifiants effectivement utilisés par les applications. SEC-02 est appliqué pour la protection des connexions, avec profil HTTPS préparé mais déploiement public non vérifié. SEC-03 est appliqué par instance, la limite distribuée reste ouverte. SCALE-01, SCALE-02, SCALE-03 et DATA-01 ont des correctifs vérifiés localement. La purge périodique, la charge durable et le dimensionnement restent ouverts.
+
+SEC-04, SEC-05 et OPS-01 ne sont pas soldés par ce jalon. Voir les [preuves et limites](../technique/08-durcissement.md).
+
+Le dépannage du frontend local est documenté dans le README. Le démarrage automatique après redémarrage du Mac reste hors périmètre.
+
+## Accès local aux données
+
+- DEV-DB-01 : accès pgAdmin aux bases web, audit et keycloak vérifié sur 127.0.0.1, ports 5544, 5545 et 5546. Aucune publication de port PostgreSQL dans le profil production.
+
+Publication du jalon de durcissement en cours, résultat CI distant à vérifier avant de commencer Kafka.

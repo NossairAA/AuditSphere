@@ -52,3 +52,7 @@ Interface Next.js et parcours de mission livrés localement avec Keycloak et BFF
 ## Avancement du jalon 3
 
 Affectations et participants livrés localement, tests sur deux sessions réussis. Prochaines tranches : valider la CI distante, puis définir le service de notifications et la publication fiable des événements avec outbox.
+
+## Durcissement avant extension distribuée
+
+Comptes SQL, quotas, annuaire et conflits d’édition traités localement. Avant publication : valider HTTPS réel et la CI, puis la charge et les sauvegardes. La limite distribuée reste nécessaire avant plusieurs réplicas.

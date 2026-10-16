@@ -16,3 +16,5 @@ auditsphere-docs
 **/.env*
 **/test-results
 **/playwright-report
+
+**/__pycache__/

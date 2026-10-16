@@ -19,16 +19,14 @@ python3 scripts/init-local.py
 Préparer puis démarrer les services :
 
 ```bash
-python3 scripts/setup-web.py --configure-only
-docker compose up -d --build
-python3 scripts/setup-web.py
+sh scripts/start-local.sh
 npm --prefix apps/web ci
 npm --prefix apps/web run dev
 ```
 
 Ouvrir **http://localhost:3000** (utiliser localhost, pas 127.0.0.1 pour les redirections OIDC).
 
-Le script de configuration conserve les secrets existants, génère les nouveaux secrets privés du BFF et crée ou actualise uniquement le client Keycloak `auditsphere-web`. Il ne supprime ni les missions ni les utilisateurs. Ne pas changer les mots de passe des volumes existants en éditant simplement `.env`.
+Le lanceur sauvegarde les bases dans .local/backups, prépare les comptes SQL runtime, exécute les migrations avec un compte distinct et configure les clients Keycloak ainsi que la protection des connexions. Il conserve les missions et les utilisateurs. Les sauvegardes contiennent des données sensibles et restent privées et ignorées par Git. Ne pas changer les mots de passe des volumes existants en éditant simplement `.env`.
 
 ## Comptes de démonstration
 
@@ -64,8 +62,8 @@ La CI GitHub reprend les tests backend, le smoke API, le build frontend et les p
 - Web : http://localhost:3000
 - API gateway : http://localhost:8080
 - Keycloak : http://localhost:8180
-- Base du BFF : port 5544, boucle locale uniquement
-- Bases métier et identité : aucun port publié sur l’hôte
+- Bases PostgreSQL accessibles avec pgAdmin sur 127.0.0.1 : sessions 5544, métier 5545, identité 5546.
+- Paramètres et mots de passe : voir [Accès avec pgAdmin](auditsphere-docs/docs/technique/08-durcissement.md#acces-local-avec-pgadmin).
 
 Arrêter le frontend avec Ctrl+C dans son terminal. Arrêter l’infrastructure en conservant les données :
 
@@ -85,9 +83,16 @@ L’interface permet de choisir les auditeurs lors de la création et de modifie
 
 ## Documentation
 
+- [Durcissement et limites de production](auditsphere-docs/docs/technique/08-durcissement.md)
 - [Affectation des auditeurs](auditsphere-docs/docs/technique/06-affectations.md)
 - [Jalon frontend et BFF](auditsphere-docs/docs/technique/05-frontend-bff.md)
 - [Premier jalon backend](auditsphere-docs/docs/technique/04-premier-jalon.md)
 - [Contrat API](contracts/audit-api.yaml)
 - [Documentation produit](auditsphere-docs/README.md)
 - [Stack](auditsphere-docs/docs/technique/03-stack.md)
+
+## Si localhost:3000 ne répond pas
+
+Le frontend tourne sur l’hôte, séparément des conteneurs Docker. Keycloak peut donc fonctionner alors que le frontend est arrêté. Depuis la racine du projet, lancer npm --prefix apps/web run dev et garder ce terminal ouvert. Pour utiliser une compilation existante, lancer npm --prefix apps/web start. Ne pas démarrer deux processus sur le port 3000.
+
+Vérification : curl -I http://localhost:3000 doit recevoir une réponse HTTP. Un processus lancé manuellement doit être relancé après son arrêt ou un redémarrage du Mac.

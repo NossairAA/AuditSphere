@@ -9,6 +9,10 @@ import java.util.*;
 class Mission {
   @Id UUID id;
 
+  @Version Long version;
+
+  String assignmentRevision;
+
   @Column(nullable = false, length = 200)
   String title;
 

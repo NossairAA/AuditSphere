@@ -1,5 +1,6 @@
 export type Mission = {
   id: string;
+  version: number;
   title: string;
   description: string;
   perimeter: string;

@@ -129,3 +129,7 @@ La sonde porte sur 21 missions visibles du responsable. Elle exclut le temps ini
 5. Tester 10, 50 puis 100 sessions distinctes sur un jeu de données représentatif, avec seuils d’arrêt et panne Keycloak contrôlée. Mesurer p95, erreurs, CPU, mémoire, connexions et attentes de verrous.
 
 Aucun correctif applicatif ni push n’a été effectué dans cette intervention.
+
+## Suite de l’audit
+
+Ce rapport décrit les constats au moment du contrôle. Les [remédiations ultérieures](08-durcissement.md) précisent les corrections vérifiées et les risques encore ouverts.

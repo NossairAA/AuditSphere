@@ -1,10 +1,14 @@
 import "server-only";
+import { rateLimit } from "./rate";
+import { limitedText, BodyError } from "./body";
 import { json, session, validMutation } from "./auth";
 export async function missions(
   request: Request,
   id?: string,
   resource?: "assignments" | "participants" | "auditors",
 ) {
+  const rejection = rateLimit(request);
+  if (rejection) return rejection;
   try {
     const data = await session();
     if (!data)
@@ -28,7 +32,7 @@ export async function missions(
         return json({ error: "Requête refusée" }, 403);
       if (!data.roles.includes("AUDIT_MANAGER"))
         return json({ error: "Création réservée aux responsables" }, 403);
-      const raw = await request.text();
+      const raw = await limitedText(request);
       if (Buffer.byteLength(raw) > 32768)
         return json({ error: "Formulaire trop volumineux" }, 413);
       let input;
@@ -41,7 +45,7 @@ export async function missions(
         return json({ error: "Formulaire invalide" }, 400);
       body = JSON.stringify(
         request.method === "PUT"
-          ? { assigneeSubjects: input.assigneeSubjects }
+          ? { assigneeSubjects: input.assigneeSubjects, version: input.version }
           : {
               title: input.title,
               description: input.description,
@@ -50,6 +54,11 @@ export async function missions(
             },
       );
       headers["Content-Type"] = "application/json";
+    } else if (resource === "auditors") {
+      url.searchParams.set(
+        "page",
+        new URL(request.url).searchParams.get("page") || "0",
+      );
     } else if (!id && !resource) {
       const query = new URL(request.url).searchParams;
       url.searchParams.set("page", query.get("page") || "0");
@@ -66,18 +75,22 @@ export async function missions(
       return json(
         {
           error:
-            response.status === 404
-              ? "Mission introuvable ou accès non autorisé"
-              : response.status === 400
-                ? "Vérifiez les champs du formulaire"
-                : response.status === 401
-                  ? "Votre session a expiré. Reconnectez-vous."
-                  : "Impossible de traiter cette demande",
+            response.status === 409
+              ? "Cette mission a été modifiée. Rechargez la fiche avant de recommencer."
+              : response.status === 404
+                ? "Mission introuvable ou accès non autorisé"
+                : response.status === 400
+                  ? "Vérifiez les champs du formulaire"
+                  : response.status === 401
+                    ? "Votre session a expiré. Reconnectez-vous."
+                    : "Impossible de traiter cette demande",
         },
         response.status,
       );
     return json(await response.json(), response.status);
-  } catch {
+  } catch (error) {
+    if (error instanceof BodyError)
+      return json({ error: "Corps de requête refusé" }, error.status);
     return json(
       { error: "Service temporairement indisponible. Réessayez." },
       503,

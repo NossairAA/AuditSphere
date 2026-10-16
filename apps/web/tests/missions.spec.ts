@@ -421,3 +421,97 @@ test("affecter à la création, modifier les participants et révoquer une sessi
     await auditorContext.close();
   }
 });
+
+test("conflit de version, session sans réécriture et corps borné", async ({
+  page,
+}) => {
+  await login(page, "manager");
+  const identity = await (await page.request.get("/api/session")).json();
+  const cookie = await sessionId(page),
+    idHash = hashed(cookie);
+  const before = await db.query(
+    "SELECT xmin::text FROM web_sessions WHERE id_hash=$1",
+    [idHash],
+  );
+  for (let i = 0; i < 3; i++)
+    expect((await page.request.get("/api/session")).status()).toBe(200);
+  const after = await db.query(
+    "SELECT xmin::text FROM web_sessions WHERE id_hash=$1",
+    [idHash],
+  );
+  expect(after.rows[0].xmin).toBe(before.rows[0].xmin);
+  const absolute = Date.now() + 10 * 60_000;
+  await db.query(
+    "UPDATE web_sessions SET data=jsonb_set(data,'{absoluteExpiry}',to_jsonb($2::bigint)), expires_at=to_timestamp(($2::double precision)/1000) WHERE id_hash=$1",
+    [idHash, absolute],
+  );
+  const cappedBefore = await db.query(
+    "SELECT xmin::text FROM web_sessions WHERE id_hash=$1",
+    [idHash],
+  );
+  expect((await page.request.get("/api/session")).status()).toBe(200);
+  const cappedAfter = await db.query(
+    "SELECT xmin::text FROM web_sessions WHERE id_hash=$1",
+    [idHash],
+  );
+  expect(cappedAfter.rows[0].xmin).toBe(cappedBefore.rows[0].xmin);
+
+  const headers = {
+    Origin: "http://localhost:3000",
+    "x-csrf-token": identity.csrf,
+  };
+  const created = await page.request.post("/api/missions", {
+    headers,
+    data: {
+      title: "Conflit contrôlé",
+      description: "Test de version",
+      perimeter: "Test",
+      assigneeSubjects: [],
+    },
+  });
+  expect(created.status()).toBe(201);
+  const mission = await created.json();
+  const first = await page.request.put(
+    `/api/missions/${mission.id}/assignments`,
+    { headers, data: { version: mission.version, assigneeSubjects: [] } },
+  );
+  expect(first.status()).toBe(200);
+  const stale = await page.request.put(
+    `/api/missions/${mission.id}/assignments`,
+    { headers, data: { version: mission.version, assigneeSubjects: [] } },
+  );
+  expect(stale.status()).toBe(409);
+  const body = new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode("x".repeat(20000)));
+      controller.enqueue(new TextEncoder().encode("y".repeat(20000)));
+      controller.close();
+    },
+  });
+  const large = await fetch("http://localhost:3000/api/missions", {
+    method: "POST",
+    headers: { ...headers, Cookie: "auditsphere-session=" + cookie },
+    body,
+    duplex: "half",
+  } as RequestInit);
+  expect(large.status).toBe(413);
+});
+
+test("limite de débit BFF renvoie 429 sans faire confiance aux adresses déclarées", async ({
+  request,
+}) => {
+  const statuses = [];
+  for (let i = 0; i < 125; i++)
+    statuses.push(
+      (
+        await request.get("/api/session", {
+          headers: {
+            Cookie: "auditsphere-session=" + "z".repeat(43),
+            "X-Forwarded-For": "192.0.2." + (i % 250),
+          },
+        })
+      ).status(),
+    );
+  expect(statuses).toContain(401);
+  expect(statuses).toContain(429);
+});
