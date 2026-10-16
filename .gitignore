@@ -22,3 +22,14 @@ node_modules/
 **/playwright-report/
 
 **/__pycache__/
+
+# Local AI assistant instructions and configuration
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+.agents/
+.codex/
+.claude/
+.cursor/
+.cursorrules
+.github/copilot-instructions.md

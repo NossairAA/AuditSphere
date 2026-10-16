@@ -44,3 +44,7 @@ GitHub Actions et GHCR pour la CI et les images, Docker Compose en local, kind, 
 ## Déploiement sécurisé en interne
 
 Privilégier réseau privé/VPN/Zero Trust, segmentation, ingress TLS, politique réseau Kubernetes, accès administrateur minimal et intégration SSO. Ne pas rendre les preuves accessibles publiquement.
+
+## Contenu publié dans Git
+
+Le dépôt publie le code, les tests, les configurations nécessaires et la documentation du projet. Les consignes et configurations locales des assistants IA restent exclues du suivi Git et des images Docker. Les fichiers déjà présents dans les anciens commits restent dans l’historique.

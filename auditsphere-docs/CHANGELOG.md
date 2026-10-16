@@ -2,6 +2,8 @@
 
 ## [0.6.0] : 2026-10-16
 
+- Retrait du suivi Git des consignes locales pour assistants IA, documentation du projet conservée.
+
 - Préparation de la publication des correctifs, vérification CI distante en attente et accès de maintenance pgAdmin documenté.
 
 - Accès pgAdmin aux trois bases sur la boucle locale, ports retirés du profil production et connexions authentifiées vérifiées.

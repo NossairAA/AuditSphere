@@ -18,3 +18,11 @@ auditsphere-docs
 **/playwright-report
 
 **/__pycache__/
+
+**/AGENTS.md
+**/CLAUDE.md
+**/GEMINI.md
+**/.agents
+**/.codex
+**/.claude
+**/.cursor

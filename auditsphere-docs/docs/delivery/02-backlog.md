@@ -23,7 +23,7 @@ Pour chaque user story ajoutée, utiliser [le modèle de fonctionnalité](../tem
 
 | ID | Livrable | Critère d’acceptation | État |
 | --- | --- | --- | --- |
-| TECH-001 | Stack et convention documentaire | Stack Spring décrite, ADR et AGENTS.md présents | Vérifié (documentation uniquement) |
+| TECH-001 | Stack et convention documentaire | Stack Spring décrite et ADR présents | Vérifié (documentation uniquement) |
 | TECH-002 | Monorepo et build Maven | Build local réussi, workflow CI écrit, exécution distante en attente | En cours |
 | TECH-003 | Audit service, Flyway et PostgreSQL | Migration sur base vide et test Testcontainers réussi | Vérifié localement |
 | TECH-004 | Keycloak, gateway et permissions | Jeton invalide refusé, mission hors périmètre inaccessible | Vérifié localement (API) |
@@ -84,3 +84,5 @@ Le dépannage du frontend local est documenté dans le README. Le démarrage aut
 - DEV-DB-01 : accès pgAdmin aux bases web, audit et keycloak vérifié sur 127.0.0.1, ports 5544, 5545 et 5546. Aucune publication de port PostgreSQL dans le profil production.
 
 Publication du jalon de durcissement en cours, résultat CI distant à vérifier avant de commencer Kafka.
+
+- DEV-REPO-01 : consignes IA exclues des publications futures, documentation fonctionnelle et technique conservée.
