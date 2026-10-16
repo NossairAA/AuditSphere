@@ -2,7 +2,7 @@
 
 > Plateforme interne de gestion des audits, risques, contrôles, preuves et plans d'action, avec trajectoire vers l'audit continu.
 
-**Version documentaire :** 0.3.0  
+**Version documentaire :** 0.4.0
 **Statut :** premier socle API vérifié localement / hypothèses métier à valider  
 **Mise à jour :** 2026-10-16  
 **Responsables :** à définir  
@@ -10,7 +10,7 @@
 
 ## Orientation technique
 
-L’utilisateur confirme un objectif Spring Boot, microservices, Kafka, sécurité, workflows distribués, CI/CD, Kubernetes et observabilité. Voir la [stack de référence](docs/technique/03-stack.md) et [ADR-0002](docs/decisions/ADR-0002-stack-spring-distribuee.md). Le premier socle API est créé et vérifié localement : [guide du jalon](docs/technique/04-premier-jalon.md). Le frontend et le déploiement distant restent à réaliser.
+L’utilisateur confirme un objectif Spring Boot, microservices, Kafka, sécurité, workflows distribués, CI/CD, Kubernetes et observabilité. Voir la [stack de référence](docs/technique/03-stack.md) et [ADR-0002](docs/decisions/ADR-0002-stack-spring-distribuee.md). Le premier socle API est créé et vérifié localement : [guide du jalon](docs/technique/04-premier-jalon.md). Le frontend et son BFF sont implémentés et vérifiés localement : [deuxième jalon](docs/technique/05-frontend-bff.md). Le déploiement distant reste à réaliser.
 
 ## Vision
 

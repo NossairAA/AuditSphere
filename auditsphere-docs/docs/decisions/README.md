@@ -9,3 +9,5 @@ Utiliser le modèle dans [`docs/templates/adr.md`](../templates/adr.md).
 - [ADR-0002 : Spring Boot et architecture distribuée](ADR-0002-stack-spring-distribuee.md)
 
 - [ADR-0003 : Première tranche API sécurisée](ADR-0003-premiere-tranche-securisee.md)
+
+- [ADR-0004 : Session web côté BFF](ADR-0004-session-bff-nextjs.md)

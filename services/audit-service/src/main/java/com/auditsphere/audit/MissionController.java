@@ -66,6 +66,20 @@ class MissionController {
     return ResponseEntity.created(URI.create("/missions/" + m.id)).body(MissionView.of(m));
   }
 
+  record MissionPage(List<MissionView> items, int page, int size, long total) {}
+
+  @GetMapping
+  @Transactional(readOnly = true)
+  MissionPage list(@RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "20") int size, @AuthenticationPrincipal Jwt jwt) {
+    if (page < 0 || size < 1 || size > 100) throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+    var result = repository.findVisible(jwt.getSubject(), org.springframework.data.domain.PageRequest.of(
+        page, size, org.springframework.data.domain.Sort.by(
+            org.springframework.data.domain.Sort.Order.desc("createdAt"),
+            org.springframework.data.domain.Sort.Order.asc("id"))));
+    return new MissionPage(result.getContent().stream().map(MissionView::of).toList(), page, size, result.getTotalElements());
+  }
+
   @GetMapping("/{id}")
   @Transactional(readOnly = true)
   MissionView get(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {

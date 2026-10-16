@@ -113,6 +113,28 @@ class MissionIntegrationTest {
           .andExpect(status().isUnauthorized());
   }
 
+  @Test
+  void listFiltersBySubjectIncludingAssignmentsAndPaginates() throws Exception {
+    String id = create();
+    for (String subject : new String[]{"owner", "assigned"}) {
+      var response = mvc.perform(get("/missions?size=100").with(jwt().jwt(j -> j.subject(subject))))
+          .andExpect(status().isOk()).andReturn();
+      org.junit.jupiter.api.Assertions.assertTrue(response.getResponse().getContentAsString().contains(id));
+    }
+    mvc.perform(get("/missions").with(jwt().jwt(j -> j.subject("unrelated-list-user"))
+        .authorities(new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER"))))
+        .andExpect(status().isOk()).andExpect(jsonPath("total").value(0));
+    mvc.perform(get("/missions?size=1").with(jwt().jwt(j -> j.subject("owner"))))
+        .andExpect(status().isOk()).andExpect(jsonPath("items.length()").value(1));
+  }
+
+  @Test
+  void listRejectsAnonymousAndInvalidPagination() throws Exception {
+    mvc.perform(get("/missions")).andExpect(status().isUnauthorized());
+    for (String query : new String[]{"page=-1", "size=0", "size=101"})
+      mvc.perform(get("/missions?" + query).with(jwt())).andExpect(status().isBadRequest());
+  }
+
   String payload =
       """
  {"title":"Audit achats","description":"Test","perimeter":"Achats","assigneeSubjects":["assigned"]}

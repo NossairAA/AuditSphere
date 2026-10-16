@@ -10,3 +10,9 @@ auditsphere-docs
 *.pfx
 *.jks
 *.keystore
+
+**/node_modules
+**/.next
+**/.env*
+**/test-results
+**/playwright-report

@@ -60,7 +60,7 @@ AuditSphere/
   auditsphere-docs/
   pom.xml                  # parent Maven créé
   services/                # audit-service et api-gateway créés
-  apps/web/                # interface, à créer
+  apps/web/                # interface Next.js et BFF créés
   contracts/               # contrat OpenAPI des missions
   compose.yaml             # environnement local créé
   infra/helm/              # charts, à créer
@@ -82,3 +82,7 @@ Consultées le 2026-10-16 :
 - [Temporal : SDK Java](https://docs.temporal.io/develop/java)
 - [Keycloak : sécurisation des applications](https://www.keycloak.org/securing-apps/overview)
 - [PostgreSQL : cycle de support](https://www.postgresql.org/support/versioning/)
+
+## Versions frontend vérifiées au jalon 2
+
+Les versions exactes sont verrouillées dans [package.json](../../../apps/web/package.json) et package-lock.json. Le frontend utilise Node.js 24 et une base PostgreSQL dédiée à ses sessions. Voir le [guide BFF](05-frontend-bff.md).

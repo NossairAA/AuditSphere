@@ -1,13 +1,40 @@
 openapi: 3.0.3
 info:
   title: AuditSphere Mission API
-  version: 0.1.0
+  version: 0.2.0
 servers:
   - url: http://localhost:8080
 security:
   - bearerAuth: []
 paths:
   /missions:
+    get:
+      summary: Lister les missions créées ou affectées à l’utilisateur courant
+      parameters:
+        - name: page
+          in: query
+          schema: {type: integer, minimum: 0, default: 0}
+        - name: size
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+      responses:
+        '200':
+          description: Liste filtrée côté base, triée par création décroissante puis identifiant
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page, size, total]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Mission'
+                  page: {type: integer}
+                  size: {type: integer}
+                  total: {type: integer, format: int64}
+        '400': {description: Pagination invalide}
+        '401': {description: Authentification requise}
     post:
       summary: Créer une mission (AUDIT_MANAGER)
       requestBody:

@@ -1,5 +1,19 @@
 name: auditsphere
 services:
+  web-db:
+    image: postgres:17.9
+    environment:
+      POSTGRES_DB: web
+      POSTGRES_USER: web
+      POSTGRES_PASSWORD: ${WEB_DB_PASSWORD:?Run python3 scripts/setup-web.py}
+    ports: ["127.0.0.1:5544:5432"]
+    volumes:
+      - web-data:/var/lib/postgresql/data
+      - ./apps/web/db/001-sessions.sql:/docker-entrypoint-initdb.d/001-sessions.sql:ro
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U web -d web"]
+      interval: 5s
+      retries: 20
   audit-db:
     image: postgres:17.9
     environment:
@@ -60,5 +74,6 @@ services:
       OIDC_JWKS: http://keycloak:8080/realms/auditsphere/protocol/openid-connect/certs
     depends_on: [audit-service]
 volumes:
+  web-data:
   audit-data:
   identity-data:

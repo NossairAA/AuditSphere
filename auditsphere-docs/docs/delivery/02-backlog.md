@@ -35,3 +35,16 @@ Pour chaque user story ajoutée, utiliser [le modèle de fonctionnalité](../tem
 ## Avancement fonctionnel du jalon 1
 
 US-001 et US-002 sont **En cours** : authentification API et création/consultation avec affectations démontrées. Connexion web, dates de planification, édition et validation d’existence des affectations restent à réaliser. Voir le [compte rendu technique](../technique/04-premier-jalon.md).
+
+## Jalon 2 : interface locale
+
+| ID | Livrable | État |
+| --- | --- | --- |
+| WEB-001 | Connexion Keycloak via BFF, sessions, refresh, CSRF et déconnexion | Vérifié localement |
+| WEB-002 | Liste des missions filtrée côté backend et pagination | Vérifié localement |
+| WEB-003 | Formulaire de création réservé au responsable et fiche mission | Vérifié localement |
+| WEB-004 | États vide, refus, erreur et mobile | Vérifié localement |
+| WEB-005 | Affectation d’auditeurs depuis l’interface avec annuaire | À réaliser |
+| WEB-006 | Exécution CI GitHub du jalon frontend | À vérifier après publication |
+
+US-001 couvre maintenant la connexion web locale. US-002 reste partielle pour les dates métier et la modification des affectations.

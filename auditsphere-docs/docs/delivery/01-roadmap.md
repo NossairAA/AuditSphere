@@ -44,3 +44,7 @@ Chaque étape enrichit la documentation et distingue implémentation et vérific
 ## Avancement au 2026-10-16
 
 Phase 1 en cours : monorepo local, API missions, migrations, Keycloak, gateway et tests du parcours livrés. Frontend, CI distante et besoins métier détaillés restent ouverts. [Preuves et limites du premier jalon](../technique/04-premier-jalon.md).
+
+## Avancement du jalon 2
+
+Interface Next.js et parcours de mission livrés localement avec Keycloak et BFF. La prochaine tranche distribuée peut introduire un deuxième service et Kafka. Les affectations web, les dates métier, la CI distante et le durcissement de production restent suivis au backlog.

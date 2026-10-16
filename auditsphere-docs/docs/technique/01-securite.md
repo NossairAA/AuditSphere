@@ -36,3 +36,7 @@ Les secrets de développement restent dans `.env` et `.local/realm.json`, exclus
 Gitleaks 8.24.2 contrôle les fichiers publiables et l’historique Git. Une exception locale documentée concerne uniquement l’URL JDBC sans identifiant ni mot de passe de Keycloak dans `compose.yaml`. La CI exécute le scanner sur l’historique avant de générer les comptes de démonstration. Aucun secret GitHub n’est requis par le parcours CI local.
 
 Ce contrôle porte sur la publication du code, il ne transforme pas l’environnement HTTP de développement en déploiement de production sécurisé. Les secrets locaux sont des fichiers privés non chiffrés et doivent rester protégés sur la machine. Ne pas publier les exports Keycloak, volumes PostgreSQL ou rapports contenant des jetons.
+
+## Session web
+
+Le [guide BFF](05-frontend-bff.md) décrit le stockage des jetons côté serveur, PKCE, state, nonce, les cookies, le CSRF, le renouvellement et les limites de production. La navigation ne donne aucun privilège supplémentaire par rapport aux permissions du service métier.

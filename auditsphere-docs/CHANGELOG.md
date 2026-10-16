@@ -1,5 +1,14 @@
 # Journal des changements
 
+## [0.4.0] : 2026-10-16
+
+- Interface Next.js, React, TypeScript et Tailwind pour les missions.
+- Client Keycloak confidentiel, session BFF PostgreSQL, PKCE, CSRF, refresh et déconnexion.
+- Endpoint de liste filtrée et paginée, tests backend et navigateur.
+- Configuration locale reproductible et extension du workflow CI.
+- ADR-0004 et documentation de démarrage et sécurité enrichies.
+
+
 ## Harmonisation documentaire : 2026-10-16
 
 - Remplacement des tirets cadratins et des points-virgules dans tous les fichiers Markdown.
