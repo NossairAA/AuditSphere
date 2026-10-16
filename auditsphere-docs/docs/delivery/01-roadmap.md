@@ -1,0 +1,46 @@
+# 08 : Roadmap évolutive
+
+**Statut :** Proposition, durée à ajuster selon équipe et disponibilité.
+
+| Phase | Livrable concret | Sortie de phase |
+| --- | --- | --- |
+| 0 : Discovery | Entretiens, cartographie des parcours, périmètre MVP | Hypothèses métier validées |
+| 1 : Fondations | Monorepo, CI, IAM, modèle de données, environnement local | Un utilisateur peut ouvrir une session autorisée |
+| 2 : Cycle d'audit | Missions, contrôles, preuves, constats, actions | Un audit bout-en-bout démontrable |
+| 3 : Fiabilisation | Outbox, événements, notifications, tests de contrats | Pas de perte silencieuse d'événements critiques |
+| 4 : Production interne | Kubernetes, GitOps, observabilité, sauvegarde | Déploiement reproductible et restauration testée |
+| 5 : Intelligence métier | Tableaux de bord, automatisation de contrôles | Exceptions interprétables, traçables |
+| 6 : Différenciation | Audit Replay, règles versionnées | Rejeu sans effets de bord, résultats comparables |
+
+## Première tranche technique
+
+1. Initialiser Git, parent Maven, wrappers et CI de compilation/tests.
+2. Livrer `audit-service`, sa base Flyway, Keycloak et la gateway sous Compose.
+3. Vérifier création/lecture d’une mission avec autorisations positives et négatives.
+4. Ajouter un deuxième service, outbox Kafka et test de redélivrance.
+5. Introduire Temporal avec validation humaine, timeout et reprise du worker.
+6. Déployer la tranche sur kind/Helm via GitOps et diagnostiquer un appel avec métriques, logs et traces.
+
+Chaque étape enrichit la documentation et distingue implémentation et vérification.
+
+## Definition of Done globale
+
+- Fonctionnalité répond aux critères d'acceptation, avec autorisations testées.
+- Tests unitaires et d'intégration pertinents, contrats compatibles.
+- Traces/logs/mesures présents sur les flux critiques.
+- Documentation technique et métier mise à jour.
+- Gestion des erreurs, migrations et procédure de rollback considérées.
+
+## Risques projet
+
+| Risque | Réponse |
+| --- | --- |
+| Surarchitecture prématurée | Bounded contexts clairs, extraction incrémentale |
+| Fuite de preuves sensibles | ABAC, stockage privé, journal d'accès |
+| Incohérence des statuts | Machine à états explicite et opérations idempotentes |
+| Retard lié aux outils | Livrer le parcours métier avant la complexité plateforme |
+| Règles d'audit mal définies | Ateliers avec utilisateurs et critères d'acceptation |
+
+## Avancement au 2026-10-16
+
+Phase 1 en cours : monorepo local, API missions, migrations, Keycloak, gateway et tests du parcours livrés. Frontend, CI distante et besoins métier détaillés restent ouverts. [Preuves et limites du premier jalon](../technique/04-premier-jalon.md).

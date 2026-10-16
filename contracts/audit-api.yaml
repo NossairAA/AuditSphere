@@ -1,0 +1,72 @@
+openapi: 3.0.3
+info:
+  title: AuditSphere Mission API
+  version: 0.1.0
+servers:
+  - url: http://localhost:8080
+security:
+  - bearerAuth: []
+paths:
+  /missions:
+    post:
+      summary: Créer une mission (AUDIT_MANAGER)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMission'
+      responses:
+        '201':
+          description: Mission créée ; Location contient son URI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Mission'
+        '400': {description: Entrée invalide}
+        '401': {description: Authentification absente ou jeton invalide}
+        '403': {description: Rôle de création absent}
+  /missions/{id}:
+    get:
+      summary: Consulter une mission créée ou affectée à l’utilisateur
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Mission autorisée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Mission'
+        '400': {description: Identifiant mal formé}
+        '401': {description: Authentification absente ou jeton invalide}
+        '404': {description: Mission absente ou inaccessible}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
+  schemas:
+    CreateMission:
+      type: object
+      required: [title, description, perimeter, assigneeSubjects]
+      properties:
+        title: {type: string, minLength: 1, maxLength: 200}
+        description: {type: string, minLength: 1, maxLength: 4000}
+        perimeter: {type: string, minLength: 1, maxLength: 2000}
+        assigneeSubjects:
+          type: array
+          uniqueItems: true
+          maxItems: 100
+          items: {type: string, minLength: 1, maxLength: 255}
+    Mission:
+      allOf:
+        - $ref: '#/components/schemas/CreateMission'
+        - type: object
+          required: [id, status, ownerSubject, createdAt]
+          properties:
+            id: {type: string, format: uuid}
+            status: {type: string, enum: [DRAFT]}
+            ownerSubject: {type: string}
+            createdAt: {type: string, format: date-time}

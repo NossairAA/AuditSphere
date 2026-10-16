@@ -1,0 +1,12 @@
+.git
+.local
+.env
+**/target
+auditsphere-docs
+
+.env.*
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore

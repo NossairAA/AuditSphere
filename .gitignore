@@ -1,0 +1,17 @@
+**/target/
+.env
+.local/
+.DS_Store
+.idea/
+*.iml
+node_modules/
+.next/
+
+# Local credentials and private key material
+.env.*
+!.env.example
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
