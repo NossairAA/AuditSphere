@@ -13,6 +13,11 @@ class Mission {
 
   String assignmentRevision;
 
+  java.time.LocalDate plannedStartDate;
+  java.time.LocalDate plannedEndDate;
+  Instant startedAt;
+  Instant closedAt;
+
   @Column(nullable = false, length = 200)
   String title;
 

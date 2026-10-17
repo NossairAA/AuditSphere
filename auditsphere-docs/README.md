@@ -2,7 +2,7 @@
 
 > Plateforme interne de gestion des audits, risques, contrôles, preuves et plans d'action, avec trajectoire vers l'audit continu.
 
-**Version documentaire :** 0.7.0
+**Version documentaire :** 0.8.0
 **Statut :** missions, interface et notifications Kafka vérifiées localement / hypothèses métier à valider
 **Mise à jour :** 2026-10-17
 **Responsables :** à définir
@@ -70,3 +70,5 @@ Un [audit de sécurité et scalabilité](docs/technique/07-audit-securite-scalab
 Le [guide de durcissement](docs/technique/08-durcissement.md) décrit les remédiations locales et les limites restant avant production.
 
 Le [jalon notifications Kafka](docs/technique/09-notifications-kafka.md) livre l’outbox, un deuxième service métier et des tests de reprise après panne.
+
+Le [cycle de vie manuel des missions](docs/technique/10-cycle-missions.md) ajoute les dates prévues, le démarrage et la clôture avec permissions et contrôle de version.

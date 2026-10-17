@@ -5,7 +5,8 @@ import { json, session, validMutation } from "./auth";
 export async function missions(
   request: Request,
   id?: string,
-  resource?: "assignments" | "participants" | "auditors",
+  resource?:
+    "assignments" | "participants" | "auditors" | "schedule" | "status",
 ) {
   const rejection = rateLimit(request);
   if (rejection) return rejection;
@@ -45,12 +46,25 @@ export async function missions(
         return json({ error: "Formulaire invalide" }, 400);
       body = JSON.stringify(
         request.method === "PUT"
-          ? { assigneeSubjects: input.assigneeSubjects, version: input.version }
+          ? resource === "schedule"
+            ? {
+                version: input.version,
+                plannedStartDate: input.plannedStartDate,
+                plannedEndDate: input.plannedEndDate,
+              }
+            : resource === "status"
+              ? { version: input.version, status: input.status }
+              : {
+                  assigneeSubjects: input.assigneeSubjects,
+                  version: input.version,
+                }
           : {
               title: input.title,
               description: input.description,
               perimeter: input.perimeter,
               assigneeSubjects: input.assigneeSubjects ?? [],
+              plannedStartDate: input.plannedStartDate ?? null,
+              plannedEndDate: input.plannedEndDate ?? null,
             },
       );
       headers["Content-Type"] = "application/json";
@@ -76,7 +90,9 @@ export async function missions(
         {
           error:
             response.status === 409
-              ? "Cette mission a été modifiée. Rechargez la fiche avant de recommencer."
+              ? resource === "status" || resource === "schedule"
+                ? "Modification impossible : vérifiez les dates, le statut et la version. Rechargez la fiche avant de recommencer."
+                : "Cette mission a été modifiée. Rechargez la fiche avant de recommencer."
               : response.status === 404
                 ? "Mission introuvable ou accès non autorisé"
                 : response.status === 400

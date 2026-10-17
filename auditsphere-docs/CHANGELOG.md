@@ -1,5 +1,13 @@
 # Journal des changements
 
+## [0.8.0] : 2026-10-17
+
+- Dates prévues à la création et modification de planification avant clôture.
+- Cycle manuel Brouillon, En cours, Clôturée avec contrôle du rôle, de la propriété et de la version.
+- Migration préservant les missions existantes, contraintes SQL et dates réelles des transitions.
+- Fiche et liste actualisées, contrat API, ADR-0008 et guide du cycle de vie ajoutés.
+- Validation avant publication : 34 tests Java et 11 scénarios navigateur réussis, TypeScript et build frontend validés.
+
 ## [0.7.1] : 2026-10-17
 
 - Notifications lues et non lues, date persistée et marquage idempotent réservé au destinataire.

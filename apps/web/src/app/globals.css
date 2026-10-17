@@ -1153,3 +1153,7 @@ td {
   font-weight: 600;
 }
 .notification-unread { background: #5382600a; }
+
+.lifecycle-form { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; }
+.lifecycle-form label { display: grid; gap: 8px; }
+.lifecycle-form input { padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: white; }

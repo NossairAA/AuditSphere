@@ -39,6 +39,8 @@ export default function NewMission() {
           title: form.get("title"),
           perimeter: form.get("perimeter"),
           description: form.get("description"),
+          plannedStartDate: form.get("plannedStartDate") || null,
+          plannedEndDate: form.get("plannedEndDate") || null,
         }),
       });
       const body = await response.json();
@@ -99,6 +101,26 @@ export default function NewMission() {
             rows={6}
             placeholder="Que souhaitez-vous examiner et quels sont les objectifs de cet audit ?"
           />
+          <label htmlFor="plannedStartDate">Date de début prévue</label>
+          <input
+            id="plannedStartDate"
+            name="plannedStartDate"
+            type="date"
+            min="0001-01-01"
+            max="9999-12-31"
+          />
+          <label htmlFor="plannedEndDate">Date de fin prévue</label>
+          <input
+            id="plannedEndDate"
+            name="plannedEndDate"
+            type="date"
+            min="0001-01-01"
+            max="9999-12-31"
+          />
+          <p>
+            Les dates sont facultatives en brouillon. Renseignez les deux ou
+            laissez les deux vides.
+          </p>
           <AuditorPicker
             selected={selected}
             onChange={setSelected}

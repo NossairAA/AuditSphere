@@ -4,7 +4,11 @@ export type Mission = {
   title: string;
   description: string;
   perimeter: string;
-  status: string;
+  status: "DRAFT" | "IN_PROGRESS" | "CLOSED";
+  plannedStartDate: string | null;
+  plannedEndDate: string | null;
+  startedAt: string | null;
+  closedAt: string | null;
   ownerSubject: string;
   assigneeSubjects: string[];
   createdAt: string;
@@ -21,3 +25,8 @@ export const dateLabel = (date: string) =>
     month: "short",
     year: "numeric",
   }).format(new Date(date));
+
+export const statusLabel = (status: Mission["status"]) =>
+  ({ DRAFT: "Brouillon", IN_PROGRESS: "En cours", CLOSED: "Clôturée" })[status];
+export const plannedDateLabel = (date: string | null) =>
+  date ? date.split("-").reverse().join("/") : "Non définie";

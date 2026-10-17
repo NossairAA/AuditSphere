@@ -505,4 +505,124 @@ class MissionIntegrationTest {
         jdbc.queryForObject(
             "SELECT attempts FROM assignment_outbox WHERE mission_id=?", Integer.class, mission));
   }
+
+  org.springframework.test.web.servlet.ResultActions lifecycle(
+      String id, String resource, String body) throws Exception {
+    return mvc.perform(
+        put("/missions/" + id + "/" + resource)
+            .with(
+                jwt()
+                    .jwt(j -> j.subject("owner"))
+                    .authorities(new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER")))
+            .contentType("application/json")
+            .content(body));
+  }
+
+  @Test
+  void lifecycleRequiresPlanningAndOnlyAllowsForwardTransitions() throws Exception {
+    String id = create();
+    lifecycle(id, "status", "{\"version\":0,\"status\":\"IN_PROGRESS\"}")
+        .andExpect(status().isConflict());
+    lifecycle(id, "status", "{\"version\":0,\"status\":\"CLOSED\"}")
+        .andExpect(status().isConflict());
+    lifecycle(
+            id,
+            "schedule",
+            "{\"version\":0,\"plannedStartDate\":\"2026-11-01\",\"plannedEndDate\":\"2026-11-10\"}")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("version").value(1));
+    lifecycle(id, "status", "{\"version\":0,\"status\":\"IN_PROGRESS\"}")
+        .andExpect(status().isConflict());
+    lifecycle(id, "status", "{\"version\":1,\"status\":\"IN_PROGRESS\"}")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("status").value("IN_PROGRESS"))
+        .andExpect(jsonPath("version").value(2))
+        .andExpect(jsonPath("startedAt").isNotEmpty());
+    lifecycle(id, "status", "{\"version\":2,\"status\":\"IN_PROGRESS\"}")
+        .andExpect(status().isConflict());
+    lifecycle(id, "status", "{\"version\":2,\"status\":\"CLOSED\"}")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("version").value(3))
+        .andExpect(jsonPath("closedAt").isNotEmpty());
+    lifecycle(
+            id,
+            "schedule",
+            "{\"version\":3,\"plannedStartDate\":\"2026-11-01\",\"plannedEndDate\":\"2026-11-12\"}")
+        .andExpect(status().isConflict());
+    lifecycle(id, "status", "{\"version\":3,\"status\":\"IN_PROGRESS\"}")
+        .andExpect(status().isConflict());
+    mvc.perform(get("/missions/" + id).with(jwt().jwt(j -> j.subject("assigned"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("status").value("CLOSED"));
+  }
+
+  @Test
+  void lifecycleRejectsAuditorsOtherOwnersAnonymousAndInvalidDates() throws Exception {
+    String id = create();
+    for (String resource : new String[] {"schedule", "status"}) {
+      String body =
+          resource.equals("status")
+              ? "{\"version\":0,\"status\":\"IN_PROGRESS\"}"
+              : "{\"version\":0,\"plannedStartDate\":\"2026-11-01\",\"plannedEndDate\":\"2026-11-10\"}";
+      mvc.perform(
+              put("/missions/" + id + "/" + resource).contentType("application/json").content(body))
+          .andExpect(status().isUnauthorized());
+      mvc.perform(
+              put("/missions/" + id + "/" + resource)
+                  .with(jwt().jwt(j -> j.subject("assigned")))
+                  .contentType("application/json")
+                  .content(body))
+          .andExpect(status().isForbidden());
+      mvc.perform(
+              put("/missions/" + id + "/" + resource)
+                  .with(
+                      jwt()
+                          .jwt(j -> j.subject("another-owner"))
+                          .authorities(new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER")))
+                  .contentType("application/json")
+                  .content(body))
+          .andExpect(status().isNotFound());
+    }
+    lifecycle(
+            id,
+            "schedule",
+            "{\"version\":0,\"plannedStartDate\":\"2026-11-10\",\"plannedEndDate\":\"2026-11-01\"}")
+        .andExpect(status().isBadRequest());
+    lifecycle(id, "schedule", "{\"version\":0,\"plannedStartDate\":\"2026-11-10\"}")
+        .andExpect(status().isBadRequest());
+    lifecycle(id, "status", "{\"version\":0,\"status\":\"DRAFT\"}")
+        .andExpect(status().isBadRequest());
+    mvc.perform(get("/missions/" + id).with(jwt().jwt(j -> j.subject("owner"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("version").value(0))
+        .andExpect(jsonPath("status").value("DRAFT"));
+  }
+
+  @Test
+  void createAllowsOptionalPairOfDatesAndRejectsInvalidPairs() throws Exception {
+    for (String dates :
+        new String[] {
+          ",\"plannedStartDate\":\"2026-11-10\"",
+          ",\"plannedStartDate\":\"2026-11-10\",\"plannedEndDate\":\"2026-11-01\""
+        }) {
+      mvc.perform(
+              post("/missions")
+                  .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER")))
+                  .contentType("application/json")
+                  .content(payload.strip().replace("}", dates + "}")))
+          .andExpect(status().isBadRequest());
+    }
+    mvc.perform(
+            post("/missions")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER")))
+                .contentType("application/json")
+                .content(
+                    payload
+                        .strip()
+                        .replace(
+                            "}",
+                            ",\"plannedStartDate\":\"2026-11-10\",\"plannedEndDate\":\"2026-11-10\"}")))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("plannedStartDate").value("2026-11-10"));
+  }
 }

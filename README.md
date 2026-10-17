@@ -87,6 +87,10 @@ L’interface permet de choisir les auditeurs lors de la création et de modifie
 
 Connecté comme manager, affecter auditor à une nouvelle mission. Connecté comme auditor, ouvrir Notifications puis Consulter la mission. La livraison est asynchrone et la première page s’actualise toutes les 30 secondes. Les anciennes affectations ne sont pas reprises automatiquement. Voir le [guide Kafka et notifications](auditsphere-docs/docs/technique/09-notifications-kafka.md).
 
+## Cycle de vie des missions
+
+Le responsable propriétaire peut enregistrer les dates prévues, démarrer la mission puis la clôturer après confirmation. Les auditeurs consultent le statut et les dates. Voir le [guide du cycle de vie](auditsphere-docs/docs/technique/10-cycle-missions.md).
+
 ## Documentation
 
 - [Notifications Kafka et reprise après panne](auditsphere-docs/docs/technique/09-notifications-kafka.md)

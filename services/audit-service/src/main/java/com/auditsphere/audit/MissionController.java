@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import java.net.URI;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.*;
 import org.springframework.http.*;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -37,7 +38,9 @@ class MissionController {
       @NotBlank @Size(max = 200) String title,
       @NotBlank @Size(max = 4000) String description,
       @NotBlank @Size(max = 2000) String perimeter,
-      @NotNull @Size(max = 100) Set<@NotBlank @Size(max = 255) String> assigneeSubjects) {}
+      @NotNull @Size(max = 100) Set<@NotBlank @Size(max = 255) String> assigneeSubjects,
+      LocalDate plannedStartDate,
+      LocalDate plannedEndDate) {}
 
   record MissionView(
       UUID id,
@@ -48,7 +51,11 @@ class MissionController {
       String status,
       String ownerSubject,
       Set<String> assigneeSubjects,
-      Instant createdAt) {
+      Instant createdAt,
+      LocalDate plannedStartDate,
+      LocalDate plannedEndDate,
+      Instant startedAt,
+      Instant closedAt) {
     static MissionView of(Mission m) {
       return new MissionView(
           m.id,
@@ -59,13 +66,18 @@ class MissionController {
           m.status,
           m.ownerSubject,
           Set.copyOf(m.assigneeSubjects),
-          m.createdAt);
+          m.createdAt,
+          m.plannedStartDate,
+          m.plannedEndDate,
+          m.startedAt,
+          m.closedAt);
     }
   }
 
   @PostMapping
   ResponseEntity<MissionView> create(
       @Valid @RequestBody CreateMission body, @AuthenticationPrincipal Jwt jwt) {
+    validateDates(body.plannedStartDate(), body.plannedEndDate(), false);
     directory.validate(body.assigneeSubjects());
     return tx.execute(
         status -> {
@@ -77,6 +89,8 @@ class MissionController {
           m.ownerSubject = jwt.getSubject();
           m.createdAt = Instant.now();
           m.status = "DRAFT";
+          m.plannedStartDate = body.plannedStartDate();
+          m.plannedEndDate = body.plannedEndDate();
           m.assigneeSubjects.addAll(body.assigneeSubjects());
           repository.saveAndFlush(m);
           outbox.append(m, m.assigneeSubjects);
@@ -171,6 +185,69 @@ class MissionController {
     if (!m.ownerSubject.equals(jwt.getSubject()))
       throw new ResponseStatusException(HttpStatus.NOT_FOUND);
     if (m.version != version) throw new ResponseStatusException(HttpStatus.CONFLICT);
+  }
+
+  record Schedule(
+      @NotNull @PositiveOrZero Long version,
+      @NotNull LocalDate plannedStartDate,
+      @NotNull LocalDate plannedEndDate) {}
+
+  record Transition(
+      @NotNull @PositiveOrZero Long version,
+      @NotNull @Pattern(regexp = "IN_PROGRESS|CLOSED") String status) {}
+
+  private void validateDates(LocalDate start, LocalDate end, boolean required) {
+    if (!required && start == null && end == null) return;
+    if (start == null
+        || end == null
+        || end.isBefore(start)
+        || start.getYear() < 1
+        || end.getYear() > 9999) throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+  }
+
+  @PutMapping("/{id}/schedule")
+  MissionView schedule(
+      @PathVariable UUID id, @Valid @RequestBody Schedule body, @AuthenticationPrincipal Jwt jwt) {
+    return tx.execute(
+        state -> {
+          Mission m =
+              repository
+                  .findForUpdate(id)
+                  .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+          checkOwner(m, jwt, body.version());
+          if (m.status.equals("CLOSED")) throw new ResponseStatusException(HttpStatus.CONFLICT);
+          validateDates(body.plannedStartDate(), body.plannedEndDate(), true);
+          m.plannedStartDate = body.plannedStartDate();
+          m.plannedEndDate = body.plannedEndDate();
+          repository.saveAndFlush(m);
+          return MissionView.of(m);
+        });
+  }
+
+  @PutMapping("/{id}/status")
+  MissionView transition(
+      @PathVariable UUID id,
+      @Valid @RequestBody Transition body,
+      @AuthenticationPrincipal Jwt jwt) {
+    return tx.execute(
+        state -> {
+          Mission m =
+              repository
+                  .findForUpdate(id)
+                  .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+          checkOwner(m, jwt, body.version());
+          if (m.status.equals("DRAFT") && body.status().equals("IN_PROGRESS")) {
+            if (m.plannedStartDate == null || m.plannedEndDate == null)
+              throw new ResponseStatusException(HttpStatus.CONFLICT);
+            m.status = "IN_PROGRESS";
+            m.startedAt = Instant.now();
+          } else if (m.status.equals("IN_PROGRESS") && body.status().equals("CLOSED")) {
+            m.status = "CLOSED";
+            m.closedAt = Instant.now();
+          } else throw new ResponseStatusException(HttpStatus.CONFLICT);
+          repository.saveAndFlush(m);
+          return MissionView.of(m);
+        });
   }
 
   @GetMapping("/{id}/participants")

@@ -60,3 +60,7 @@ Comptes SQL, quotas, annuaire et conflits d’édition traités localement. Avan
 ## Jalon notifications : 2026-10-17
 
 La CI du durcissement est verte sur 69de451. La première tranche de phase 3 est livrée localement : Kafka, outbox, notification-service, interface et reprises vérifiées. La CI de cette nouvelle tranche reste à lancer. La haute disponibilité, la quarantaine supervisée et l’observabilité sont ouvertes. Voir le [guide notifications](../technique/09-notifications-kafka.md).
+
+## Cycle manuel des missions : 2026-10-17
+
+Dates prévues et transitions Brouillon → En cours → Clôturée livrées localement. La validation humaine et Temporal constituent une tranche suivante distincte.

@@ -31,3 +31,7 @@ Branches possibles : `Rejeté`, `Réouvert`, exige une raison documentée.
 - Le constat validé possède un historique non réécrit.
 - La clôture d'un constat nécessite les autorisations et justifications prévues.
 - Une mission ne doit pas exposer ses preuves à une personne non autorisée.
+
+## Première tranche implémentée
+
+Le parcours livré localement est Brouillon → En cours → Clôturée, avec dates prévues et actions manuelles du responsable propriétaire. Les états intermédiaires du parcours cible ci-dessus restent proposés. Voir le [guide du cycle de vie](../technique/10-cycle-missions.md).

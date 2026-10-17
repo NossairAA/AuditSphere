@@ -13,7 +13,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useUser, ErrorNotice } from "@/components/workspace";
-import { type MissionPage, dateLabel } from "@/lib/types";
+import { type MissionPage, dateLabel, statusLabel } from "@/lib/types";
 export default function Missions() {
   const user = useUser(),
     [data, setData] = useState<MissionPage | null>(null),
@@ -189,7 +189,7 @@ export default function Missions() {
                     <td>{m.perimeter}</td>
                     <td>
                       <span className="status">
-                        <span /> Brouillon
+                        <span /> {statusLabel(m.status)}
                       </span>
                     </td>
                     <td className="date">{dateLabel(m.createdAt)}</td>

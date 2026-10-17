@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: AuditSphere Mission API
-  version: 0.4.0
+  version: 0.5.0
 servers:
   - url: http://localhost:8080
 security:
@@ -135,10 +135,72 @@ paths:
         '404': {description: Mission absente ou inaccessible}
         '503': {description: Annuaire indisponible}
 
+  /missions/{id}/schedule:
+    put:
+      summary: Modifier les dates prévues avant clôture, uniquement par le responsable propriétaire
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Schedule'}
+      responses:
+        '200':
+          description: Mission mise à jour
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Mission'}
+        '400': {description: Version absente, dates invalides ou statut inconnu}
+        '401': {description: Authentification requise}
+        '403': {description: Rôle responsable requis}
+        '404': {description: Mission absente ou utilisateur non propriétaire}
+        '409': {description: Version périmée ou opération interdite dans cet état}
+  /missions/{id}/status:
+    put:
+      summary: Démarrer une mission planifiée ou clôturer une mission en cours
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Transition'}
+      responses:
+        '200':
+          description: Mission mise à jour
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Mission'}
+        '400': {description: Version absente, dates invalides ou statut inconnu}
+        '401': {description: Authentification requise}
+        '403': {description: Rôle responsable requis}
+        '404': {description: Mission absente ou utilisateur non propriétaire}
+        '409': {description: Version périmée ou opération interdite dans cet état}
+
 components:
   securitySchemes:
     bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
   schemas:
+    Schedule:
+      type: object
+      required: [version, plannedStartDate, plannedEndDate]
+      properties:
+        version: {type: integer, format: int64, minimum: 0}
+        plannedStartDate: {type: string, format: date}
+        plannedEndDate: {type: string, format: date}
+    Transition:
+      type: object
+      required: [version, status]
+      properties:
+        version: {type: integer, format: int64, minimum: 0}
+        status: {type: string, enum: [IN_PROGRESS, CLOSED]}
     Person:
       type: object
       required: [subject, name]
@@ -162,6 +224,8 @@ components:
         title: {type: string, minLength: 1, maxLength: 200}
         description: {type: string, minLength: 1, maxLength: 4000}
         perimeter: {type: string, minLength: 1, maxLength: 2000}
+        plannedStartDate: {type: string, format: date, nullable: true, description: Avec plannedEndDate ou toutes deux absentes}
+        plannedEndDate: {type: string, format: date, nullable: true, description: Égale ou postérieure au début}
         assigneeSubjects:
           type: array
           uniqueItems: true
@@ -175,6 +239,8 @@ components:
           properties:
             id: {type: string, format: uuid}
             version: {type: integer, format: int64, minimum: 0}
-            status: {type: string, enum: [DRAFT]}
+            status: {type: string, enum: [DRAFT, IN_PROGRESS, CLOSED]}
             ownerSubject: {type: string}
             createdAt: {type: string, format: date-time}
+            startedAt: {type: string, format: date-time, nullable: true}
+            closedAt: {type: string, format: date-time, nullable: true}

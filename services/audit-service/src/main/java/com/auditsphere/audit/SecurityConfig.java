@@ -32,7 +32,10 @@ class SecurityConfig {
                     .requestMatchers(org.springframework.http.HttpMethod.POST, "/missions")
                     .hasRole("AUDIT_MANAGER")
                     .requestMatchers(
-                        org.springframework.http.HttpMethod.PUT, "/missions/*/assignments")
+                        org.springframework.http.HttpMethod.PUT,
+                        "/missions/*/assignments",
+                        "/missions/*/schedule",
+                        "/missions/*/status")
                     .hasRole("AUDIT_MANAGER")
                     .requestMatchers(org.springframework.http.HttpMethod.GET, "/missions/auditors")
                     .hasRole("AUDIT_MANAGER")

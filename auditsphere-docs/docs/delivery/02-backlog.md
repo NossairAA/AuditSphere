@@ -102,3 +102,9 @@ Publication du jalon de durcissement terminée, CI verte sur 69de451.
 Les notifications de retard US-009 restent proposées. Le jalon livré porte uniquement sur les affectations aux missions.
 
 - NOTIF-08 : compteur de non-lues et marquage individuel, implémentés avec isolation par sujet, persistance et protection CSRF. Vérifié localement par tests backend et navigateur ciblés.
+
+## Cycle de vie des missions
+
+- MISSION-01 : dates prévues, démarrage et clôture manuels réservés au propriétaire responsable, implémentés localement.
+- MISSION-02 : transitions et planification protégées par version, contrats et tests ajoutés.
+- MISSION-03 : validation humaine avec Temporal, annulation et réouverture proposées pour une tranche ultérieure.

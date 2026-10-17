@@ -1,6 +1,7 @@
 "use client";
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
+import MissionLifecycle from "@/components/mission-lifecycle";
 import { Participants } from "@/components/assignments";
 import {
   ArrowLeft,
@@ -9,7 +10,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { ErrorNotice, useUser } from "@/components/workspace";
-import { type Mission, dateLabel } from "@/lib/types";
+import { type Mission, dateLabel, statusLabel } from "@/lib/types";
 export default function Detail({
   params,
 }: {
@@ -71,7 +72,7 @@ export default function Detail({
               </p>
             </div>
             <span className="status large">
-              <span /> Brouillon
+              <span /> {statusLabel(mission.status)}
             </span>
           </div>
           <div className="detail-layout">
@@ -103,6 +104,11 @@ export default function Detail({
               </div>
             </aside>
           </div>
+          <MissionLifecycle
+            key={mission.version}
+            mission={mission}
+            onUpdated={setMission}
+          />
           <Participants mission={mission} onUpdated={setMission} />
         </>
       )}
