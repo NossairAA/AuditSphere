@@ -129,4 +129,63 @@ class NotificationIntegrationTest {
             "SELECT count(*) FROM notifications WHERE recipient_subject='rollback-recipient'",
             Integer.class));
   }
+
+  @Test
+  void readStateIsIdempotentSurvivesReplayAndCountsBeyondFirstPage() throws Exception {
+    UUID id = UUID.randomUUID();
+    String body = event(id, "read-owner");
+    consumer.receive(body);
+    consumer.receive(event(UUID.randomUUID(), "read-owner"));
+    mvc.perform(get("/notifications/unread-count").with(jwt().jwt(j -> j.subject("read-owner"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("count").value(2));
+    mvc.perform(get("/notifications?size=1").with(jwt().jwt(j -> j.subject("read-owner"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("items.length()").value(1));
+    var first =
+        mvc.perform(
+                put("/notifications/" + id + "/read").with(jwt().jwt(j -> j.subject("read-owner"))))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    var second =
+        mvc.perform(
+                put("/notifications/" + id + "/read").with(jwt().jwt(j -> j.subject("read-owner"))))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    assertEquals(mapper.readTree(first).get("readAt"), mapper.readTree(second).get("readAt"));
+    consumer.receive(body);
+    assertNotNull(
+        jdbc.queryForObject(
+            "SELECT read_at FROM notifications WHERE event_id=?", java.sql.Timestamp.class, id));
+    mvc.perform(get("/notifications/unread-count").with(jwt().jwt(j -> j.subject("read-owner"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("count").value(1));
+  }
+
+  @Test
+  void onlyRecipientCanReadOrCountTheirNotifications() throws Exception {
+    UUID id = UUID.randomUUID();
+    consumer.receive(event(id, "protected-reader"));
+    mvc.perform(put("/notifications/" + id + "/read")).andExpect(status().isUnauthorized());
+    mvc.perform(get("/notifications/unread-count")).andExpect(status().isUnauthorized());
+    mvc.perform(
+            put("/notifications/" + id + "/read").with(jwt().jwt(j -> j.subject("wrong-reader"))))
+        .andExpect(status().isNotFound());
+    mvc.perform(
+            put("/notifications/" + UUID.randomUUID() + "/read")
+                .with(jwt().jwt(j -> j.subject("wrong-reader"))))
+        .andExpect(status().isNotFound());
+    mvc.perform(
+            get("/notifications/unread-count?recipientSubject=protected-reader")
+                .with(jwt().jwt(j -> j.subject("wrong-reader"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("count").value(0));
+    assertNull(
+        jdbc.queryForObject(
+            "SELECT read_at FROM notifications WHERE event_id=?", java.sql.Timestamp.class, id));
+  }
 }

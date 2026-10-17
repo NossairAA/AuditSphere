@@ -42,6 +42,7 @@ for db in ['audit','web','notification']:
   sql(service,admin,db,"SELECT format('GRANT SELECT,INSERT,UPDATE,DELETE ON %I TO audit_runtime',tablename) FROM pg_tables WHERE schemaname='public' AND tablename IN ('missions','mission_assignments','assignment_outbox')\\gexec\n")
  else:
   sql(service,admin,db,"SELECT 'GRANT SELECT,INSERT ON notifications TO notification_runtime' WHERE EXISTS(SELECT FROM pg_tables WHERE schemaname='public' AND tablename='notifications')\\gexec\n")
+  sql(service,admin,db,"SELECT 'GRANT UPDATE(read_at) ON notifications TO notification_runtime' WHERE EXISTS(SELECT FROM information_schema.columns WHERE table_schema='public' AND table_name='notifications' AND column_name='read_at')\\gexec\n")
  print(db+': runtime sans privilèges administrateur, sauvegarde privée créée.')
 print('Sauvegardes : '+str(backup.relative_to(root)))
 

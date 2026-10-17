@@ -1,5 +1,12 @@
 # Journal des changements
 
+## [0.7.1] : 2026-10-17
+
+- Notifications lues et non lues, date persistée et marquage idempotent réservé au destinataire.
+- Compteur global de non-lues dans l’en-tête, accessible sur mobile.
+- Migration conservant les données, droits SQL limités à read_at et protection CSRF dans le BFF.
+- Validation complète avant publication : 31 tests Java et 10 scénarios navigateur réussis, TypeScript et compilation Next.js validés.
+
 ## [0.7.0] : 2026-10-17
 
 - Accès Notifications déplacé de la barre latérale vers l’en-tête, visible aussi sur mobile.

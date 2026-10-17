@@ -66,6 +66,71 @@ test("notification réelle après affectation, navigation et isolation", async (
     ).toBeVisible();
     const link = a.locator('a[href="/missions/' + mission.id + '"]');
     await expect(link).toHaveCount(1);
+    const notifications = await (
+      await auditor.request.get("/api/notifications")
+    ).json();
+    const notification = notifications.items.find(
+      (n: { missionId: string }) => n.missionId === mission.id,
+    );
+    expect(notification.readAt).toBeNull();
+    const readUrl = `/api/notifications/${notification.id}/read`;
+    const auditorSession = await (
+      await auditor.request.get("/api/session")
+    ).json();
+    expect(
+      (
+        await auditor.request.put(readUrl, {
+          headers: { Origin: "http://localhost:3000" },
+        })
+      ).status(),
+    ).toBe(403);
+    expect(
+      (
+        await auditor.request.put(readUrl, {
+          headers: {
+            Origin: "https://untrusted.example",
+            "x-csrf-token": auditorSession.csrf,
+          },
+        })
+      ).status(),
+    ).toBe(403);
+    const before = (
+      await (
+        await auditor.request.get("/api/notifications/unread-count")
+      ).json()
+    ).count;
+    const row = a.getByRole("row").filter({ has: link });
+    await row
+      .getByRole("button", { name: "Marquer comme lue", exact: true })
+      .click();
+    await expect(row.getByText("Lue", { exact: true })).toBeVisible();
+    await expect
+      .poll(
+        async () =>
+          (
+            await (
+              await auditor.request.get("/api/notifications/unread-count")
+            ).json()
+          ).count,
+      )
+      .toBe(before - 1);
+    if (before > 1)
+      await expect(
+        a
+          .locator("header")
+          .getByRole("status", {
+            name: `${before - 1} notifications non lues`,
+            exact: true,
+          }),
+      ).toBeVisible();
+    else await expect(a.locator("header .notification-badge")).toHaveCount(0);
+    await a.reload();
+    await expect(
+      a
+        .getByRole("row")
+        .filter({ has: a.locator('a[href="/missions/' + mission.id + '"]') })
+        .getByText("Lue", { exact: true }),
+    ).toBeVisible();
     await link.click();
     await expect(a.getByRole("heading", { name: mission.title })).toBeVisible();
     const o = await outsider.newPage();
@@ -78,6 +143,19 @@ test("notification réelle après affectation, navigation et isolation", async (
     expect(
       list.items.some((n: { missionId: string }) => n.missionId === mission.id),
     ).toBe(false);
+    const outsiderSession = await (
+      await outsider.request.get("/api/session")
+    ).json();
+    expect(
+      (
+        await outsider.request.put(readUrl, {
+          headers: {
+            Origin: "http://localhost:3000",
+            "x-csrf-token": outsiderSession.csrf,
+          },
+        })
+      ).status(),
+    ).toBe(404);
     expect(bearerRequests).toEqual([]);
   } finally {
     await manager.close();

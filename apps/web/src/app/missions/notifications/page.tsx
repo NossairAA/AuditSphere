@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Bell, RefreshCw } from "lucide-react";
-import { ErrorNotice } from "@/components/workspace";
+import { ErrorNotice, useUser } from "@/components/workspace";
 import { dateLabel } from "@/lib/types";
 type NotificationPage = {
   items: {
@@ -10,12 +10,16 @@ type NotificationPage = {
     missionId: string;
     occurredAt: string;
     receivedAt: string;
+    readAt: string | null;
   }[];
   page: number;
   size: number;
   hasNext: boolean;
 };
 export default function Notifications() {
+  const user = useUser();
+  const [pending, setPending] = useState<string | null>(null);
+  const [mutationError, setMutationError] = useState("");
   const [data, setData] = useState<NotificationPage | null>(null);
   const [error, setError] = useState("");
   const [page, setPage] = useState(0);
@@ -40,6 +44,7 @@ export default function Notifications() {
         const body = await r.json();
         if (!r.ok) throw new Error(body.error);
         setData(body);
+        window.dispatchEvent(new Event("notifications-changed"));
       })
       .catch((e) => {
         if (e.name !== "AbortError") setError(e.message);
@@ -49,6 +54,39 @@ export default function Notifications() {
       });
     return () => controller.abort();
   }, [page, refresh]);
+  async function markRead(id: string) {
+    setPending(id);
+    setMutationError("");
+    try {
+      const r = await fetch(`/api/notifications/${id}/read`, {
+        method: "PUT",
+        headers: { "x-csrf-token": user?.csrf || "" },
+        signal: AbortSignal.timeout(10000),
+      });
+      const body = await r.json();
+      if (!r.ok) throw new Error(body.error);
+      setData((old) =>
+        old
+          ? {
+              ...old,
+              items: old.items.map((n) =>
+                n.id === id ? { ...n, readAt: body.readAt } : n,
+              ),
+            }
+          : old,
+      );
+      setRefresh((v) => v + 1);
+      window.dispatchEvent(new Event("notifications-changed"));
+    } catch (e) {
+      setMutationError(
+        e instanceof Error
+          ? e.message
+          : "Impossible de marquer la notification comme lue.",
+      );
+    } finally {
+      setPending(null);
+    }
+  }
   return (
     <>
       <div className="page-heading">
@@ -81,6 +119,11 @@ export default function Notifications() {
           </div>
           <Bell size={24} />
         </div>
+        {mutationError && (
+          <div className="panel-message">
+            <ErrorNotice message={mutationError} />
+          </div>
+        )}
         {error ? (
           <div className="panel-message">
             <ErrorNotice message={error} />
@@ -103,13 +146,18 @@ export default function Notifications() {
                   <th>ACTIVITÉ</th>
                   <th>DATE</th>
                   <th>MISSION</th>
+                  <th>LECTURE</th>
                 </tr>
               </thead>
               <tbody>
                 {data.items.map((n) => (
-                  <tr key={n.id}>
+                  <tr
+                    key={n.id}
+                    className={n.readAt ? undefined : "notification-unread"}
+                  >
                     <td>
                       <strong>Vous avez été affecté à une mission</strong>
+                      {!n.readAt && <span className="status">Non lue</span>}
                     </td>
                     <td>{dateLabel(n.occurredAt)}</td>
                     <td>
@@ -120,6 +168,21 @@ export default function Notifications() {
                         Consulter la mission{" "}
                         <span className="sr-only">{n.missionId}</span>
                       </Link>
+                    </td>
+                    <td>
+                      {n.readAt ? (
+                        <span>Lue</span>
+                      ) : (
+                        <button
+                          className="button secondary"
+                          disabled={pending !== null}
+                          onClick={() => markRead(n.id)}
+                        >
+                          {pending === n.id
+                            ? "Enregistrement…"
+                            : "Marquer comme lue"}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

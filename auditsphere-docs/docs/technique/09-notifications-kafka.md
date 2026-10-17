@@ -44,13 +44,13 @@ Exécuter sh scripts/start-local.sh. Le lanceur génère les nouveaux secrets sa
 
 Kafka utilise apache/kafka:4.0.2 en KRaft, un volume durable et trois partitions. Le topic est créé explicitement, la création automatique est désactivée. Un conteneur ponctuel prépare les droits du volume pour UID 1000. Le broker ne tourne pas en root et aucun port Kafka n’est publié sur le Mac.
 
-Dans pgAdmin, ajouter la base notification sur 127.0.0.1:5547, Maintenance database notification, utilisateur notification_runtime et mot de passe NOTIFICATION_RUNTIME_PASSWORD dans .env. Le compte dispose de SELECT et INSERT sur notifications uniquement. La maintenance utilise notification_admin et NOTIFICATION_ADMIN_PASSWORD. notification_migrator possède le schéma et réalise les migrations, sans privilèges de superutilisateur. Le profil de production retire aussi le port 5547.
+Dans pgAdmin, ajouter la base notification sur 127.0.0.1:5547, Maintenance database notification, utilisateur notification_runtime et mot de passe NOTIFICATION_RUNTIME_PASSWORD dans .env. Le compte dispose de SELECT et INSERT sur notifications, ainsi que UPDATE limité à la colonne read_at. La maintenance utilise notification_admin et NOTIFICATION_ADMIN_PASSWORD. notification_migrator possède le schéma et réalise les migrations, sans privilèges de superutilisateur. Le profil de production retire aussi le port 5547.
 
 ## Reprise et limites
 
 Le publisher traite une ligne par passage, avec un délai de 500 ms après chaque traitement. Il ne constitue pas un mécanisme dimensionné pour un fort débit. Son appel Kafka est borné et ne retient pas de transaction SQL. Le bail empêche deux workers de traiter simultanément une ligne tant qu’il reste valide. Un acquittement perdu ou un bail expiré peut produire un doublon, éliminé par event_id côté consommateur.
 
-Le consommateur utilise ack-mode record et désactive l’auto-commit Kafka. Les erreurs PostgreSQL ou de format provoquent une nouvelle tentative toutes les deux secondes, sans acquittement ni suppression. Un message incompatible bloque sa partition jusqu’à intervention, la quarantaine et les alertes sont des travaux futurs. Les notifications sont limitées au canal interne, sans email, badge de non-lus ou marquage comme lu.
+Le consommateur utilise ack-mode record et désactive l’auto-commit Kafka. Les erreurs PostgreSQL ou de format provoquent une nouvelle tentative toutes les deux secondes, sans acquittement ni suppression. Un message incompatible bloque sa partition jusqu’à intervention, la quarantaine et les alertes sont des travaux futurs. Les notifications sont limitées au canal interne, sans email. Le compteur de non-lues et le marquage comme lue sont décrits ci-dessous.
 
 Kafka conserve les événements sept jours. Une panne de consommation au-delà de la rétention, une perte du volume unique ou une suppression manuelle peut perdre des événements. Les lignes outbox publiées sont conservées pour permettre une reprise opérateur future, sans outil de rejeu général livré. Purge, sauvegarde Kafka, restauration coordonnée et politique de rétention des notifications restent à définir.
 
@@ -82,3 +82,15 @@ Le workflow CI inclut ces vérifications. Le précédent jalon de durcissement a
 - [Décision outbox et notifications](../decisions/ADR-0007-notifications-outbox.md)
 
 Déplacement vers l’en-tête vérifié : compilation Next.js réussie, deux scénarios navigateur de notifications réussis et contrôle du lien à 1280 px et 375 px, avec navigation et état actif.
+
+## Notifications lues et non lues
+
+La migration V2 ajoute read_at nullable et un index partiel par destinataire pour les non-lues. Les notifications existantes sont conservées et initialement non lues. Ouvrir la page ou consulter une mission ne change pas cet état. Le bouton Marquer comme lue enregistre la première date de lecture, puis affiche Lue. Il n’existe pas encore d’action pour revenir à non lue ou tout marquer en une fois.
+
+La cloche de l’en-tête affiche le nombre total de non-lues, toutes pages confondues. Le badge disparaît à zéro et affiche 99+ au-delà de 99, avec le nombre exact dans son libellé accessible. Il se rafraîchit toutes les 30 secondes lorsque la page est visible, au retour sur l’onglet, après chargement de la liste et après un marquage. En cas d’indisponibilité, le badge est masqué plutôt que d’annoncer zéro. Une erreur de marquage est affichée sans déclarer la notification lue.
+
+GET /notifications/unread-count filtre exclusivement par le sujet du JWT. PUT /notifications/{id}/read applique le même filtre dans la requête UPDATE et retourne 404 aussi bien pour une notification absente que pour celle d’un autre utilisateur. Le BFF exige la session, une origine exacte et le jeton CSRF. Il ne transmet ni corps arbitraire ni destinataire fourni par le navigateur.
+
+Le marquage est idempotent : un second appel conserve la première date. Le consommateur Kafka ignore les event_id déjà présents, y compris après lecture, sans réinitialiser read_at. Les droits PostgreSQL UPDATE ne concernent que cette colonne. Le lanceur applique ces droits après migration, y compris sur une installation neuve.
+
+Validation de la lecture : sept tests du service notifications et trois tests gateway réussis, deux scénarios navigateur ciblés réussis, contrôle TypeScript et build Next.js réussis. Les tests vérifient le compteur au-delà de la première page, la persistance après rechargement, le rejeu conservant la date, les requêtes CSRF invalides et le refus d’accès aux notifications d’autrui. Une connexion SQL runtime a confirmé UPDATE sur read_at et le refus de modifier le destinataire, la mission ou de supprimer une notification. Avant publication, la suite complète a réussi : 31 tests Java et 10 scénarios navigateur.

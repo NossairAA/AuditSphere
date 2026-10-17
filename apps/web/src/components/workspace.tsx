@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import UnreadCount from "./unread-count";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, createContext, useContext } from "react";
 import {
@@ -102,13 +103,16 @@ export default function Workspace({ children }: { children: React.ReactNode }) {
             </span>
             <Link
               href="/missions/notifications"
-              className={"header-notifications" + (notifications ? " active" : "")}
+              className={
+                "header-notifications" + (notifications ? " active" : "")
+              }
               aria-label="Notifications"
               aria-current={notifications ? "page" : undefined}
               title="Notifications"
             >
               <Bell size={19} aria-hidden="true" />
-              <span>Notifications</span>
+              <span className="notification-label">Notifications</span>
+              {user && <UnreadCount />}
             </Link>
           </div>
         </header>

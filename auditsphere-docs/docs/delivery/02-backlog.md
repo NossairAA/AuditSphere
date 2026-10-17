@@ -95,8 +95,10 @@ Publication du jalon de durcissement terminée, CI verte sur 69de451.
 | NOTIF-02 | Consommation idempotente et base propriétaire | Vérifié localement |
 | NOTIF-03 | Notifications dans le BFF et l’interface, accès depuis l’en-tête et isolation par sujet | Vérifié localement |
 | NOTIF-04 | Reprise après panne broker, service et base, rejeu sans doublon | Vérifié localement |
-| NOTIF-05 | CI distante de la tranche Kafka | À exécuter après publication |
+| NOTIF-05 | CI distante de la tranche Kafka | Vérifiée sur 7c15f78 |
 | NOTIF-06 | Quarantaine, alertes, rétention et outil de rejeu supervisé | À réaliser |
 | NOTIF-07 | TLS, ACL, réplication Kafka et mesures de charge | À réaliser avant production |
 
 Les notifications de retard US-009 restent proposées. Le jalon livré porte uniquement sur les affectations aux missions.
+
+- NOTIF-08 : compteur de non-lues et marquage individuel, implémentés avec isolation par sujet, persistance et protection CSRF. Vérifié localement par tests backend et navigateur ciblés.

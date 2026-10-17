@@ -16,7 +16,9 @@ class GatewayConfig {
       @Value("${NOTIFICATION_URL:http://localhost:8082}") String notificationUrl) {
     return builder
         .routes()
-        .route("notifications", r -> r.path("/notifications").uri(notificationUrl))
+        .route(
+            "notifications",
+            r -> r.path("/notifications", "/notifications/**").uri(notificationUrl))
         .route("audit", r -> r.path("/missions", "/missions/**").uri(url))
         .build();
   }

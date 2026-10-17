@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: AuditSphere Notifications
-  version: 0.1.0
+  version: 0.2.0
 servers:
   - url: http://localhost:8080
 security:
@@ -33,16 +33,55 @@ paths:
                     type: array
                     items:
                       type: object
-                      required: [id, missionId, occurredAt, receivedAt]
+                      required: [id, missionId, occurredAt, receivedAt, readAt]
                       properties:
                         id: {type: string, format: uuid}
                         missionId: {type: string, format: uuid}
                         occurredAt: {type: string, format: date-time}
                         receivedAt: {type: string, format: date-time}
+                        readAt: {type: string, format: date-time, nullable: true}
         '400': {description: Pagination invalide}
         '401': {description: Jeton absent ou invalide}
         '429': {description: Quota gateway dépassé}
         '503': {description: Service indisponible}
+  /notifications/unread-count:
+    get:
+      summary: Nombre total de notifications non lues du sujet authentifié
+      responses:
+        '200':
+          description: Compteur indépendant de la pagination
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [count]
+                properties:
+                  count: {type: integer, format: int64, minimum: 0}
+        '401': {description: Jeton absent ou invalide}
+        '429': {description: Quota gateway dépassé}
+  /notifications/{id}/read:
+    put:
+      summary: Marquer sa notification comme lue, de façon idempotente
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Date de première lecture, conservée lors des appels suivants
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, readAt]
+                properties:
+                  id: {type: string, format: uuid}
+                  readAt: {type: string, format: date-time}
+        '400': {description: Identifiant invalide}
+        '401': {description: Jeton absent ou invalide}
+        '404': {description: Notification absente ou appartenant à un autre sujet}
+        '429': {description: Quota gateway dépassé}
 components:
   securitySchemes:
     bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
