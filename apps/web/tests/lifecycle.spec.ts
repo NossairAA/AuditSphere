@@ -95,6 +95,90 @@ test("dates, conflit de version, démarrage et clôture réservés au propriéta
         })
       ).status(),
     ).toBe(403);
+    expect(
+      (
+        await page.request.put(`/api/missions/${id}/status`, {
+          headers: {
+            Origin: "http://localhost:3000",
+            "x-csrf-token": session.csrf,
+          },
+          data: { version: 2, status: "CLOSED" },
+        })
+      ).status(),
+    ).toBe(409);
+    await expect(
+      section.getByRole("button", { name: "Clôturer la mission", exact: true }),
+    ).toHaveCount(0);
+    const designation = page.getByRole("region", {
+      name: "Validateur de la mission",
+    });
+    await designation
+      .getByLabel("Choisir un validateur")
+      .selectOption({ label: "Validator Demo" });
+    await designation
+      .getByRole("button", { name: "Enregistrer le validateur", exact: true })
+      .click();
+    await expect(
+      designation.getByText("Validateur désigné : Validator Demo"),
+    ).toBeVisible();
+    await section
+      .getByRole("button", { name: "Soumettre à validation" })
+      .click();
+    await expect(page.locator(".page-heading .status")).toHaveText(
+      "En attente de validation",
+    );
+    const reviewContext = await browser.newContext();
+    try {
+      const reviewer = await reviewContext.newPage();
+      await login(reviewer, "validator");
+      await reviewer.goto(`/missions/${id}`);
+      const reviewSection = reviewer.getByRole("region", {
+        name: "Planification et statut",
+      });
+      await reviewSection
+        .getByLabel("Commentaire de validation")
+        .fill("Préciser le périmètre avant clôture.");
+      expect(
+        (
+          await reviewer.request.put(`/api/missions/${id}/review`, {
+            headers: { Origin: "http://localhost:3000" },
+            data: { version: 4, decision: "APPROVED", comment: "Test" },
+          })
+        ).status(),
+      ).toBe(403);
+      await reviewSection
+        .getByRole("button", { name: "Demander des corrections" })
+        .click();
+      await expect(reviewer.locator(".page-heading .status")).toHaveText(
+        "En cours",
+      );
+      await page.reload();
+      await expect(
+        section.getByText("Préciser le périmètre avant clôture."),
+      ).toBeVisible();
+      await section
+        .getByRole("button", { name: "Soumettre à validation" })
+        .click();
+      await expect(page.locator(".page-heading .status")).toHaveText(
+        "En attente de validation",
+      );
+      await reviewer.reload();
+      await reviewSection
+        .getByLabel("Commentaire de validation")
+        .fill("Mission vérifiée et approuvée.");
+      await reviewSection
+        .getByRole("button", { name: "Approuver la mission" })
+        .click();
+      await expect(reviewer.locator(".page-heading .status")).toHaveText(
+        "Approuvée",
+      );
+      await page.reload();
+      await expect(page.locator(".page-heading .status")).toHaveText(
+        "Approuvée",
+      );
+    } finally {
+      await reviewContext.close();
+    }
     await section
       .getByRole("button", { name: "Clôturer la mission", exact: true })
       .click();

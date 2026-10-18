@@ -19,3 +19,7 @@ Utiliser le modèle dans [`docs/templates/adr.md`](../templates/adr.md).
 - [ADR-0007 : Notifications Kafka et outbox](ADR-0007-notifications-outbox.md)
 
 - [ADR-0008 : Cycle de vie manuel des missions](ADR-0008-cycle-mission-manuel.md)
+
+- [ADR-0009 : Désignation du validateur](ADR-0009-designation-validateur.md)
+
+- [ADR-0010 : Approbation obligatoire avant clôture](ADR-0010-approbation-avant-cloture.md)

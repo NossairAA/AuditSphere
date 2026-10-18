@@ -6,7 +6,15 @@ export async function missions(
   request: Request,
   id?: string,
   resource?:
-    "assignments" | "participants" | "auditors" | "schedule" | "status",
+    | "assignments"
+    | "participants"
+    | "auditors"
+    | "schedule"
+    | "status"
+    | "validators"
+    | "validator"
+    | "submission"
+    | "review",
 ) {
   const rejection = rateLimit(request);
   if (rejection) return rejection;
@@ -17,8 +25,8 @@ export async function missions(
     if (id && !/^[0-9a-f-]{36}$/i.test(id))
       return json({ error: "Mission introuvable" }, 404);
     const url = new URL(
-      resource === "auditors"
-        ? "/missions/auditors"
+      resource === "auditors" || resource === "validators"
+        ? "/missions/" + resource
         : id
           ? "/missions/" + id + (resource ? "/" + resource : "")
           : "/missions",
@@ -31,8 +39,12 @@ export async function missions(
     if (request.method === "POST" || request.method === "PUT") {
       if (!validMutation(request, data, request.headers.get("x-csrf-token")))
         return json({ error: "Requête refusée" }, 403);
-      if (!data.roles.includes("AUDIT_MANAGER"))
-        return json({ error: "Création réservée aux responsables" }, 403);
+      if (
+        !data.roles.includes(
+          resource === "review" ? "AUDIT_VALIDATOR" : "AUDIT_MANAGER",
+        )
+      )
+        return json({ error: "Votre rôle ne permet pas cette action" }, 403);
       const raw = await limitedText(request);
       if (Buffer.byteLength(raw) > 32768)
         return json({ error: "Formulaire trop volumineux" }, 413);
@@ -46,18 +58,31 @@ export async function missions(
         return json({ error: "Formulaire invalide" }, 400);
       body = JSON.stringify(
         request.method === "PUT"
-          ? resource === "schedule"
+          ? resource === "review"
             ? {
                 version: input.version,
-                plannedStartDate: input.plannedStartDate,
-                plannedEndDate: input.plannedEndDate,
+                decision: input.decision,
+                comment: input.comment,
               }
-            : resource === "status"
-              ? { version: input.version, status: input.status }
-              : {
-                  assigneeSubjects: input.assigneeSubjects,
-                  version: input.version,
-                }
+            : resource === "submission"
+              ? { version: input.version }
+              : resource === "validator"
+                ? {
+                    version: input.version,
+                    validatorSubject: input.validatorSubject,
+                  }
+                : resource === "schedule"
+                  ? {
+                      version: input.version,
+                      plannedStartDate: input.plannedStartDate,
+                      plannedEndDate: input.plannedEndDate,
+                    }
+                  : resource === "status"
+                    ? { version: input.version, status: input.status }
+                    : {
+                        assigneeSubjects: input.assigneeSubjects,
+                        version: input.version,
+                      }
           : {
               title: input.title,
               description: input.description,
@@ -68,7 +93,7 @@ export async function missions(
             },
       );
       headers["Content-Type"] = "application/json";
-    } else if (resource === "auditors") {
+    } else if (resource === "auditors" || resource === "validators") {
       url.searchParams.set(
         "page",
         new URL(request.url).searchParams.get("page") || "0",

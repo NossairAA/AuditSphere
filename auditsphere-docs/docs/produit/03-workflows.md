@@ -34,4 +34,4 @@ Branches possibles : `Rejeté`, `Réouvert`, exige une raison documentée.
 
 ## Première tranche implémentée
 
-Le parcours livré localement est Brouillon → En cours → Clôturée, avec dates prévues et actions manuelles du responsable propriétaire. Les états intermédiaires du parcours cible ci-dessus restent proposés. Voir le [guide du cycle de vie](../technique/10-cycle-missions.md).
+Le parcours livré localement est Brouillon → En cours → En attente de validation → Approuvée → Clôturée. Le validateur désigné peut demander des corrections avec un commentaire, ce qui remet la mission En cours. Seule la décision courante est conservée, sans historique complet. Les autres états du parcours cible restent proposés. Voir le [guide d’approbation](../technique/13-approbation-missions.md).

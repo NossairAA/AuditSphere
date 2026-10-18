@@ -13,7 +13,12 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useUser, ErrorNotice } from "@/components/workspace";
-import { type MissionPage, dateLabel, statusLabel } from "@/lib/types";
+import {
+  type MissionPage,
+  dateLabel,
+  statusLabel,
+  roleLabels,
+} from "@/lib/types";
 export default function Missions() {
   const user = useUser(),
     [data, setData] = useState<MissionPage | null>(null),
@@ -76,13 +81,11 @@ export default function Missions() {
           <span>
             Votre rôle <ShieldCheck size={18} />
           </span>
-          <strong className="metric-text">
-            {user?.roles.includes("AUDIT_MANAGER") ? "Responsable" : "Auditeur"}
-          </strong>
+          <strong className="metric-text">{roleLabels(user?.roles)}</strong>
           <small>
             {user?.roles.includes("AUDIT_MANAGER")
               ? "Création et suivi des missions"
-              : "Consultation des missions affectées"}
+              : "Consultation des missions de votre périmètre"}
           </small>
         </div>
         <div className="metric accent">
@@ -101,7 +104,7 @@ export default function Missions() {
         <div className="panel-title">
           <div>
             <h2>Répertoire des missions</h2>
-            <p>Les missions que vous avez créées ou qui vous sont affectées.</p>
+            <p>Les missions auxquelles vous avez accès.</p>
           </div>
           <span className="count-badge">
             {data?.total ?? 0} mission{data?.total === 1 ? "" : "s"}
@@ -181,7 +184,9 @@ export default function Missions() {
                           <small>
                             {m.ownerSubject === user?.subject
                               ? "Créée par vous"
-                              : "Vous êtes affecté à cette mission"}
+                              : m.validatorSubject === user?.subject
+                                ? "Vous êtes le validateur désigné"
+                                : "Vous êtes affecté à cette mission"}
                           </small>
                         </span>
                       </Link>

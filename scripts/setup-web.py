@@ -39,6 +39,28 @@ for i in range(90):
  except (OSError,ValueError):time.sleep(2)
 else:raise SystemExit('Keycloak indisponible ou authentification administrateur refusée.')
 token=auth['access_token']
+# Provision the role in every environment, but demo accounts only in local mode.
+base='/admin/realms/auditsphere'
+try:
+ validator_role=call(base+'/roles/AUDIT_VALIDATOR',token=token)
+except urllib.error.HTTPError as error:
+ if error.code != 404: raise
+ call(base+'/roles',{'name':'AUDIT_VALIDATOR','description':'Validation des missions, workflow à venir'},'POST',token)
+ validator_role=call(base+'/roles/AUDIT_VALIDATOR',token=token)
+if not production:
+ validators=call(base+'/users?username=validator&exact=true',token=token)
+ if not validators:
+  if 'VALIDATOR_PASSWORD' not in env:
+   env['VALIDATOR_PASSWORD']=secrets.token_urlsafe(24)
+   with (root/'.env').open('a') as f: f.write('VALIDATOR_PASSWORD='+env['VALIDATOR_PASSWORD']+'\n')
+  call(base+'/users',{'username':'validator','enabled':True,'emailVerified':True,'firstName':'Validator','lastName':'Demo','email':'validator@example.invalid','credentials':[{'type':'password','value':env['VALIDATOR_PASSWORD'],'temporary':False}]},'POST',token)
+  validators=call(base+'/users?username=validator&exact=true',token=token)
+ # Never reset a password or add a role to an existing unrelated account.
+ user=validators[0]
+ if user.get('email') != 'validator@example.invalid':
+  raise SystemExit('Le compte validator existe déjà avec une autre identité. Aucune modification de ses droits.')
+ call(base+'/users/'+user['id']+'/role-mappings/realm',[validator_role],'POST',token)
+print('Rôle AUDIT_VALIDATOR prêt. Aucun accès global aux missions ajouté.')
 client={'clientId':'auditsphere-web','name':'AuditSphere Web','protocol':'openid-connect','publicClient':False,'secret':env['WEB_CLIENT_SECRET'],'standardFlowEnabled':True,'directAccessGrantsEnabled':False,'serviceAccountsEnabled':False,'redirectUris':[app_origin+'/auth/callback'],'webOrigins':[app_origin],'attributes':{'pkce.code.challenge.method':'S256','post.logout.redirect.uris':app_origin+'/'},'protocolMappers':[{'name':'api-audience','protocol':'openid-connect','protocolMapper':'oidc-audience-mapper','config':{'included.custom.audience':'auditsphere-api','access.token.claim':'true','id.token.claim':'false'}}]}
 existing=call('/admin/realms/auditsphere/clients?clientId=auditsphere-web',token=token)
 if existing:call('/admin/realms/auditsphere/clients/'+existing[0]['id'],client,'PUT',token)

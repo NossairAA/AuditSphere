@@ -35,10 +35,17 @@ class SecurityConfig {
                         org.springframework.http.HttpMethod.PUT,
                         "/missions/*/assignments",
                         "/missions/*/schedule",
-                        "/missions/*/status")
+                        "/missions/*/status",
+                        "/missions/*/validator",
+                        "/missions/*/submission")
                     .hasRole("AUDIT_MANAGER")
-                    .requestMatchers(org.springframework.http.HttpMethod.GET, "/missions/auditors")
+                    .requestMatchers(
+                        org.springframework.http.HttpMethod.GET,
+                        "/missions/auditors",
+                        "/missions/validators")
                     .hasRole("AUDIT_MANAGER")
+                    .requestMatchers(org.springframework.http.HttpMethod.PUT, "/missions/*/review")
+                    .hasRole("AUDIT_VALIDATOR")
                     .anyRequest()
                     .authenticated())
         .oauth2ResourceServer(o -> o.jwt(j -> j.jwtAuthenticationConverter(converter)))

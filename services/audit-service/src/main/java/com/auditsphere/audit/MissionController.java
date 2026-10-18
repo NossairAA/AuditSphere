@@ -55,7 +55,13 @@ class MissionController {
       LocalDate plannedStartDate,
       LocalDate plannedEndDate,
       Instant startedAt,
-      Instant closedAt) {
+      Instant closedAt,
+      String validatorSubject,
+      Instant submittedAt,
+      Instant reviewedAt,
+      String reviewedBy,
+      String reviewDecision,
+      String reviewComment) {
     static MissionView of(Mission m) {
       return new MissionView(
           m.id,
@@ -70,7 +76,13 @@ class MissionController {
           m.plannedStartDate,
           m.plannedEndDate,
           m.startedAt,
-          m.closedAt);
+          m.closedAt,
+          m.validatorSubject,
+          m.submittedAt,
+          m.reviewedAt,
+          m.reviewedBy,
+          m.reviewDecision,
+          m.reviewComment);
     }
   }
 
@@ -111,6 +123,7 @@ class MissionController {
     var result =
         repository.findVisible(
             jwt.getSubject(),
+            isValidator(jwt),
             org.springframework.data.domain.PageRequest.of(
                 page,
                 size,
@@ -131,7 +144,9 @@ class MissionController {
         repository
             .findById(id)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-    if (!m.ownerSubject.equals(jwt.getSubject()) && !m.assigneeSubjects.contains(jwt.getSubject()))
+    if (!m.ownerSubject.equals(jwt.getSubject())
+        && !m.assigneeSubjects.contains(jwt.getSubject())
+        && !(isValidator(jwt) && jwt.getSubject().equals(m.validatorSubject)))
       throw new ResponseStatusException(HttpStatus.NOT_FOUND);
     return MissionView.of(m);
   }
@@ -168,6 +183,8 @@ class MissionController {
                   .findForUpdate(id)
                   .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
           checkOwner(m, jwt, body.version());
+          if (Set.of("PENDING_REVIEW", "APPROVED").contains(m.status))
+            throw new ResponseStatusException(HttpStatus.CONFLICT);
           var added = new HashSet<>(body.assigneeSubjects());
           added.removeAll(m.assigneeSubjects);
           m.assigneeSubjects.clear();
@@ -215,7 +232,8 @@ class MissionController {
                   .findForUpdate(id)
                   .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
           checkOwner(m, jwt, body.version());
-          if (m.status.equals("CLOSED")) throw new ResponseStatusException(HttpStatus.CONFLICT);
+          if (!Set.of("DRAFT", "IN_PROGRESS").contains(m.status))
+            throw new ResponseStatusException(HttpStatus.CONFLICT);
           validateDates(body.plannedStartDate(), body.plannedEndDate(), true);
           m.plannedStartDate = body.plannedStartDate();
           m.plannedEndDate = body.plannedEndDate();
@@ -241,10 +259,137 @@ class MissionController {
               throw new ResponseStatusException(HttpStatus.CONFLICT);
             m.status = "IN_PROGRESS";
             m.startedAt = Instant.now();
-          } else if (m.status.equals("IN_PROGRESS") && body.status().equals("CLOSED")) {
+          } else if (m.status.equals("APPROVED") && body.status().equals("CLOSED")) {
             m.status = "CLOSED";
             m.closedAt = Instant.now();
           } else throw new ResponseStatusException(HttpStatus.CONFLICT);
+          repository.saveAndFlush(m);
+          return MissionView.of(m);
+        });
+  }
+
+  record SubmitReview(@NotNull @PositiveOrZero Long version) {}
+
+  record Review(
+      @NotNull @PositiveOrZero Long version,
+      @NotNull @Pattern(regexp = "APPROVED|REJECTED") String decision,
+      @NotBlank @Size(max = 2000) String comment) {}
+
+  private Mission reviewMission(UUID id) {
+    return repository
+        .findForUpdate(id)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+  }
+
+  private void checkSubmission(Mission m, Jwt jwt, long version) {
+    checkOwner(m, jwt, version);
+    if (!m.status.equals("IN_PROGRESS")
+        || m.validatorSubject == null
+        || m.ownerSubject.equals(m.validatorSubject))
+      throw new ResponseStatusException(HttpStatus.CONFLICT);
+  }
+
+  @PutMapping("/{id}/submission")
+  MissionView submit(
+      @PathVariable UUID id,
+      @Valid @RequestBody SubmitReview body,
+      @AuthenticationPrincipal Jwt jwt) {
+    String validator =
+        tx.execute(
+            state -> {
+              Mission m =
+                  repository
+                      .findById(id)
+                      .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+              checkSubmission(m, jwt, body.version());
+              return m.validatorSubject;
+            });
+    directory.validateValidator(validator);
+    return tx.execute(
+        state -> {
+          Mission m = reviewMission(id);
+          checkSubmission(m, jwt, body.version());
+          m.status = "PENDING_REVIEW";
+          m.submittedAt = Instant.now();
+          m.reviewedAt = null;
+          m.reviewedBy = null;
+          m.reviewDecision = null;
+          m.reviewComment = null;
+          repository.saveAndFlush(m);
+          return MissionView.of(m);
+        });
+  }
+
+  @PutMapping("/{id}/review")
+  MissionView review(
+      @PathVariable UUID id, @Valid @RequestBody Review body, @AuthenticationPrincipal Jwt jwt) {
+    return tx.execute(
+        state -> {
+          Mission m = reviewMission(id);
+          if (!jwt.getSubject().equals(m.validatorSubject)
+              || jwt.getSubject().equals(m.ownerSubject))
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+          if (m.version != body.version() || !m.status.equals("PENDING_REVIEW"))
+            throw new ResponseStatusException(HttpStatus.CONFLICT);
+          m.reviewDecision = body.decision();
+          m.reviewComment = body.comment().strip();
+          m.reviewedBy = jwt.getSubject();
+          m.reviewedAt = Instant.now();
+          m.status = body.decision().equals("APPROVED") ? "APPROVED" : "IN_PROGRESS";
+          repository.saveAndFlush(m);
+          return MissionView.of(m);
+        });
+  }
+
+  private boolean isValidator(Jwt jwt) {
+    Map<String, Object> realm = jwt.getClaim("realm_access");
+    return realm != null
+        && realm.get("roles") instanceof List<?> roles
+        && roles.contains("AUDIT_VALIDATOR");
+  }
+
+  @GetMapping("/validators")
+  List<AuditorDirectory.Person> validators(
+      @RequestParam(defaultValue = "0") int page, @AuthenticationPrincipal Jwt jwt) {
+    if (page < 0 || page > 10000) throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+    return directory.validators(page).stream()
+        .filter(p -> !p.subject().equals(jwt.getSubject()))
+        .toList();
+  }
+
+  record ValidatorAssignment(
+      @NotNull @PositiveOrZero Long version, @Size(min = 1, max = 255) String validatorSubject) {}
+
+  private void checkValidatorAssignment(Mission m, Jwt jwt, ValidatorAssignment body) {
+    checkOwner(m, jwt, body.version());
+    if (!Set.of("DRAFT", "IN_PROGRESS").contains(m.status))
+      throw new ResponseStatusException(HttpStatus.CONFLICT);
+    if (m.ownerSubject.equals(body.validatorSubject()))
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+  }
+
+  @PutMapping("/{id}/validator")
+  MissionView designateValidator(
+      @PathVariable UUID id,
+      @Valid @RequestBody ValidatorAssignment body,
+      @AuthenticationPrincipal Jwt jwt) {
+    tx.executeWithoutResult(
+        state ->
+            checkValidatorAssignment(
+                repository
+                    .findById(id)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND)),
+                jwt,
+                body));
+    if (body.validatorSubject() != null) directory.validateValidator(body.validatorSubject());
+    return tx.execute(
+        state -> {
+          Mission m =
+              repository
+                  .findForUpdate(id)
+                  .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+          checkValidatorAssignment(m, jwt, body);
+          m.validatorSubject = body.validatorSubject();
           repository.saveAndFlush(m);
           return MissionView.of(m);
         });
@@ -256,6 +401,7 @@ class MissionController {
     MissionView mission = tx.execute(status -> get(id, jwt));
     var subjects = new HashSet<>(mission.assigneeSubjects());
     subjects.add(mission.ownerSubject());
+    if (mission.validatorSubject() != null) subjects.add(mission.validatorSubject());
     return directory.participants(subjects);
   }
 }

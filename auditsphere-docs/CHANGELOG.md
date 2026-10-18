@@ -1,5 +1,32 @@
 # Journal des changements
 
+## Approbation obligatoire : 2026-10-18
+
+- Clôture directe refusée, soumission au validateur désigné et commentaire de décision obligatoire.
+- Refus vers En cours, approbation préalable à la clôture et contrôles de version.
+- Dates, affectations et désignation figées pendant la revue et après approbation.
+- Migration V6 conservant les anciennes clôtures, règle SQL et interface actualisée.
+- Temporal et historique complet restent à implémenter.
+- Validation avant publication : 39 tests Java sur tous les services, 12 scénarios navigateur et compilation frontend réussis. Contrôle des secrets réussi, CI distante à vérifier.
+
+
+## Désignation du validateur : 2026-10-18
+
+- Choix, remplacement et retrait d’un validateur actif, réservé au responsable propriétaire avant clôture.
+- Auto-désignation interdite, version contrôlée et validation Keycloak hors transaction.
+- Accès de lecture limité aux missions désignées, migration V5, fiche et annuaire paginé.
+- Contrat API, guide et ADR-0009 ajoutés. Temporal reste hors périmètre.
+- Validation : 28 tests Java ciblés, 12 scénarios navigateur et compilation frontend réussis.
+
+
+## Préparation du rôle validateur : 2026-10-18
+
+- Rôle Keycloak AUDIT_VALIDATOR et compte validator réservés à la préparation du workflow.
+- Compte de démonstration créé uniquement en configuration locale, sans réinitialisation des mots de passe existants.
+- Permissions existantes conservées et testées, aucun droit global ajouté.
+- Validation : 25 tests Java ciblés, jetons Keycloak réels via la gateway et initialisation neuve vérifiés.
+- Temporal, désignation du validateur et approbation restent à implémenter.
+
 ## [0.8.0] : 2026-10-17
 
 - Dates prévues à la création et modification de planification avant clôture.

@@ -1,4 +1,5 @@
 "use client";
+import { roleLabels } from "@/lib/types";
 import Link from "next/link";
 import UnreadCount from "./unread-count";
 import { usePathname } from "next/navigation";
@@ -71,11 +72,7 @@ export default function Workspace({ children }: { children: React.ReactNode }) {
           </span>
           <div>
             <strong>{user?.name || "Connexion…"}</strong>
-            <small>
-              {user?.roles.includes("AUDIT_MANAGER")
-                ? "Responsable d’audit"
-                : "Auditeur"}
-            </small>
+            <small>{roleLabels(user?.roles)}</small>
           </div>
           {user && (
             <form action="/auth/logout" method="post">

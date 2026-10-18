@@ -13,6 +13,7 @@ interface MissionRepository extends JpaRepository<Mission, UUID> {
   java.util.Optional<Mission> findForUpdate(@Param("id") UUID id);
 
   @Query(
-      "select m from Mission m where m.ownerSubject = :subject or :subject member of m.assigneeSubjects")
-  Page<Mission> findVisible(@Param("subject") String subject, Pageable pageable);
+      "select m from Mission m where m.ownerSubject = :subject or :subject member of m.assigneeSubjects or (:validator = true and m.validatorSubject = :subject)")
+  Page<Mission> findVisible(
+      @Param("subject") String subject, @Param("validator") boolean validator, Pageable pageable);
 }

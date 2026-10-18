@@ -108,3 +108,14 @@ Les notifications de retard US-009 restent proposées. Le jalon livré porte uni
 - MISSION-01 : dates prévues, démarrage et clôture manuels réservés au propriétaire responsable, implémentés localement.
 - MISSION-02 : transitions et planification protégées par version, contrats et tests ajoutés.
 - MISSION-03 : validation humaine avec Temporal, annulation et réouverture proposées pour une tranche ultérieure.
+
+## Préparation de la validation humaine
+
+| ID | Livrable | État |
+| --- | --- | --- |
+| VALID-001 | Rôle AUDIT_VALIDATOR, compte local et absence de privilèges globaux | Vérifié localement, 25 tests Java ciblés et jetons réels |
+| VALID-002 | Désignation sur une mission, séparation responsable et validateur, droits limités à la mission | Vérifié localement, 28 tests Java ciblés et 12 scénarios navigateur |
+| VALID-003 | Soumission et décision persistées, clôture après approbation | Vérifié localement, 29 tests Java ciblés et 12 scénarios navigateur |
+| VALID-004 | Temporal, échéances et reprise du worker | Proposé |
+
+Voir le [guide du rôle validateur](../technique/11-role-validateur.md).

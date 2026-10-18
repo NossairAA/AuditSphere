@@ -13,10 +13,20 @@ class Mission {
 
   String assignmentRevision;
 
+  @Column(length = 255)
+  String validatorSubject;
+
   java.time.LocalDate plannedStartDate;
   java.time.LocalDate plannedEndDate;
   Instant startedAt;
   Instant closedAt;
+  Instant submittedAt;
+  Instant reviewedAt;
+  String reviewedBy;
+  String reviewDecision;
+
+  @Column(length = 2000)
+  String reviewComment;
 
   @Column(nullable = false, length = 200)
   String title;

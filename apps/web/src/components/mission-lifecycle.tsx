@@ -13,13 +13,21 @@ export default function MissionLifecycle({
   const canEdit =
     user?.subject === mission.ownerSubject &&
     user.roles.includes("AUDIT_MANAGER");
+  const [comment, setComment] = useState("");
+  const canReview =
+    user?.roles.includes("AUDIT_VALIDATOR") &&
+    user.subject === mission.validatorSubject &&
+    user.subject !== mission.ownerSubject;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [confirmClose, setConfirmClose] = useState(false);
   const [start, setStart] = useState(mission.plannedStartDate || "");
   const [end, setEnd] = useState(mission.plannedEndDate || "");
   const [notice, setNotice] = useState("");
-  async function save(resource: "schedule" | "status", body: object) {
+  async function save(
+    resource: "schedule" | "status" | "submission" | "review",
+    body: object,
+  ) {
     setBusy(true);
     setError("");
     setNotice("");
@@ -80,7 +88,7 @@ export default function MissionLifecycle({
         </>
       )}
       {notice && <p role="status">{notice}</p>}
-      {canEdit && mission.status !== "CLOSED" ? (
+      {canEdit && ["DRAFT", "IN_PROGRESS"].includes(mission.status) ? (
         <form
           className="lifecycle-form"
           onSubmit={(e) => {
@@ -142,7 +150,71 @@ export default function MissionLifecycle({
           </button>
         </div>
       )}
+      {mission.reviewDecision && (
+        <div>
+          <h3>
+            {mission.reviewDecision === "APPROVED"
+              ? "Mission approuvée"
+              : "Corrections demandées"}
+          </h3>
+          <p className="preserve">{mission.reviewComment}</p>
+          {mission.reviewedAt && (
+            <p>Décision du {dateLabel(mission.reviewedAt)}</p>
+          )}
+        </div>
+      )}
+      {mission.status === "PENDING_REVIEW" && (
+        <p>
+          En attente de la décision du validateur. La planification et la
+          désignation sont verrouillées.
+        </p>
+      )}
       {canEdit && mission.status === "IN_PROGRESS" && (
+        <div className="form-actions">
+          <p>
+            {mission.validatorSubject
+              ? "La mission doit être approuvée avant sa clôture."
+              : "Désignez un validateur avant de soumettre la mission."}
+          </p>
+          <button
+            className="button primary"
+            disabled={busy || !mission.validatorSubject}
+            onClick={() => save("submission", {})}
+          >
+            Soumettre à validation
+          </button>
+        </div>
+      )}
+      {canReview && mission.status === "PENDING_REVIEW" && (
+        <div>
+          <label>
+            Commentaire de validation
+            <textarea
+              value={comment}
+              maxLength={2000}
+              disabled={busy}
+              onChange={(e) => setComment(e.target.value)}
+            />
+          </label>
+          <div className="form-actions">
+            <button
+              className="button primary"
+              disabled={busy || !comment.trim()}
+              onClick={() => save("review", { decision: "APPROVED", comment })}
+            >
+              Approuver la mission
+            </button>
+            <button
+              className="button secondary"
+              disabled={busy || !comment.trim()}
+              onClick={() => save("review", { decision: "REJECTED", comment })}
+            >
+              Demander des corrections
+            </button>
+          </div>
+        </div>
+      )}
+      {canEdit && mission.status === "APPROVED" && (
         <div className="form-actions">
           {confirmClose ? (
             <>

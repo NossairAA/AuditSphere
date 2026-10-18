@@ -1,6 +1,7 @@
 "use client";
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
+import MissionValidator from "@/components/mission-validator";
 import MissionLifecycle from "@/components/mission-lifecycle";
 import { Participants } from "@/components/assignments";
 import {
@@ -92,7 +93,9 @@ export default function Detail({
               <h3>
                 {mission.ownerSubject === user?.subject
                   ? "Responsable de la mission"
-                  : "Auditeur affecté"}
+                  : mission.validatorSubject === user?.subject
+                    ? "Validateur désigné"
+                    : "Auditeur affecté"}
               </h3>
               <p>
                 {mission.ownerSubject === user?.subject
@@ -106,6 +109,11 @@ export default function Detail({
           </div>
           <MissionLifecycle
             key={mission.version}
+            mission={mission}
+            onUpdated={setMission}
+          />
+          <MissionValidator
+            key={"validator-" + mission.version}
             mission={mission}
             onUpdated={setMission}
           />

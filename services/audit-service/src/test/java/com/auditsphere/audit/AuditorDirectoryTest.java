@@ -49,7 +49,9 @@ class AuditorDirectoryTest {
           if (!path.endsWith("/composite")) userCalls.incrementAndGet();
           String body =
               path.endsWith("/composite")
-                  ? "[{\"name\":\"AUDITOR\"}]"
+                  ? (path.contains("reviewer")
+                      ? "[{\"name\":\"AUDIT_VALIDATOR\"}]"
+                      : "[{\"name\":\"AUDITOR\"}]")
                   : "{\"id\":\"active\",\"firstName\":\"Alice\",\"enabled\":"
                       + (!path.contains("disabled"))
                       + "}";
@@ -109,5 +111,16 @@ class AuditorDirectoryTest {
     assertEquals(1, tokenCalls.get());
     status.set(503);
     assertThrows(ResponseStatusException.class, () -> directory.validate(Set.of("active")));
+  }
+
+  @Test
+  void validatorMustBeEnabledAndHaveRequiredRole() {
+    directory.validateValidator("reviewer");
+    for (String id : new String[] {"active", "disabled-reviewer", "unknown"})
+      assertEquals(
+          400,
+          assertThrows(ResponseStatusException.class, () -> directory.validateValidator(id))
+              .getStatusCode()
+              .value());
   }
 }

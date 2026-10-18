@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: AuditSphere Mission API
-  version: 0.5.0
+  version: 0.7.0
 servers:
   - url: http://localhost:8080
 security:
@@ -9,7 +9,7 @@ security:
 paths:
   /missions:
     get:
-      summary: Lister les missions créées ou affectées à l’utilisateur courant
+      summary: Lister les missions créées, affectées ou désignées pour le validateur courant
       parameters:
         - name: page
           in: query
@@ -125,7 +125,7 @@ paths:
           schema: {type: string, format: uuid}
       responses:
         '200':
-          description: Responsable et auditeurs, sans adresse courriel
+          description: Responsable, auditeurs et validateur désigné, sans adresse courriel
           content:
             application/json:
               schema:
@@ -137,7 +137,7 @@ paths:
 
   /missions/{id}/schedule:
     put:
-      summary: Modifier les dates prévues avant clôture, uniquement par le responsable propriétaire
+      summary: Modifier les dates prévues en brouillon ou en cours, uniquement par le responsable propriétaire
       parameters:
         - name: id
           in: path
@@ -161,7 +161,7 @@ paths:
         '409': {description: Version périmée ou opération interdite dans cet état}
   /missions/{id}/status:
     put:
-      summary: Démarrer une mission planifiée ou clôturer une mission en cours
+      summary: Démarrer une mission planifiée ou clôturer une mission approuvée
       parameters:
         - name: id
           in: path
@@ -184,6 +184,117 @@ paths:
         '404': {description: Mission absente ou utilisateur non propriétaire}
         '409': {description: Version périmée ou opération interdite dans cet état}
 
+  /missions/validators:
+    get:
+      summary: Lister les validateurs actifs, sans le demandeur (AUDIT_MANAGER)
+      parameters:
+        - name: page
+          in: query
+          schema: {type: integer, minimum: 0, maximum: 10000, default: 0}
+      responses:
+        '200':
+          description: Page de 50 comptes au maximum, filtrée après pagination
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/Person'}
+        '400': {description: Pagination invalide}
+        '401': {description: Authentification requise}
+        '403': {description: Responsable requis}
+        '503': {description: Annuaire indisponible}
+  /missions/{id}/validator:
+    put:
+      summary: Désigner ou retirer le validateur, responsable propriétaire uniquement, en brouillon ou en cours
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version]
+              properties:
+                version: {type: integer, format: int64, minimum: 0}
+                validatorSubject: {type: string, nullable: true, minLength: 1, maxLength: 255, description: Sujet Keycloak distinct du propriétaire, null pour retirer}
+      responses:
+        '200':
+          description: Mission actualisée
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Mission'}
+        '400': {description: Compte inactif, rôle absent, auto-désignation ou formulaire invalide}
+        '401': {description: Authentification requise}
+        '403': {description: Responsable requis}
+        '404': {description: Mission absente ou non propriétaire}
+        '409': {description: Version périmée ou mission clôturée}
+        '503': {description: Annuaire indisponible}
+  /missions/{id}/submission:
+    put:
+      summary: Soumettre une mission en cours au validateur désigné
+      description: AUDIT_MANAGER propriétaire. Contrôle de version obligatoire.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version]
+              properties:
+                version: {type: integer, format: int64, minimum: 0}
+      responses:
+        '200':
+          description: Mission actualisée
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Mission'}
+        '400': {description: Formulaire invalide ou validateur inéligible}
+        '401': {description: Authentification requise}
+        '403': {description: Rôle requis absent}
+        '404': {description: Mission absente ou acteur non autorisé}
+        '409': {description: Version périmée ou état incompatible}
+        '503': {description: Annuaire indisponible à la soumission}
+  /missions/{id}/review:
+    put:
+      summary: Approuver ou demander des corrections
+      description: AUDIT_VALIDATOR désigné, distinct du responsable. Contrôle de version obligatoire.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version, decision, comment]
+              properties:
+                version: {type: integer, format: int64, minimum: 0}
+                decision: {type: string, enum: [APPROVED, REJECTED]}
+                comment: {type: string, minLength: 1, maxLength: 2000}
+      responses:
+        '200':
+          description: Mission actualisée
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Mission'}
+        '400': {description: Formulaire invalide ou validateur inéligible}
+        '401': {description: Authentification requise}
+        '403': {description: Rôle requis absent}
+        '404': {description: Mission absente ou acteur non autorisé}
+        '409': {description: Version périmée ou état incompatible}
+        '503': {description: Annuaire indisponible à la soumission}
 components:
   securitySchemes:
     bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
@@ -239,8 +350,14 @@ components:
           properties:
             id: {type: string, format: uuid}
             version: {type: integer, format: int64, minimum: 0}
-            status: {type: string, enum: [DRAFT, IN_PROGRESS, CLOSED]}
+            status: {type: string, enum: [DRAFT, IN_PROGRESS, PENDING_REVIEW, APPROVED, CLOSED]}
             ownerSubject: {type: string}
+            validatorSubject: {type: string, nullable: true}
+            submittedAt: {type: string, format: date-time, nullable: true}
+            reviewedAt: {type: string, format: date-time, nullable: true}
+            reviewedBy: {type: string, nullable: true}
+            reviewDecision: {type: string, enum: [APPROVED, REJECTED], nullable: true}
+            reviewComment: {type: string, nullable: true}
             createdAt: {type: string, format: date-time}
             startedAt: {type: string, format: date-time, nullable: true}
             closedAt: {type: string, format: date-time, nullable: true}

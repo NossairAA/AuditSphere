@@ -541,15 +541,18 @@ class MissionIntegrationTest {
     lifecycle(id, "status", "{\"version\":2,\"status\":\"IN_PROGRESS\"}")
         .andExpect(status().isConflict());
     lifecycle(id, "status", "{\"version\":2,\"status\":\"CLOSED\"}")
+        .andExpect(status().isConflict());
+    approveMission(id, 2);
+    lifecycle(id, "status", "{\"version\":5,\"status\":\"CLOSED\"}")
         .andExpect(status().isOk())
-        .andExpect(jsonPath("version").value(3))
+        .andExpect(jsonPath("version").value(6))
         .andExpect(jsonPath("closedAt").isNotEmpty());
     lifecycle(
             id,
             "schedule",
-            "{\"version\":3,\"plannedStartDate\":\"2026-11-01\",\"plannedEndDate\":\"2026-11-12\"}")
+            "{\"version\":6,\"plannedStartDate\":\"2026-11-01\",\"plannedEndDate\":\"2026-11-12\"}")
         .andExpect(status().isConflict());
-    lifecycle(id, "status", "{\"version\":3,\"status\":\"IN_PROGRESS\"}")
+    lifecycle(id, "status", "{\"version\":6,\"status\":\"IN_PROGRESS\"}")
         .andExpect(status().isConflict());
     mvc.perform(get("/missions/" + id).with(jwt().jwt(j -> j.subject("assigned"))))
         .andExpect(status().isOk())
@@ -624,5 +627,227 @@ class MissionIntegrationTest {
                             ",\"plannedStartDate\":\"2026-11-10\",\"plannedEndDate\":\"2026-11-10\"}")))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("plannedStartDate").value("2026-11-10"));
+  }
+
+  @Test
+  void validatorRoleDoesNotGrantMissionManagementOrGlobalVisibility() throws Exception {
+    String id = create();
+    var validator =
+        jwt()
+            .jwt(j -> j.subject("validator"))
+            .authorities(new SimpleGrantedAuthority("ROLE_AUDIT_VALIDATOR"));
+    mvc.perform(get("/missions").with(validator))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.total").value(0));
+    for (String path : new String[] {"/missions/" + id, "/missions/" + id + "/participants"})
+      mvc.perform(get(path).with(validator)).andExpect(status().isNotFound());
+    mvc.perform(get("/missions/auditors").with(validator)).andExpect(status().isForbidden());
+    mvc.perform(post("/missions").with(validator).contentType("application/json").content(payload))
+        .andExpect(status().isForbidden());
+    for (String resource : new String[] {"assignments", "schedule", "status"})
+      mvc.perform(
+              put("/missions/" + id + "/" + resource)
+                  .with(validator)
+                  .contentType("application/json")
+                  .content("{}"))
+          .andExpect(status().isForbidden());
+    // A former owner retaining only the validator role cannot mutate their mission either.
+    mvc.perform(
+            put("/missions/" + id + "/status")
+                .with(
+                    jwt()
+                        .jwt(j -> j.subject("owner"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_AUDIT_VALIDATOR")))
+                .contentType("application/json")
+                .content("{\"version\":0,\"status\":\"CLOSED\"}"))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void validatorDesignationIsVersionedScopedAndRevocable() throws Exception {
+    String id = create();
+    org.mockito.Mockito.doAnswer(
+            invocation -> {
+              org.junit.jupiter.api.Assertions.assertFalse(
+                  org.springframework.transaction.support.TransactionSynchronizationManager
+                      .isActualTransactionActive());
+              if (!"designated-reviewer".equals(invocation.getArgument(0)))
+                throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST);
+              return null;
+            })
+        .when(directory)
+        .validateValidator(org.mockito.ArgumentMatchers.anyString());
+    var reviewer =
+        jwt()
+            .jwt(
+                j ->
+                    j.subject("designated-reviewer")
+                        .claim(
+                            "realm_access",
+                            java.util.Map.of("roles", java.util.List.of("AUDIT_VALIDATOR"))))
+            .authorities(new SimpleGrantedAuthority("ROLE_AUDIT_VALIDATOR"));
+    mvc.perform(get("/missions/" + id).with(reviewer)).andExpect(status().isNotFound());
+    lifecycle(id, "validator", "{\"version\":0,\"validatorSubject\":\"designated-reviewer\"}")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.version").value(1));
+    mvc.perform(get("/missions/" + id).with(reviewer)).andExpect(status().isOk());
+    mvc.perform(get("/missions").with(reviewer)).andExpect(jsonPath("$.items[0].id").value(id));
+    mvc.perform(get("/missions/" + id).with(jwt().jwt(j -> j.subject("designated-reviewer"))))
+        .andExpect(status().isNotFound());
+    lifecycle(id, "validator", "{\"version\":0,\"validatorSubject\":null}")
+        .andExpect(status().isConflict());
+    lifecycle(id, "validator", "{\"version\":1,\"validatorSubject\":\"unknown\"}")
+        .andExpect(status().isBadRequest());
+    mvc.perform(
+            put("/missions/" + id + "/validator")
+                .with(reviewer)
+                .contentType("application/json")
+                .content("{\"version\":1,\"validatorSubject\":null}"))
+        .andExpect(status().isForbidden());
+    lifecycle(id, "validator", "{\"version\":1,\"validatorSubject\":null}")
+        .andExpect(status().isOk());
+    mvc.perform(get("/missions/" + id).with(reviewer)).andExpect(status().isNotFound());
+    mvc.perform(get("/missions").with(reviewer)).andExpect(jsonPath("$.total").value(0));
+  }
+
+  @Test
+  void designationRejectsSelfEvenWithBothRolesAndOtherOwners() throws Exception {
+    String id = create();
+    mvc.perform(
+            put("/missions/" + id + "/validator")
+                .with(
+                    jwt()
+                        .jwt(j -> j.subject("owner"))
+                        .authorities(
+                            new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER"),
+                            new SimpleGrantedAuthority("ROLE_AUDIT_VALIDATOR")))
+                .contentType("application/json")
+                .content("{\"version\":0,\"validatorSubject\":\"owner\"}"))
+        .andExpect(status().isBadRequest());
+    mvc.perform(
+            put("/missions/" + id + "/validator")
+                .with(
+                    jwt()
+                        .jwt(j -> j.subject("other"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER")))
+                .contentType("application/json")
+                .content("{\"version\":0,\"validatorSubject\":\"reviewer\"}"))
+        .andExpect(status().isNotFound());
+    org.mockito.Mockito.verify(directory, org.mockito.Mockito.never())
+        .validateValidator(org.mockito.ArgumentMatchers.anyString());
+    lifecycle(
+            id,
+            "schedule",
+            "{\"version\":0,\"plannedStartDate\":\"2026-11-01\",\"plannedEndDate\":\"2026-11-02\"}")
+        .andExpect(status().isOk());
+    lifecycle(id, "status", "{\"version\":1,\"status\":\"IN_PROGRESS\"}")
+        .andExpect(status().isOk());
+    approveMission(id, 2);
+    lifecycle(id, "status", "{\"version\":5,\"status\":\"CLOSED\"}").andExpect(status().isOk());
+    lifecycle(id, "validator", "{\"version\":6,\"validatorSubject\":\"reviewer\"}")
+        .andExpect(status().isConflict());
+  }
+
+  void approveMission(String id, long version) throws Exception {
+    lifecycle(id, "validator", "{\"version\":" + version + ",\"validatorSubject\":\"reviewer\"}")
+        .andExpect(status().isOk());
+    lifecycle(id, "submission", "{\"version\":" + (version + 1) + "}").andExpect(status().isOk());
+    decide(id, version + 2, "reviewer", "APPROVED").andExpect(status().isOk());
+  }
+
+  org.springframework.test.web.servlet.ResultActions decide(
+      String id, long version, String subject, String decision) throws Exception {
+    return mvc.perform(
+        put("/missions/" + id + "/review")
+            .with(
+                jwt()
+                    .jwt(j -> j.subject(subject))
+                    .authorities(
+                        new SimpleGrantedAuthority("ROLE_AUDIT_VALIDATOR"),
+                        new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER")))
+            .contentType("application/json")
+            .content(
+                mapper.writeValueAsString(
+                    java.util.Map.of(
+                        "version", version, "decision", decision, "comment", "Revue effectuée"))));
+  }
+
+  @Test
+  void reviewRequiresDesignatedValidatorAndFreezesReviewedMission() throws Exception {
+    String id = create();
+    lifecycle(
+            id,
+            "schedule",
+            "{\"version\":0,\"plannedStartDate\":\"2026-11-01\",\"plannedEndDate\":\"2026-11-02\"}")
+        .andExpect(status().isOk());
+    lifecycle(id, "status", "{\"version\":1,\"status\":\"IN_PROGRESS\"}")
+        .andExpect(status().isOk());
+    org.junit.jupiter.api.Assertions.assertThrows(
+        org.springframework.dao.DataIntegrityViolationException.class,
+        () ->
+            jdbc.update(
+                "UPDATE missions SET status='CLOSED', closed_at=now() WHERE id=?",
+                java.util.UUID.fromString(id)));
+    lifecycle(id, "submission", "{\"version\":2}").andExpect(status().isConflict());
+    lifecycle(id, "validator", "{\"version\":2,\"validatorSubject\":\"reviewer\"}")
+        .andExpect(status().isOk());
+    org.mockito.Mockito.doAnswer(
+            invocation -> {
+              org.junit.jupiter.api.Assertions.assertFalse(
+                  org.springframework.transaction.support.TransactionSynchronizationManager
+                      .isActualTransactionActive());
+              return null;
+            })
+        .when(directory)
+        .validateValidator("reviewer");
+    lifecycle(id, "submission", "{\"version\":3}")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("status").value("PENDING_REVIEW"));
+    decide(id, 4, "owner", "APPROVED").andExpect(status().isNotFound());
+    decide(id, 4, "other-validator", "APPROVED").andExpect(status().isNotFound());
+    mvc.perform(put("/missions/" + id + "/review").contentType("application/json").content("{}"))
+        .andExpect(status().isUnauthorized());
+    mvc.perform(
+            put("/missions/" + id + "/review")
+                .with(jwt().jwt(j -> j.subject("reviewer")))
+                .contentType("application/json")
+                .content("{}"))
+        .andExpect(status().isForbidden());
+    decide(id, 3, "reviewer", "APPROVED").andExpect(status().isConflict());
+    lifecycle(id, "status", "{\"version\":4,\"status\":\"CLOSED\"}")
+        .andExpect(status().isConflict());
+    lifecycle(id, "validator", "{\"version\":4,\"validatorSubject\":null}")
+        .andExpect(status().isConflict());
+    lifecycle(id, "assignments", "{\"version\":4,\"assigneeSubjects\":[]}")
+        .andExpect(status().isConflict());
+    lifecycle(
+            id,
+            "schedule",
+            "{\"version\":4,\"plannedStartDate\":\"2026-11-01\",\"plannedEndDate\":\"2026-11-03\"}")
+        .andExpect(status().isConflict());
+    mvc.perform(
+            put("/missions/" + id + "/review")
+                .with(
+                    jwt()
+                        .jwt(j -> j.subject("reviewer"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_AUDIT_VALIDATOR")))
+                .contentType("application/json")
+                .content("{\"version\":4,\"decision\":\"APPROVED\",\"comment\":\" \"}"))
+        .andExpect(status().isBadRequest());
+    decide(id, 4, "reviewer", "REJECTED")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("status").value("IN_PROGRESS"))
+        .andExpect(jsonPath("reviewComment").value("Revue effectuée"));
+    lifecycle(id, "status", "{\"version\":5,\"status\":\"CLOSED\"}")
+        .andExpect(status().isConflict());
+    lifecycle(id, "submission", "{\"version\":5}").andExpect(status().isOk());
+    decide(id, 6, "reviewer", "APPROVED")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("reviewedBy").value("reviewer"));
+    decide(id, 7, "reviewer", "REJECTED").andExpect(status().isConflict());
+    lifecycle(id, "validator", "{\"version\":7,\"validatorSubject\":null}")
+        .andExpect(status().isConflict());
+    lifecycle(id, "status", "{\"version\":7,\"status\":\"CLOSED\"}").andExpect(status().isOk());
   }
 }

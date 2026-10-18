@@ -82,12 +82,24 @@ class AuditorDirectory {
     }
   }
 
+  List<Person> validators(int page) {
+    return people(page, "AUDIT_VALIDATOR");
+  }
+
   List<Person> auditors(int page) {
+    return people(page, "AUDITOR");
+  }
+
+  private List<Person> people(int page, String role) {
     try {
       var users =
           Objects.requireNonNull(
               get(
-                  "/admin/realms/auditsphere/roles/AUDITOR/users?first=" + (page * 50) + "&max=50",
+                  "/admin/realms/auditsphere/roles/"
+                      + role
+                      + "/users?first="
+                      + (page * 50)
+                      + "&max=50",
                   Map[].class,
                   token()));
       // Keep page boundaries stable even if disabled accounts occur in a page.
@@ -106,7 +118,15 @@ class AuditorDirectory {
     return "/admin/realms/auditsphere/users/" + subject;
   }
 
+  void validateValidator(String subject) {
+    validateRole(Set.of(subject), "AUDIT_VALIDATOR");
+  }
+
   void validate(Set<String> subjects) {
+    validateRole(subjects, "AUDITOR");
+  }
+
+  private void validateRole(Set<String> subjects, String role) {
     if (subjects.isEmpty()) return;
     parallel(
         subjects,
@@ -117,8 +137,7 @@ class AuditorDirectory {
             if (user == null || !Boolean.TRUE.equals(user.get("enabled")))
               throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
             var roles = get(path + "/role-mappings/realm/composite", Map[].class, token);
-            if (roles == null
-                || Arrays.stream(roles).noneMatch(r -> "AUDITOR".equals(r.get("name"))))
+            if (roles == null || Arrays.stream(roles).noneMatch(r -> role.equals(r.get("name"))))
               throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
             return subject;
           } catch (org.springframework.web.client.HttpClientErrorException.NotFound e) {

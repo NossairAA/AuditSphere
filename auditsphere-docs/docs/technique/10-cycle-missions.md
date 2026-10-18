@@ -1,5 +1,7 @@
 # Dates et cycle de vie des missions
 
+**Évolution :** la clôture directe décrite dans cette tranche est remplacée par [l’approbation obligatoire](13-approbation-missions.md). Les règles de gel pendant la revue et après approbation prévalent également.
+
 **Date :** 2026-10-17
 **Statut :** implémenté localement
 

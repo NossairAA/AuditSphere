@@ -237,7 +237,8 @@ export function Participants({
             <p>Aucun auditeur affecté.</p>
           )}
           {user?.subject === mission.ownerSubject &&
-            user.roles.includes("AUDIT_MANAGER") && (
+            user.roles.includes("AUDIT_MANAGER") &&
+            !["PENDING_REVIEW", "APPROVED"].includes(mission.status) && (
               <button
                 className="button secondary"
                 onClick={() => {

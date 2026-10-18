@@ -20,7 +20,7 @@ for attempt in range(120):
  time.sleep(2)
 else: raise SystemExit('Services indisponibles après 4 minutes')
 tokens={}
-for name in ['manager','auditor','outsider']:
+for name in ['manager','auditor','outsider','validator']:
  status,body=request('http://localhost:8180/realms/auditsphere/protocol/openid-connect/token',data={'client_id':'auditsphere-demo','grant_type':'password','username':name,'password':env[name.upper()+'_PASSWORD']},form=True)
  assert status==200, f'Login {name}: {status}'
  tokens[name]=body['access_token']
@@ -28,8 +28,10 @@ payload={'title':'Audit achats démonstration','description':'Données synthéti
 status,mission=request(base+'/missions',tokens['manager'],payload)
 assert status==201, f'Création: {status}'
 url=base+'/missions/'+mission['id']
-for name,expected in [('manager',200),('auditor',200),('outsider',404)]:
+for name,expected in [('manager',200),('auditor',200),('outsider',404),('validator',404)]:
  status,_=request(url,tokens[name]);assert status==expected,(name,status);print(name+': '+str(status))
+assert request(base+'/missions',tokens['validator'],payload)[0]==403
+assert request(base+'/missions/auditors',tokens['validator'])[0]==403
 assert request(url)[0]==401
 assert request(url,'invalid-token')[0]==401
 assert request(base+'/missions',tokens['auditor'],payload)[0]==403

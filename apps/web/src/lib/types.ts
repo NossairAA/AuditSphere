@@ -4,12 +4,18 @@ export type Mission = {
   title: string;
   description: string;
   perimeter: string;
-  status: "DRAFT" | "IN_PROGRESS" | "CLOSED";
+  status: "DRAFT" | "IN_PROGRESS" | "PENDING_REVIEW" | "APPROVED" | "CLOSED";
   plannedStartDate: string | null;
   plannedEndDate: string | null;
   startedAt: string | null;
   closedAt: string | null;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  reviewedBy: string | null;
+  reviewDecision: "APPROVED" | "REJECTED" | null;
+  reviewComment: string | null;
   ownerSubject: string;
+  validatorSubject: string | null;
   assigneeSubjects: string[];
   createdAt: string;
 };
@@ -27,6 +33,22 @@ export const dateLabel = (date: string) =>
   }).format(new Date(date));
 
 export const statusLabel = (status: Mission["status"]) =>
-  ({ DRAFT: "Brouillon", IN_PROGRESS: "En cours", CLOSED: "Clôturée" })[status];
+  ({
+    DRAFT: "Brouillon",
+    IN_PROGRESS: "En cours",
+    PENDING_REVIEW: "En attente de validation",
+    APPROVED: "Approuvée",
+    CLOSED: "Clôturée",
+  })[status];
 export const plannedDateLabel = (date: string | null) =>
   date ? date.split("-").reverse().join("/") : "Non définie";
+
+export const roleLabels = (roles: string[] = []) =>
+  [
+    ["AUDIT_MANAGER", "Responsable"],
+    ["AUDITOR", "Auditeur"],
+    ["AUDIT_VALIDATOR", "Validateur"],
+  ]
+    .filter(([role]) => roles.includes(role))
+    .map(([, label]) => label)
+    .join(" · ") || "Utilisateur";
