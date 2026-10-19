@@ -1,5 +1,7 @@
 # Requires provisioned HTTPS origins and a valid certificate, never started by start-local.sh.
 services:
+  temporal:
+    ports: !reset []
   notification-db:
     ports: !reset []
   notification-service:

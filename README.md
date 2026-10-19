@@ -115,3 +115,7 @@ Vérification : curl -I http://localhost:3000 doit recevoir une réponse HTTP. U
 Le responsable peut maintenant désigner un validateur distinct depuis la fiche mission. Voir le [guide de désignation](auditsphere-docs/docs/technique/12-designation-validateur.md).
 
 La clôture exige désormais une approbation du validateur désigné. Voir le [parcours de validation](auditsphere-docs/docs/technique/13-approbation-missions.md). Les missions déjà clôturées conservent leur état.
+
+## Temporal en local
+
+La soumission démarre maintenant un workflow durable et la décision du validateur lui est transmise via une outbox PostgreSQL. Le worker est un processus séparé. Consulter [Temporal](http://localhost:8233) et le [guide de reprise](auditsphere-docs/docs/technique/14-temporal-revue.md). PostgreSQL reste la source de vérité métier. Temporal fonctionne ici en mode développement, sans échéance ni relance.

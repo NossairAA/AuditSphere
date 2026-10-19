@@ -1,5 +1,32 @@
 name: auditsphere
 services:
+  temporal-storage:
+    image: temporalio/temporal:1.9.1
+    user: "0:0"
+    entrypoint: [sh, -ec]
+    command: ["chown 1000:1000 /data && chmod 700 /data"]
+    volumes: [temporal-data:/data]
+    restart: "no"
+  temporal:
+    image: temporalio/temporal:1.9.1
+    command: [server, start-dev, --ip, 0.0.0.0, --db-filename, /data/temporal.db]
+    ports: ["127.0.0.1:8233:8233"]
+    volumes: [temporal-data:/data]
+    depends_on:
+      temporal-storage: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD, temporal, operator, cluster, health, --address, localhost:7233]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+  workflow-worker:
+    image: auditsphere-audit-service:local
+    environment:
+      WORKFLOW_WORKER_ONLY: "true"
+      TEMPORAL_TARGET: temporal:7233
+    depends_on:
+      temporal: {condition: service_healthy}
+    restart: unless-stopped
   kafka-storage:
     image: apache/kafka:4.0.2
     user: "0:0"
@@ -132,6 +159,7 @@ services:
       keycloak-db: {condition: service_healthy}
       keycloak-import: {condition: service_completed_successfully}
   audit-service:
+    image: auditsphere-audit-service:local
     build:
       context: .
       args: {SERVICE: audit-service}
@@ -141,6 +169,8 @@ services:
       DB_PASSWORD: ${AUDIT_RUNTIME_PASSWORD:-not-provisioned}
       SPRING_FLYWAY_ENABLED: "false"
       OUTBOX_ENABLED: "true"
+      TEMPORAL_ENABLED: "true"
+      TEMPORAL_TARGET: temporal:7233
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       DIRECTORY_URL: http://keycloak:8080
       DIRECTORY_CLIENT_SECRET: ${DIRECTORY_CLIENT_SECRET:?Run setup-web.py --configure-only}
@@ -161,6 +191,7 @@ services:
       OIDC_JWKS: http://keycloak:8080/realms/auditsphere/protocol/openid-connect/certs
     depends_on: [audit-service, notification-service]
 volumes:
+  temporal-data:
   kafka-data:
   notification-data:
   realm-import:

@@ -1,5 +1,15 @@
 # Journal des changements
 
+## Temporal et revue durable : 2026-10-18
+
+- Workflow MissionReviewV1 démarré par cycle de soumission, terminé par le signal de décision.
+- Outbox transactionnelle, envoi ordonné, reprise sur bail et traitement des doublons.
+- Worker séparé sans secrets SQL ou Keycloak, serveur Temporal local persistant et interface sur localhost:8233.
+- Migration V7 reprenant les revues en attente, test de pannes ajouté à la CI et documentation mise à jour.
+- PostgreSQL reste la source de vérité, échéances et notifications de revue restent hors périmètre.
+- Validation avant publication : 42 tests Java sur tous les services, 12 scénarios navigateur et reprise réelle après pannes réussis.
+
+
 ## Approbation obligatoire : 2026-10-18
 
 - Clôture directe refusée, soumission au validateur désigné et commentaire de décision obligatoire.

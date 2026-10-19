@@ -23,3 +23,5 @@ Utiliser le modèle dans [`docs/templates/adr.md`](../templates/adr.md).
 - [ADR-0009 : Désignation du validateur](ADR-0009-designation-validateur.md)
 
 - [ADR-0010 : Approbation obligatoire avant clôture](ADR-0010-approbation-avant-cloture.md)
+
+- [ADR-0011 : Première intégration Temporal](ADR-0011-temporal-revue-durable.md)

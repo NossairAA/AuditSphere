@@ -67,4 +67,4 @@ Dates prévues et transitions Brouillon → En cours → Clôturée livrées loc
 
 ## Préparation de Temporal
 
-Le rôle AUDIT_VALIDATOR et son compte de démonstration sont préparés et vérifiés localement. La désignation du validateur et ses droits sur une mission sont implémentés localement. La soumission et la décision sont maintenant implémentées dans PostgreSQL, avec approbation obligatoire avant clôture. Temporal et les échéances restent à ajouter.
+Le rôle AUDIT_VALIDATOR et son compte de démonstration sont préparés et vérifiés localement. La désignation du validateur et ses droits sur une mission sont implémentés localement. La soumission et la décision sont maintenant implémentées dans PostgreSQL, avec approbation obligatoire avant clôture. Temporal suit désormais les cycles de validation avec un worker séparé et une outbox transactionnelle. Les échéances et relances restent à ajouter.

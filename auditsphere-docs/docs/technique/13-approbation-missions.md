@@ -1,5 +1,7 @@
 # Approbation avant clôture
 
+**Évolution :** la livraison durable à Temporal est désormais décrite dans le [guide suivant](14-temporal-revue.md). Les règles d’approbation ci-dessous restent applicables.
+
 **Date :** 2026-10-18
 **Statut :** implémenté et vérifié localement
 

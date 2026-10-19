@@ -47,6 +47,8 @@ class MissionIntegrationTest {
         .validate(org.mockito.ArgumentMatchers.anySet());
   }
 
+  @org.springframework.test.context.bean.override.mockito.MockitoSpyBean ReviewOutbox reviewOutbox;
+
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper mapper;
   static final com.nimbusds.jose.jwk.RSAKey signingKey;
@@ -849,5 +851,98 @@ class MissionIntegrationTest {
     lifecycle(id, "validator", "{\"version\":7,\"validatorSubject\":null}")
         .andExpect(status().isConflict());
     lifecycle(id, "status", "{\"version\":7,\"status\":\"CLOSED\"}").andExpect(status().isOk());
+  }
+
+  @Test
+  void reviewOutboxPublishesInOrderAndRetriesCompletedDecision() throws Exception {
+    jdbc.update("DELETE FROM review_workflow_outbox");
+    String id = create();
+    lifecycle(
+            id,
+            "schedule",
+            "{\"version\":0,\"plannedStartDate\":\"2026-11-01\",\"plannedEndDate\":\"2026-11-02\"}")
+        .andExpect(status().isOk());
+    lifecycle(id, "status", "{\"version\":1,\"status\":\"IN_PROGRESS\"}")
+        .andExpect(status().isOk());
+    approveMission(id, 2);
+    java.util.UUID cycle =
+        jdbc.queryForObject(
+            "SELECT review_cycle_id FROM missions WHERE id=?",
+            java.util.UUID.class,
+            java.util.UUID.fromString(id));
+    org.junit.jupiter.api.Assertions.assertEquals(
+        2,
+        jdbc.queryForObject(
+            "SELECT count(*) FROM review_workflow_outbox WHERE cycle_id=?", Integer.class, cycle));
+    try (var env = io.temporal.testing.TestWorkflowEnvironment.newInstance()) {
+      env.newWorker(com.auditsphere.audit.workflow.ReviewWorkflow.QUEUE)
+          .registerWorkflowImplementationTypes(
+              com.auditsphere.audit.workflow.ReviewWorkflowImpl.class);
+      env.start();
+      var publisher = new ReviewWorkflowPublisher(jdbc, env.getWorkflowClient());
+      publisher.publishNext();
+      org.junit.jupiter.api.Assertions.assertEquals(
+          "START",
+          jdbc.queryForObject(
+              "SELECT event_type FROM review_workflow_outbox WHERE published_at IS NOT NULL",
+              String.class));
+      publisher.publishNext();
+      var stub = env.getWorkflowClient().newUntypedWorkflowStub("mission-review-" + cycle);
+      org.junit.jupiter.api.Assertions.assertEquals(
+          "APPROVED", stub.getResult(5, java.util.concurrent.TimeUnit.SECONDS, String.class));
+      // Simulate losing both delivery acknowledgements after the workflow completed.
+      jdbc.update("UPDATE review_workflow_outbox SET published_at=NULL,available_at=now()");
+      publisher.publishNext();
+      publisher.publishNext();
+      org.junit.jupiter.api.Assertions.assertEquals(
+          0,
+          jdbc.queryForObject(
+              "SELECT count(*) FROM review_workflow_outbox WHERE published_at IS NULL",
+              Integer.class));
+    }
+    // Failed re-submission must not create another outbox event.
+    lifecycle(id, "submission", "{\"version\":5}").andExpect(status().isConflict());
+    org.junit.jupiter.api.Assertions.assertEquals(
+        2,
+        jdbc.queryForObject(
+            "SELECT count(*) FROM review_workflow_outbox WHERE cycle_id=?", Integer.class, cycle));
+  }
+
+  @Test
+  void failedOutboxInsertRollsBackSubmission() throws Exception {
+    String id = create();
+    lifecycle(
+            id,
+            "schedule",
+            "{\"version\":0,\"plannedStartDate\":\"2026-11-01\",\"plannedEndDate\":\"2026-11-02\"}")
+        .andExpect(status().isOk());
+    lifecycle(id, "status", "{\"version\":1,\"status\":\"IN_PROGRESS\"}")
+        .andExpect(status().isOk());
+    lifecycle(id, "validator", "{\"version\":2,\"validatorSubject\":\"reviewer\"}")
+        .andExpect(status().isOk());
+    ReviewOutbox target =
+        org.springframework.test.util.AopTestUtils.getUltimateTargetObject(reviewOutbox);
+    org.mockito.Mockito.doAnswer(
+            call -> {
+              call.callRealMethod();
+              throw new IllegalStateException("Synthetic outbox failure");
+            })
+        .when(target)
+        .append(
+            org.mockito.ArgumentMatchers.any(Mission.class),
+            org.mockito.ArgumentMatchers.eq("START"),
+            org.mockito.ArgumentMatchers.isNull());
+    org.junit.jupiter.api.Assertions.assertThrows(
+        jakarta.servlet.ServletException.class,
+        () -> lifecycle(id, "submission", "{\"version\":3}"));
+    mvc.perform(get("/missions/" + id).with(jwt().jwt(j -> j.subject("owner"))))
+        .andExpect(jsonPath("status").value("IN_PROGRESS"))
+        .andExpect(jsonPath("version").value(3));
+    org.junit.jupiter.api.Assertions.assertEquals(
+        0,
+        jdbc.queryForObject(
+            "SELECT count(*) FROM review_workflow_outbox WHERE mission_id=?",
+            Integer.class,
+            java.util.UUID.fromString(id)));
   }
 }

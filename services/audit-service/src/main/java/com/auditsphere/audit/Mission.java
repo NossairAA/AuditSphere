@@ -20,6 +20,7 @@ class Mission {
   java.time.LocalDate plannedEndDate;
   Instant startedAt;
   Instant closedAt;
+  UUID reviewCycleId;
   Instant submittedAt;
   Instant reviewedAt;
   String reviewedBy;

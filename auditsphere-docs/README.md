@@ -72,3 +72,5 @@ Le [guide de durcissement](docs/technique/08-durcissement.md) décrit les reméd
 Le [jalon notifications Kafka](docs/technique/09-notifications-kafka.md) livre l’outbox, un deuxième service métier et des tests de reprise après panne.
 
 Le [cycle de vie manuel des missions](docs/technique/10-cycle-missions.md) ajoute les dates prévues, le démarrage et la clôture avec permissions et contrôle de version.
+
+- [Temporal et reprise des validations](docs/technique/14-temporal-revue.md)

@@ -28,7 +28,7 @@ Pour chaque user story ajoutée, utiliser [le modèle de fonctionnalité](../tem
 | TECH-003 | Audit service, Flyway et PostgreSQL | Migration sur base vide et test Testcontainers réussi | Vérifié localement |
 | TECH-004 | Keycloak, gateway et permissions | Jeton invalide refusé, mission hors périmètre inaccessible | Vérifié localement (API) |
 | TECH-005 | Kafka et outbox | Reprise après panne, aucun effet métier doublé après redélivrance | Vérifié localement, jalon notifications |
-| TECH-006 | Workflow Temporal | Validation, expiration et reprise après arrêt du worker démontrées | Proposé |
+| TECH-006 | Workflow Temporal | Validation durable et reprise du worker, expiration à ajouter | Implémenté localement, échéances proposées |
 | TECH-007 | Observabilité | Trace corrélée HTTP/Kafka et métriques consultables | Proposé |
 | TECH-008 | CI/CD et Kubernetes | Image analysée, déploiement Helm/GitOps et rollback testés | Proposé |
 
@@ -116,6 +116,7 @@ Les notifications de retard US-009 restent proposées. Le jalon livré porte uni
 | VALID-001 | Rôle AUDIT_VALIDATOR, compte local et absence de privilèges globaux | Vérifié localement, 25 tests Java ciblés et jetons réels |
 | VALID-002 | Désignation sur une mission, séparation responsable et validateur, droits limités à la mission | Vérifié localement, 28 tests Java ciblés et 12 scénarios navigateur |
 | VALID-003 | Soumission et décision persistées, clôture après approbation | Vérifié localement, 29 tests Java ciblés et 12 scénarios navigateur |
-| VALID-004 | Temporal, échéances et reprise du worker | Proposé |
+| VALID-004 | Temporal, livraison des décisions et reprise du worker | Vérifié localement, 32 tests Java ciblés, 12 scénarios navigateur et pannes réelles |
+| VALID-005 | Échéances, relances et notifications de revue | Proposé |
 
 Voir le [guide du rôle validateur](../technique/11-role-validateur.md).

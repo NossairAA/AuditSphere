@@ -10,6 +10,10 @@ public class AuditApplication {
       DatabaseMigration.run();
       return;
     }
+    if ("true".equals(System.getenv("WORKFLOW_WORKER_ONLY"))) {
+      com.auditsphere.audit.workflow.ReviewWorker.run();
+      return;
+    }
     SpringApplication.run(AuditApplication.class, args);
   }
 }

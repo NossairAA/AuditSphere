@@ -20,15 +20,18 @@ class MissionController {
 
   private final AuditorDirectory directory;
   private final AssignmentOutbox outbox;
+  private final ReviewOutbox reviewOutbox;
   private final org.springframework.transaction.support.TransactionTemplate tx;
 
   MissionController(
       MissionRepository repository,
       AuditorDirectory directory,
       AssignmentOutbox outbox,
+      ReviewOutbox reviewOutbox,
       org.springframework.transaction.PlatformTransactionManager manager) {
     this.directory = directory;
     this.outbox = outbox;
+    this.reviewOutbox = reviewOutbox;
     this.tx = new org.springframework.transaction.support.TransactionTemplate(manager);
     this.tx.setTimeout(5);
     this.repository = repository;
@@ -310,12 +313,14 @@ class MissionController {
           Mission m = reviewMission(id);
           checkSubmission(m, jwt, body.version());
           m.status = "PENDING_REVIEW";
+          m.reviewCycleId = UUID.randomUUID();
           m.submittedAt = Instant.now();
           m.reviewedAt = null;
           m.reviewedBy = null;
           m.reviewDecision = null;
           m.reviewComment = null;
           repository.saveAndFlush(m);
+          reviewOutbox.append(m, "START", null);
           return MissionView.of(m);
         });
   }
@@ -337,6 +342,7 @@ class MissionController {
           m.reviewedAt = Instant.now();
           m.status = body.decision().equals("APPROVED") ? "APPROVED" : "IN_PROGRESS";
           repository.saveAndFlush(m);
+          reviewOutbox.append(m, "DECISION", m.reviewDecision);
           return MissionView.of(m);
         });
   }
