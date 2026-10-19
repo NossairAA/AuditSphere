@@ -1,5 +1,11 @@
 # Journal des changements
 
+## Reprise DNS de la gateway : 2026-10-19
+
+- Correction de l’échec CI Temporal après changement d’adresse Docker.
+- Cache DNS du client HTTP limité à cinq secondes et connexion bornée à trois secondes.
+- Vérification distante relancée séparément des notifications de validation.
+
 ## Temporal et revue durable : 2026-10-18
 
 - Workflow MissionReviewV1 démarré par cycle de soumission, terminé par le signal de décision.

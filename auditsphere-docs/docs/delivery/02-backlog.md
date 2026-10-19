@@ -120,3 +120,5 @@ Les notifications de retard US-009 restent proposées. Le jalon livré porte uni
 | VALID-005 | Échéances, relances et notifications de revue | Proposé |
 
 Voir le [guide du rôle validateur](../technique/11-role-validateur.md).
+
+- OPS-DNS-01 : reprise des routes après changement d’adresse Docker, cache DNS borné et scénario de panne Temporal comme vérification distante.
