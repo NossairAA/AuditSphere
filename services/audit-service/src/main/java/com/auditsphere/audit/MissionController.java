@@ -21,6 +21,7 @@ class MissionController {
   private final AuditorDirectory directory;
   private final AssignmentOutbox outbox;
   private final ReviewOutbox reviewOutbox;
+  private final MissionActionLog actionLog;
   private final org.springframework.transaction.support.TransactionTemplate tx;
 
   MissionController(
@@ -28,10 +29,12 @@ class MissionController {
       AuditorDirectory directory,
       AssignmentOutbox outbox,
       ReviewOutbox reviewOutbox,
+      MissionActionLog actionLog,
       org.springframework.transaction.PlatformTransactionManager manager) {
     this.directory = directory;
     this.outbox = outbox;
     this.reviewOutbox = reviewOutbox;
+    this.actionLog = actionLog;
     this.tx = new org.springframework.transaction.support.TransactionTemplate(manager);
     this.tx.setTimeout(5);
     this.repository = repository;
@@ -64,7 +67,9 @@ class MissionController {
       Instant reviewedAt,
       String reviewedBy,
       String reviewDecision,
-      String reviewComment) {
+      String reviewComment,
+      Instant withdrawnAt,
+      String withdrawalReason) {
     static MissionView of(Mission m) {
       return new MissionView(
           m.id,
@@ -85,7 +90,9 @@ class MissionController {
           m.reviewedAt,
           m.reviewedBy,
           m.reviewDecision,
-          m.reviewComment);
+          m.reviewComment,
+          m.withdrawnAt,
+          m.withdrawalReason);
     }
   }
 
@@ -276,6 +283,48 @@ class MissionController {
             m.status = "CLOSED";
             m.closedAt = Instant.now();
           } else throw new ResponseStatusException(HttpStatus.CONFLICT);
+          repository.saveAndFlush(m);
+          return MissionView.of(m);
+        });
+  }
+
+  record ReasonedAction(
+      @NotNull @PositiveOrZero Long version, @NotBlank @Size(max = 2000) String reason) {}
+
+  @DeleteMapping("/{id}")
+  ResponseEntity<Void> deleteDraft(
+      @PathVariable UUID id,
+      @Valid @RequestBody ReasonedAction body,
+      @AuthenticationPrincipal Jwt jwt) {
+    return tx.execute(
+        state -> {
+          Mission m = reviewMission(id);
+          checkOwner(m, jwt, body.version());
+          if (!m.status.equals("DRAFT")) throw new ResponseStatusException(HttpStatus.CONFLICT);
+          actionLog.append(m, jwt.getSubject(), "DRAFT_DELETED", body.reason().strip());
+          actionLog.removeDraftEvents(id);
+          repository.delete(m);
+          repository.flush();
+          return ResponseEntity.noContent().build();
+        });
+  }
+
+  @PutMapping("/{id}/withdrawal")
+  MissionView withdraw(
+      @PathVariable UUID id,
+      @Valid @RequestBody ReasonedAction body,
+      @AuthenticationPrincipal Jwt jwt) {
+    return tx.execute(
+        state -> {
+          Mission m = reviewMission(id);
+          checkOwner(m, jwt, body.version());
+          if (!m.status.equals("PENDING_REVIEW"))
+            throw new ResponseStatusException(HttpStatus.CONFLICT);
+          actionLog.append(m, jwt.getSubject(), "REVIEW_WITHDRAWN", body.reason().strip());
+          reviewOutbox.append(m, "DECISION", "WITHDRAWN");
+          m.status = "IN_PROGRESS";
+          m.withdrawnAt = Instant.now();
+          m.withdrawalReason = body.reason().strip();
           repository.saveAndFlush(m);
           return MissionView.of(m);
         });

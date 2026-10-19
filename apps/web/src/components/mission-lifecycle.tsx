@@ -1,4 +1,5 @@
 "use client";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ErrorNotice, useUser } from "./workspace";
 import { type Mission, plannedDateLabel, dateLabel } from "@/lib/types";
@@ -10,6 +11,9 @@ export default function MissionLifecycle({
   onUpdated: (m: Mission) => void;
 }) {
   const user = useUser();
+  const router = useRouter();
+  const [action, setAction] = useState<"delete" | "withdraw" | null>(null);
+  const [reason, setReason] = useState("");
   const canEdit =
     user?.subject === mission.ownerSubject &&
     user.roles.includes("AUDIT_MANAGER");
@@ -52,6 +56,39 @@ export default function MissionLifecycle({
     } finally {
       setBusy(false);
       setConfirmClose(false);
+    }
+  }
+  async function confirmAction() {
+    if (!action || !reason.trim()) return;
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/missions/${mission.id}${action === "withdraw" ? "/withdrawal" : ""}`,
+        {
+          method: action === "delete" ? "DELETE" : "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "x-csrf-token": user!.csrf,
+          },
+          body: JSON.stringify({ version: mission.version, reason }),
+          signal: AbortSignal.timeout(10000),
+        },
+      );
+      if (!response.ok) throw new Error((await response.json()).error);
+      if (action === "delete") {
+        router.replace("/missions");
+        router.refresh();
+      } else {
+        onUpdated(await response.json());
+        setNotice("Soumission retirée. La mission est de nouveau en cours.");
+      }
+      setAction(null);
+      setReason("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Action impossible.");
+    } finally {
+      setBusy(false);
     }
   }
   async function reload() {
@@ -148,6 +185,77 @@ export default function MissionLifecycle({
           >
             Démarrer la mission
           </button>
+        </div>
+      )}
+      {mission.withdrawnAt && (
+        <div>
+          <h3>Dernier retrait de soumission</h3>
+          <p>Retirée le {dateLabel(mission.withdrawnAt)}</p>
+          <p className="preserve">{mission.withdrawalReason}</p>
+        </div>
+      )}
+      {canEdit && ["DRAFT", "PENDING_REVIEW"].includes(mission.status) && (
+        <div className="review-form">
+          {action ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void confirmAction();
+              }}
+            >
+              <p>
+                {action === "delete"
+                  ? "La suppression du brouillon est définitive. Une trace de cette action sera conservée."
+                  : "La mission repassera en cours. Le cycle de validation actuel sera terminé et une nouvelle soumission sera nécessaire."}
+              </p>
+              <label>
+                Motif obligatoire
+                <textarea
+                  rows={3}
+                  required
+                  maxLength={2000}
+                  value={reason}
+                  disabled={busy}
+                  onChange={(e) => setReason(e.target.value)}
+                />
+              </label>
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="button secondary"
+                  disabled={busy}
+                  onClick={() => {
+                    setAction(null);
+                    setReason("");
+                  }}
+                >
+                  Annuler
+                </button>
+                <button
+                  className="button secondary"
+                  disabled={busy || !reason.trim()}
+                >
+                  {action === "delete"
+                    ? "Confirmer la suppression"
+                    : "Confirmer le retrait"}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="form-actions">
+              <button
+                className="button secondary"
+                disabled={busy}
+                onClick={() =>
+                  setAction(mission.status === "DRAFT" ? "delete" : "withdraw")
+                }
+              >
+                {mission.status === "DRAFT"
+                  ? "Supprimer le brouillon"
+                  : "Retirer la soumission"}
+              </button>
+            </div>
+          )}
         </div>
       )}
       {mission.reviewDecision && (

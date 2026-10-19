@@ -14,7 +14,8 @@ export async function missions(
     | "validators"
     | "validator"
     | "submission"
-    | "review",
+    | "review"
+    | "withdrawal",
 ) {
   const rejection = rateLimit(request);
   if (rejection) return rejection;
@@ -36,7 +37,7 @@ export async function missions(
       Authorization: "Bearer " + data.accessToken,
     };
     let body: string | undefined;
-    if (request.method === "POST" || request.method === "PUT") {
+    if (["POST", "PUT", "DELETE"].includes(request.method)) {
       if (!validMutation(request, data, request.headers.get("x-csrf-token")))
         return json({ error: "Requête refusée" }, 403);
       if (
@@ -57,40 +58,42 @@ export async function missions(
       if (!input || typeof input !== "object" || Array.isArray(input))
         return json({ error: "Formulaire invalide" }, 400);
       body = JSON.stringify(
-        request.method === "PUT"
-          ? resource === "review"
-            ? {
-                version: input.version,
-                decision: input.decision,
-                comment: input.comment,
-              }
-            : resource === "submission"
-              ? { version: input.version }
-              : resource === "validator"
-                ? {
-                    version: input.version,
-                    validatorSubject: input.validatorSubject,
-                  }
-                : resource === "schedule"
+        request.method === "DELETE" || resource === "withdrawal"
+          ? { version: input.version, reason: input.reason }
+          : request.method === "PUT"
+            ? resource === "review"
+              ? {
+                  version: input.version,
+                  decision: input.decision,
+                  comment: input.comment,
+                }
+              : resource === "submission"
+                ? { version: input.version }
+                : resource === "validator"
                   ? {
                       version: input.version,
-                      plannedStartDate: input.plannedStartDate,
-                      plannedEndDate: input.plannedEndDate,
+                      validatorSubject: input.validatorSubject,
                     }
-                  : resource === "status"
-                    ? { version: input.version, status: input.status }
-                    : {
-                        assigneeSubjects: input.assigneeSubjects,
+                  : resource === "schedule"
+                    ? {
                         version: input.version,
+                        plannedStartDate: input.plannedStartDate,
+                        plannedEndDate: input.plannedEndDate,
                       }
-          : {
-              title: input.title,
-              description: input.description,
-              perimeter: input.perimeter,
-              assigneeSubjects: input.assigneeSubjects ?? [],
-              plannedStartDate: input.plannedStartDate ?? null,
-              plannedEndDate: input.plannedEndDate ?? null,
-            },
+                    : resource === "status"
+                      ? { version: input.version, status: input.status }
+                      : {
+                          assigneeSubjects: input.assigneeSubjects,
+                          version: input.version,
+                        }
+            : {
+                title: input.title,
+                description: input.description,
+                perimeter: input.perimeter,
+                assigneeSubjects: input.assigneeSubjects ?? [],
+                plannedStartDate: input.plannedStartDate ?? null,
+                plannedEndDate: input.plannedEndDate ?? null,
+              },
       );
       headers["Content-Type"] = "application/json";
     } else if (resource === "auditors" || resource === "validators") {
@@ -128,6 +131,7 @@ export async function missions(
         },
         response.status,
       );
+    if (response.status === 204) return new Response(null, { status: 204 });
     return json(await response.json(), response.status);
   } catch (error) {
     if (error instanceof BodyError)

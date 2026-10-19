@@ -22,6 +22,11 @@ class Mission {
   Instant closedAt;
   UUID reviewCycleId;
   Instant submittedAt;
+  Instant withdrawnAt;
+
+  @Column(length = 2000)
+  String withdrawalReason;
+
   Instant reviewedAt;
   String reviewedBy;
   String reviewDecision;

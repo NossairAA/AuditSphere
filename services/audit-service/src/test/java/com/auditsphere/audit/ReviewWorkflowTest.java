@@ -5,11 +5,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.auditsphere.audit.workflow.*;
 import io.temporal.client.*;
 import io.temporal.testing.*;
-import org.junit.jupiter.api.Test;
 
 class ReviewWorkflowTest {
-  @Test
-  void decisionSurvivesHistoryReplayAndDuplicateSignals() throws Exception {
+  @org.junit.jupiter.params.ParameterizedTest
+  @org.junit.jupiter.params.provider.ValueSource(strings = {"APPROVED", "REJECTED", "WITHDRAWN"})
+  void decisionSurvivesHistoryReplayAndDuplicateSignals(String decision) throws Exception {
     try (var env = TestWorkflowEnvironment.newInstance()) {
       env.newWorker(ReviewWorkflow.QUEUE)
           .registerWorkflowImplementationTypes(ReviewWorkflowImpl.class);
@@ -22,10 +22,10 @@ class ReviewWorkflowTest {
                       .setTaskQueue(ReviewWorkflow.QUEUE)
                       .build());
       WorkflowClient.start(workflow::awaitDecision, "mission", "cycle");
-      workflow.decide("APPROVED");
-      workflow.decide("APPROVED");
+      workflow.decide(decision);
+      workflow.decide(decision);
       env.start();
-      assertEquals("APPROVED", WorkflowStub.fromTyped(workflow).getResult(String.class));
+      assertEquals(decision, WorkflowStub.fromTyped(workflow).getResult(String.class));
       WorkflowReplayer.replayWorkflowExecution(
           env.getWorkflowClient().fetchHistory("review-test"), ReviewWorkflowImpl.class);
     }

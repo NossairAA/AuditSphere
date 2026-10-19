@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: AuditSphere Mission API
-  version: 0.7.0
+  version: 0.8.0
 servers:
   - url: http://localhost:8080
 security:
@@ -90,6 +90,49 @@ paths:
         '400': {description: Identifiant mal formé}
         '401': {description: Authentification absente ou jeton invalide}
         '404': {description: Mission absente ou inaccessible}
+    delete:
+      summary: Supprimer un brouillon appartenant au responsable courant, avec journal conservé
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ReasonedAction'}
+      responses:
+        '204': {description: Brouillon supprimé}
+        '400': {description: Version ou motif invalide}
+        '401': {description: Authentification requise}
+        '403': {description: Rôle responsable requis}
+        '404': {description: Mission absente ou autre propriétaire}
+        '409': {description: Version obsolète ou statut incompatible}
+  /missions/{id}/withdrawal:
+    put:
+      summary: Retirer une soumission en attente et terminer son cycle Temporal
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ReasonedAction'}
+      responses:
+        '200':
+          description: Mission de nouveau en cours
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Mission'}
+        '400': {description: Version ou motif invalide}
+        '401': {description: Authentification requise}
+        '403': {description: Rôle responsable requis}
+        '404': {description: Mission absente ou autre propriétaire}
+        '409': {description: Version obsolète ou statut incompatible}
   /missions/auditors:
     get:
       summary: Lister une page de 50 membres du rôle AUDITOR, comptes actifs seulement
@@ -317,6 +360,12 @@ components:
   securitySchemes:
     bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
   schemas:
+    ReasonedAction:
+      type: object
+      required: [version, reason]
+      properties:
+        version: {type: integer, format: int64, minimum: 0}
+        reason: {type: string, minLength: 1, maxLength: 2000, description: Motif non blanc}
     Schedule:
       type: object
       required: [version, plannedStartDate, plannedEndDate]
@@ -375,6 +424,8 @@ components:
             reviewedAt: {type: string, format: date-time, nullable: true}
             reviewedBy: {type: string, nullable: true}
             reviewDecision: {type: string, enum: [APPROVED, REJECTED], nullable: true}
+            withdrawnAt: {type: string, format: date-time, nullable: true}
+            withdrawalReason: {type: string, nullable: true}
             reviewComment: {type: string, nullable: true}
             createdAt: {type: string, format: date-time}
             startedAt: {type: string, format: date-time, nullable: true}

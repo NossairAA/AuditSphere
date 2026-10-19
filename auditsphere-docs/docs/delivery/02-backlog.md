@@ -4,7 +4,9 @@
 
 ## Priorité active
 
-US-003 et F-003 constituent la prochaine tranche : risques et contrôles rattachés à une mission. Les critères, permissions, limites et questions ouvertes figurent dans la [fiche métier](../produit/04-plan-metier.md).
+Le retrait des soumissions et la suppression des brouillons sont implémentés et vérifiés en local le 2026-10-20. Voir le [guide](../technique/18-retrait-suppression.md).
+
+US-003 et F-003 constituent la prochaine tranche métier : risques et contrôles rattachés à une mission. Les critères, permissions, limites et questions ouvertes figurent dans la [fiche métier](../produit/04-plan-metier.md).
 
 | Ordre | Périmètre | Critère de sortie | État |
 | --- | --- | --- | --- |
@@ -14,7 +16,7 @@ US-003 et F-003 constituent la prochaine tranche : risques et contrôles rattach
 | 4 | F-006, US-006 et US-007 : actions correctives | Responsable, échéance, justificatif et vérification avant clôture | À réaliser |
 | 5 | US-011 : première règle d’audit continu | Exécution reproductible et anomalies sans doublon, revue avant constat officiel | À réaliser après le parcours manuel |
 
-Les notifications de soumission sont vérifiées localement et restent à publier. VALID-005 reste proposé, hors de la prochaine tranche. Les sections historiques suivantes décrivent les jalons passés, les fonctionnalités métier nouvelles ci-dessus ne sont pas encore livrées.
+Les notifications de soumission sont publiées dans `4cd8d43`. VALID-005 reste proposé, hors de la prochaine tranche. Les sections historiques suivantes décrivent les jalons passés, les fonctionnalités métier nouvelles ci-dessus ne sont pas encore livrées.
 
 ## Catalogue des user stories
 

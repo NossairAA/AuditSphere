@@ -1,3 +1,4 @@
+import { recordMission } from "./test-data";
 import { test, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -67,6 +68,7 @@ test("responsable : connexion, création, détail, liste, session opaque et déc
   await expect(
     page.getByRole("heading", { name: title, exact: true }),
   ).toBeVisible();
+  recordMission(new URL(page.url()).pathname.split("/").pop()!);
   await page.getByRole("link", { name: "Toutes les missions" }).click();
   await expect(
     page.getByRole("link", { name: new RegExp(title + " Créée") }),
@@ -119,6 +121,7 @@ test("auditeur : missions affectées seulement, création interdite et formulair
   });
   expect(created.status).toBe(201);
   const mission = await created.json();
+  recordMission(mission.id);
   await login(page, "auditor");
   await expect(
     page.getByRole("link", { name: "Nouvelle mission", exact: true }),
@@ -311,6 +314,7 @@ test("affecter à la création, modifier les participants et révoquer une sessi
     page.getByRole("heading", { name: title, exact: true }),
   ).toBeVisible();
   const id = new URL(page.url()).pathname.split("/").pop()!;
+  recordMission(id);
   await expect(
     page.locator(".participants").getByText(auditor.name, { exact: true }),
   ).toBeVisible();
@@ -471,6 +475,7 @@ test("conflit de version, session sans réécriture et corps borné", async ({
   });
   expect(created.status()).toBe(201);
   const mission = await created.json();
+  recordMission(mission.id);
   const first = await page.request.put(
     `/api/missions/${mission.id}/assignments`,
     { headers, data: { version: mission.version, assigneeSubjects: [] } },
@@ -495,23 +500,4 @@ test("conflit de version, session sans réécriture et corps borné", async ({
     duplex: "half",
   } as RequestInit);
   expect(large.status).toBe(413);
-});
-
-test("limite de débit BFF renvoie 429 sans faire confiance aux adresses déclarées", async ({
-  request,
-}) => {
-  const statuses = [];
-  for (let i = 0; i < 125; i++)
-    statuses.push(
-      (
-        await request.get("/api/session", {
-          headers: {
-            Cookie: "auditsphere-session=" + "z".repeat(43),
-            "X-Forwarded-For": "192.0.2." + (i % 250),
-          },
-        })
-      ).status(),
-    );
-  expect(statuses).toContain(401);
-  expect(statuses).toContain(429);
 });

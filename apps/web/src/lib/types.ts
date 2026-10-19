@@ -9,6 +9,8 @@ export type Mission = {
   plannedEndDate: string | null;
   startedAt: string | null;
   closedAt: string | null;
+  withdrawnAt: string | null;
+  withdrawalReason: string | null;
   submittedAt: string | null;
   reviewedAt: string | null;
   reviewedBy: string | null;

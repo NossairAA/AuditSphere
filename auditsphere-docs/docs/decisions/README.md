@@ -27,3 +27,5 @@ Utiliser le modèle dans [`docs/templates/adr.md`](../templates/adr.md).
 - [ADR-0011 : Première intégration Temporal](ADR-0011-temporal-revue-durable.md)
 
 - [ADR-0012 : Notifications en direct](ADR-0012-notifications-temps-reel.md)
+
+- [ADR-0013 : Retrait et suppression](ADR-0013-retrait-suppression.md)

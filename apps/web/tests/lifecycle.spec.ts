@@ -1,3 +1,4 @@
+import { recordMission } from "./test-data";
 import { test, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 const env = Object.fromEntries(
@@ -42,6 +43,7 @@ test("dates, conflit de version, démarrage et clôture réservés au propriéta
     .click();
   await expect(page.getByRole("heading", { name: title })).toBeVisible();
   const id = new URL(page.url()).pathname.split("/").pop()!;
+  recordMission(id);
   const section = page.getByRole("region", { name: "Planification et statut" });
   await expect(section.getByLabel("Date de début prévue")).toHaveValue(
     "2026-11-01",

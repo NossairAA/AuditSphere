@@ -1,5 +1,13 @@
 # Journal des changements
 
+## Retrait et suppression : 2026-10-20
+
+- Publication du socle notifications dans le commit `4cd8d43`, après 47 tests Java et 13 tests navigateur réussis.
+- Suppression des brouillons et retrait des soumissions par le propriétaire, avec confirmation, motif et journal conservé.
+- Décision Temporal WITHDRAWN, nouveau cycle à la soumission suivante et conflits de version contrôlés.
+- Nouvelle tranche vérifiée par 53 tests Java, 14 tests navigateur, compilation frontend et reprise réelle des trois cycles Temporal avec pannes.
+- Nettoyage des missions synthétiques et ajout d’un manifeste par identifiant pour le nettoyage automatique des tests navigateur et Temporal. Les missions de démonstration et la mission utilisateur sont conservées.
+
 ## Notifications en temps réel : 2026-10-19
 
 - Flux SSE authentifié via BFF, signal après commit et mise à jour de la liste et du compteur.

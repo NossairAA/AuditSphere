@@ -86,12 +86,25 @@ try:
         compose('start','workflow-worker');stopped.discard('workflow-worker')
     wait(lambda:completed(cycle1),'rejected workflow completed')
     assert result(cycle1)=='REJECTED'
+    mutate('submission',{})
+    withdrawn_cycle=sql("SELECT review_cycle_id FROM missions WHERE id='"+mid+"'")
+    wait(lambda:info(withdrawn_cycle)['status']=='WORKFLOW_EXECUTION_STATUS_RUNNING','withdrawal workflow started')
+    if args.faults:
+        compose('stop','workflow-worker');stopped.add('workflow-worker')
+    mutate('withdrawal',{'reason':'Périmètre à corriger avant nouvelle revue'})
+    assert mission['status']=='IN_PROGRESS'
+    wait(lambda:sql("SELECT count(*) FROM review_workflow_outbox WHERE cycle_id='"+withdrawn_cycle+"' AND published_at IS NULL")=='0','withdrawal accepted')
+    if args.faults:
+        assert info(withdrawn_cycle)['status']=='WORKFLOW_EXECUTION_STATUS_RUNNING'
+        compose('start','workflow-worker');stopped.discard('workflow-worker')
+    wait(lambda:completed(withdrawn_cycle),'withdrawn workflow completed')
+    assert result(withdrawn_cycle)=='WITHDRAWN'
     if args.faults:
         compose('stop','notification-service');stopped.add('notification-service')
         compose('stop','temporal');stopped.add('temporal')
     mutate('submission',{})
     cycle2=sql("SELECT review_cycle_id FROM missions WHERE id='"+mid+"'")
-    assert cycle2!=cycle1
+    assert cycle2 not in (cycle1,withdrawn_cycle)
     mutate('review',{'decision':'APPROVED','comment':'Validation synthétique'},validator)
     mutate('status',{'status':'CLOSED'})
     if args.faults:
@@ -103,13 +116,18 @@ try:
     assert result(cycle2)=='APPROVED'
     if args.faults:
         compose('start','notification-service');stopped.discard('notification-service')
-    wait(lambda:len([n for n in request('/notifications',validator)[1].get('items',[]) if n['missionId']==mid and n['eventType']=='audit.mission.review-requested.v1'])==2,'two notifications without replay duplicates')
+    wait(lambda:len([n for n in request('/notifications',validator)[1].get('items',[]) if n['missionId']==mid and n['eventType']=='audit.mission.review-requested.v1'])==3,'three notifications without replay duplicates')
     run=info(cycle2)['execution']['runId']
     # Simulate the loss of delivery acknowledgements, including for a completed workflow.
     sql("UPDATE review_workflow_outbox SET published_at=NULL,available_at=now(),lease_until=NULL,lease_token=NULL WHERE cycle_id='"+cycle2+"'")
     wait(lambda:sql("SELECT count(*) FROM review_workflow_outbox WHERE cycle_id='"+cycle2+"' AND published_at IS NULL")=='0','duplicate deliveries acknowledged')
     assert info(cycle2)['execution']['runId']==run
     assert result(cycle2)=='APPROVED'
-    print('PASS : deux cycles, décision durable, reprise et rejeu sans nouveau workflow.' if args.faults else 'PASS : deux cycles et rejeu sans nouveau workflow.')
+    print('PASS : trois cycles, dont un retrait, décision durable, reprise et rejeu sans nouveau workflow.' if args.faults else 'PASS : trois cycles, dont un retrait et rejeu sans nouveau workflow.')
 finally:
     for service in sorted(stopped): compose('start',service)
+    manifest=root/'.local'/('temporal-test-'+mid+'.txt')
+    manifest.parent.mkdir(exist_ok=True)
+    manifest.write_text(mid+'\n')
+    manifest.chmod(0o600)
+    subprocess.run(['python3',str(root/'scripts/cleanup-test-data.py'),str(manifest)],check=True)

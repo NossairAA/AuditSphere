@@ -1,3 +1,4 @@
+import { recordMission } from "./test-data";
 import { test, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 const env = Object.fromEntries(
@@ -41,6 +42,7 @@ test("notification réelle après affectation, navigation et isolation", async (
     });
     expect(response.status()).toBe(201);
     const mission = await response.json();
+    recordMission(mission.id);
     const a = await auditor.newPage();
     const bearerRequests: string[] = [];
     a.on("request", (r) => {
@@ -272,16 +274,15 @@ test("nouvelle notification en direct sur une liste déjà ouverte", async ({
     });
     expect(created.status()).toBe(201);
     const mission = await created.json();
+    recordMission(mission.id);
     await expect(a.locator("tbody tr").filter({ hasText: title })).toBeVisible({
       timeout: 8000,
     });
     await expect(
-      a
-        .locator("header")
-        .getByRole("status", {
-          name: `${before + 1} notifications non lues`,
-          exact: true,
-        }),
+      a.locator("header").getByRole("status", {
+        name: `${before + 1} notifications non lues`,
+        exact: true,
+      }),
     ).toBeVisible({ timeout: 8000 });
     await expect(o.locator("tbody tr").filter({ hasText: title })).toHaveCount(
       0,
@@ -293,12 +294,10 @@ test("nouvelle notification en direct sur une liste déjà ouverte", async ({
     await otherTab.goto("/missions/notifications");
     await otherTab.locator(`a[href="/missions/${mission.id}"]`).click();
     await expect(
-      a
-        .locator("header")
-        .getByRole("status", {
-          name: `${before} notifications non lues`,
-          exact: true,
-        }),
+      a.locator("header").getByRole("status", {
+        name: `${before} notifications non lues`,
+        exact: true,
+      }),
     ).toBeVisible({ timeout: 8000 });
     await expect(
       a

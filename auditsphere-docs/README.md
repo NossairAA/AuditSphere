@@ -78,3 +78,5 @@ Le [jalon notifications Kafka](docs/technique/09-notifications-kafka.md) livre l
 Le [cycle de vie manuel des missions](docs/technique/10-cycle-missions.md) ajoute les dates prévues, le démarrage et la clôture avec permissions et contrôle de version.
 
 - [Temporal et reprise des validations](docs/technique/14-temporal-revue.md)
+
+- [Retrait de soumission et suppression des brouillons](docs/technique/18-retrait-suppression.md)

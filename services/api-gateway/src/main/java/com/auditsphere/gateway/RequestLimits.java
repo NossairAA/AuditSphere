@@ -64,7 +64,8 @@ class RequestLimits implements GlobalFilter, Ordered {
               if (exchange.getRequest().getHeaders().getContentLength() > 32768)
                 return reject(exchange, HttpStatus.PAYLOAD_TOO_LARGE);
               if (exchange.getRequest().getMethod() != HttpMethod.POST
-                  && exchange.getRequest().getMethod() != HttpMethod.PUT)
+                  && exchange.getRequest().getMethod() != HttpMethod.PUT
+                  && exchange.getRequest().getMethod() != HttpMethod.DELETE)
                 return chain.filter(exchange);
               return DataBufferUtils.join(exchange.getRequest().getBody(), 32768)
                   .timeout(Duration.ofSeconds(5))

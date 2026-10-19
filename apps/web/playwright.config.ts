@@ -1,5 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
+  globalTeardown: "./tests/cleanup.ts",
   testDir: "./tests",
   fullyParallel: false,
   workers: 1,

@@ -173,8 +173,8 @@ class MissionIntegrationTest {
 
   String payload =
       """
- {"title":"Audit achats","description":"Test","perimeter":"Achats","assigneeSubjects":["assigned"]}
- """;
+      {"title":"Audit achats","description":"Test","perimeter":"Achats","assigneeSubjects":["assigned"]}
+      """;
 
   String create() throws Exception {
     var response =
@@ -450,7 +450,8 @@ class MissionIntegrationTest {
   void publisherRetriesAndReclaimsExpiredLeaseWithoutHoldingTransaction() throws Exception {
     // Isolate this candidate from other test missions without deleting their outbox rows.
     jdbc.update(
-        "UPDATE assignment_outbox SET lease_until=now()+interval '1 hour' WHERE published_at IS NULL");
+        "UPDATE assignment_outbox SET lease_until=now()+interval '1 hour' WHERE published_at IS"
+            + " NULL");
     var mission = java.util.UUID.fromString(create());
     var kafka = org.mockito.Mockito.mock(org.springframework.kafka.core.KafkaTemplate.class);
     org.mockito.Mockito.when(
@@ -479,7 +480,8 @@ class MissionIntegrationTest {
             "SELECT attempts FROM assignment_outbox WHERE mission_id=?", Integer.class, mission));
     // An unexpired lease cannot be stolen by another publisher.
     jdbc.update(
-        "UPDATE assignment_outbox SET available_at=now(), lease_until=now()+interval '30 seconds' WHERE mission_id=?",
+        "UPDATE assignment_outbox SET available_at=now(), lease_until=now()+interval '30 seconds'"
+            + " WHERE mission_id=?",
         mission);
     publisher.publishNext();
     org.mockito.Mockito.verify(kafka, org.mockito.Mockito.times(1))
@@ -809,7 +811,8 @@ class MissionIntegrationTest {
     org.junit.jupiter.api.Assertions.assertEquals(
         "reviewer",
         jdbc.queryForObject(
-            "SELECT recipient_subject FROM assignment_outbox WHERE mission_id=? AND event_type='audit.mission.review-requested.v1'",
+            "SELECT recipient_subject FROM assignment_outbox WHERE mission_id=? AND"
+                + " event_type='audit.mission.review-requested.v1'",
             String.class,
             java.util.UUID.fromString(id)));
     decide(id, 4, "owner", "APPROVED").andExpect(status().isNotFound());
@@ -853,7 +856,8 @@ class MissionIntegrationTest {
     org.junit.jupiter.api.Assertions.assertEquals(
         2,
         jdbc.queryForObject(
-            "SELECT count(*) FROM assignment_outbox WHERE mission_id=? AND event_type='audit.mission.review-requested.v1'",
+            "SELECT count(*) FROM assignment_outbox WHERE mission_id=? AND"
+                + " event_type='audit.mission.review-requested.v1'",
             Integer.class,
             java.util.UUID.fromString(id)));
     decide(id, 6, "reviewer", "APPROVED")
@@ -992,7 +996,8 @@ class MissionIntegrationTest {
     org.junit.jupiter.api.Assertions.assertEquals(
         0,
         jdbc.queryForObject(
-            "SELECT count(*) FROM assignment_outbox WHERE mission_id=? AND event_type='audit.mission.review-requested.v1'",
+            "SELECT count(*) FROM assignment_outbox WHERE mission_id=? AND"
+                + " event_type='audit.mission.review-requested.v1'",
             Integer.class,
             key));
   }
@@ -1013,5 +1018,175 @@ class MissionIntegrationTest {
             .collect(java.util.stream.Collectors.joining(","));
     mvc.perform(get("/missions/titles").param("ids", ids).with(jwt()))
         .andExpect(status().isBadRequest());
+  }
+
+  org.springframework.test.web.servlet.ResultActions deleteDraft(
+      String id, String subject, String role, long version, String reason) throws Exception {
+    return mvc.perform(
+        delete("/missions/" + id)
+            .with(
+                jwt()
+                    .jwt(j -> j.subject(subject))
+                    .authorities(new SimpleGrantedAuthority("ROLE_" + role)))
+            .contentType("application/json")
+            .content(
+                mapper.writeValueAsString(java.util.Map.of("version", version, "reason", reason))));
+  }
+
+  String pendingReview() throws Exception {
+    String id = create();
+    lifecycle(
+            id,
+            "schedule",
+            "{\"version\":0,\"plannedStartDate\":\"2026-11-01\",\"plannedEndDate\":\"2026-11-10\"}")
+        .andExpect(status().isOk());
+    lifecycle(id, "status", "{\"version\":1,\"status\":\"IN_PROGRESS\"}")
+        .andExpect(status().isOk());
+    lifecycle(id, "validator", "{\"version\":2,\"validatorSubject\":\"reviewer\"}")
+        .andExpect(status().isOk());
+    lifecycle(id, "submission", "{\"version\":3}").andExpect(status().isOk());
+    return id;
+  }
+
+  @Test
+  void draftDeletionRequiresOwnerRoleVersionAndReasonAndKeepsTrace() throws Exception {
+    String id = create();
+    deleteDraft(id, "owner", "AUDITOR", 0, "Doublon").andExpect(status().isForbidden());
+    deleteDraft(id, "other", "AUDIT_MANAGER", 0, "Doublon").andExpect(status().isNotFound());
+    deleteDraft(id, "owner", "AUDIT_MANAGER", 1, "Doublon").andExpect(status().isConflict());
+    deleteDraft(id, "owner", "AUDIT_MANAGER", 0, " ").andExpect(status().isBadRequest());
+    deleteDraft(id, "owner", "AUDIT_MANAGER", 0, "Doublon").andExpect(status().isNoContent());
+    mvc.perform(get("/missions/" + id).with(jwt().jwt(j -> j.subject("owner"))))
+        .andExpect(status().isNotFound());
+    deleteDraft(id, "owner", "AUDIT_MANAGER", 0, "Doublon").andExpect(status().isNotFound());
+    org.junit.jupiter.api.Assertions.assertEquals(
+        "Doublon",
+        jdbc.queryForObject(
+            "SELECT reason FROM mission_action_log WHERE mission_id=? AND action='DRAFT_DELETED'",
+            String.class,
+            java.util.UUID.fromString(id)));
+    org.junit.jupiter.api.Assertions.assertEquals(
+        0,
+        jdbc.queryForObject(
+            "SELECT count(*) FROM assignment_outbox WHERE mission_id=?",
+            Integer.class,
+            java.util.UUID.fromString(id)));
+    String submitted = pendingReview();
+    deleteDraft(submitted, "owner", "AUDIT_MANAGER", 4, "Doublon").andExpect(status().isConflict());
+  }
+
+  @Test
+  void withdrawalReopensMissionPreservesTraceAndStartsANewCycleOnResubmission() throws Exception {
+    String id = pendingReview();
+    var cycle =
+        jdbc.queryForObject(
+            "SELECT review_cycle_id FROM missions WHERE id=?",
+            java.util.UUID.class,
+            java.util.UUID.fromString(id));
+    mvc.perform(
+            put("/missions/" + id + "/withdrawal")
+                .with(
+                    jwt()
+                        .jwt(j -> j.subject("owner"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_AUDITOR")))
+                .contentType("application/json")
+                .content("{\"version\":4,\"reason\":\"Correction\"}"))
+        .andExpect(status().isForbidden());
+    lifecycle(id, "withdrawal", "{\"version\":3,\"reason\":\"Correction\"}")
+        .andExpect(status().isConflict());
+    lifecycle(id, "withdrawal", "{\"version\":4,\"reason\":\" \"}")
+        .andExpect(status().isBadRequest());
+    lifecycle(id, "withdrawal", "{\"version\":4,\"reason\":\"Périmètre à corriger\"}")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("status").value("IN_PROGRESS"))
+        .andExpect(jsonPath("version").value(5))
+        .andExpect(jsonPath("withdrawalReason").value("Périmètre à corriger"));
+    decide(id, 4, "reviewer", "APPROVED").andExpect(status().isConflict());
+    org.junit.jupiter.api.Assertions.assertEquals(
+        "WITHDRAWN",
+        jdbc.queryForObject(
+            "SELECT decision FROM review_workflow_outbox WHERE cycle_id=? AND"
+                + " event_type='DECISION'",
+            String.class,
+            cycle));
+    org.junit.jupiter.api.Assertions.assertEquals(
+        1,
+        jdbc.queryForObject(
+            "SELECT count(*) FROM mission_action_log WHERE mission_id=? AND"
+                + " action='REVIEW_WITHDRAWN'",
+            Integer.class,
+            java.util.UUID.fromString(id)));
+    lifecycle(id, "submission", "{\"version\":5}").andExpect(status().isOk());
+    org.junit.jupiter.api.Assertions.assertNotEquals(
+        cycle,
+        jdbc.queryForObject(
+            "SELECT review_cycle_id FROM missions WHERE id=?",
+            java.util.UUID.class,
+            java.util.UUID.fromString(id)));
+    decide(id, 6, "reviewer", "APPROVED").andExpect(status().isOk());
+    lifecycle(id, "withdrawal", "{\"version\":7,\"reason\":\"Correction\"}")
+        .andExpect(status().isConflict());
+  }
+
+  @Test
+  void withdrawalAndApprovalRaceHaveOnlyOneWinner() throws Exception {
+    String id = pendingReview();
+    try (var threads = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+      var gate = new java.util.concurrent.CountDownLatch(1);
+      var withdraw =
+          threads.submit(
+              () -> {
+                gate.await();
+                return lifecycle(id, "withdrawal", "{\"version\":4,\"reason\":\"Correction\"}")
+                    .andReturn()
+                    .getResponse()
+                    .getStatus();
+              });
+      var approve =
+          threads.submit(
+              () -> {
+                gate.await();
+                return decide(id, 4, "reviewer", "APPROVED").andReturn().getResponse().getStatus();
+              });
+      gate.countDown();
+      org.junit.jupiter.api.Assertions.assertEquals(
+          java.util.Set.of(200, 409), java.util.Set.of(withdraw.get(), approve.get()));
+    }
+    org.junit.jupiter.api.Assertions.assertEquals(
+        1,
+        jdbc.queryForObject(
+            "SELECT count(*) FROM review_workflow_outbox WHERE mission_id=? AND"
+                + " event_type='DECISION'",
+            Integer.class,
+            java.util.UUID.fromString(id)));
+  }
+
+  @Test
+  void failedWithdrawalOutboxRollsBackStatusAndJournal() throws Exception {
+    String id = pendingReview();
+    ReviewOutbox target =
+        org.springframework.test.util.AopTestUtils.getUltimateTargetObject(reviewOutbox);
+    org.mockito.Mockito.doAnswer(
+            call -> {
+              call.callRealMethod();
+              throw new IllegalStateException("Synthetic failure");
+            })
+        .when(target)
+        .append(
+            org.mockito.ArgumentMatchers.any(Mission.class),
+            org.mockito.ArgumentMatchers.eq("DECISION"),
+            org.mockito.ArgumentMatchers.eq("WITHDRAWN"));
+    org.junit.jupiter.api.Assertions.assertThrows(
+        jakarta.servlet.ServletException.class,
+        () -> lifecycle(id, "withdrawal", "{\"version\":4,\"reason\":\"Correction\"}"));
+    mvc.perform(get("/missions/" + id).with(jwt().jwt(j -> j.subject("owner"))))
+        .andExpect(jsonPath("status").value("PENDING_REVIEW"))
+        .andExpect(jsonPath("version").value(4));
+    org.junit.jupiter.api.Assertions.assertEquals(
+        0,
+        jdbc.queryForObject(
+            "SELECT count(*) FROM mission_action_log WHERE mission_id=?",
+            Integer.class,
+            java.util.UUID.fromString(id)));
   }
 }

@@ -5,3 +5,5 @@ export async function GET(
 ) {
   return missions(request, (await context.params).id);
 }
+
+export const DELETE = GET;

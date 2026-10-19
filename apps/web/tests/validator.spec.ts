@@ -1,3 +1,4 @@
+import { recordMission } from "./test-data";
 import { test, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 const env = Object.fromEntries(
@@ -39,6 +40,7 @@ test("désignation, accès limité et retrait du validateur", async ({
   });
   expect(created.status()).toBe(201);
   const mission = await created.json();
+  recordMission(mission.id);
   await page.goto(`/missions/${mission.id}`);
   const section = page.getByRole("region", {
     name: "Validateur de la mission",
