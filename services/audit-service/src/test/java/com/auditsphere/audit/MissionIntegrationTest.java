@@ -806,6 +806,12 @@ class MissionIntegrationTest {
     lifecycle(id, "submission", "{\"version\":3}")
         .andExpect(status().isOk())
         .andExpect(jsonPath("status").value("PENDING_REVIEW"));
+    org.junit.jupiter.api.Assertions.assertEquals(
+        "reviewer",
+        jdbc.queryForObject(
+            "SELECT recipient_subject FROM assignment_outbox WHERE mission_id=? AND event_type='audit.mission.review-requested.v1'",
+            String.class,
+            java.util.UUID.fromString(id)));
     decide(id, 4, "owner", "APPROVED").andExpect(status().isNotFound());
     decide(id, 4, "other-validator", "APPROVED").andExpect(status().isNotFound());
     mvc.perform(put("/missions/" + id + "/review").contentType("application/json").content("{}"))
@@ -844,6 +850,12 @@ class MissionIntegrationTest {
     lifecycle(id, "status", "{\"version\":5,\"status\":\"CLOSED\"}")
         .andExpect(status().isConflict());
     lifecycle(id, "submission", "{\"version\":5}").andExpect(status().isOk());
+    org.junit.jupiter.api.Assertions.assertEquals(
+        2,
+        jdbc.queryForObject(
+            "SELECT count(*) FROM assignment_outbox WHERE mission_id=? AND event_type='audit.mission.review-requested.v1'",
+            Integer.class,
+            java.util.UUID.fromString(id)));
     decide(id, 6, "reviewer", "APPROVED")
         .andExpect(status().isOk())
         .andExpect(jsonPath("reviewedBy").value("reviewer"));
@@ -944,5 +956,62 @@ class MissionIntegrationTest {
             "SELECT count(*) FROM review_workflow_outbox WHERE mission_id=?",
             Integer.class,
             java.util.UUID.fromString(id)));
+  }
+
+  @Test
+  void notificationFailureRollsBackSubmissionAndTemporalMessage() throws Exception {
+    String id = create();
+    lifecycle(
+            id,
+            "schedule",
+            "{\"version\":0,\"plannedStartDate\":\"2026-11-01\",\"plannedEndDate\":\"2026-11-02\"}")
+        .andExpect(status().isOk());
+    lifecycle(id, "status", "{\"version\":1,\"status\":\"IN_PROGRESS\"}")
+        .andExpect(status().isOk());
+    lifecycle(id, "validator", "{\"version\":2,\"validatorSubject\":\"reviewer\"}")
+        .andExpect(status().isOk());
+    AssignmentOutbox target =
+        org.springframework.test.util.AopTestUtils.getUltimateTargetObject(outbox);
+    org.mockito.Mockito.doAnswer(
+            call -> {
+              call.callRealMethod();
+              throw new IllegalStateException("Synthetic notification failure");
+            })
+        .when(target)
+        .requestReview(org.mockito.ArgumentMatchers.any());
+    org.junit.jupiter.api.Assertions.assertThrows(
+        jakarta.servlet.ServletException.class,
+        () -> lifecycle(id, "submission", "{\"version\":3}"));
+    mvc.perform(get("/missions/" + id).with(jwt().jwt(j -> j.subject("owner"))))
+        .andExpect(jsonPath("status").value("IN_PROGRESS"));
+    var key = java.util.UUID.fromString(id);
+    org.junit.jupiter.api.Assertions.assertEquals(
+        0,
+        jdbc.queryForObject(
+            "SELECT count(*) FROM review_workflow_outbox WHERE mission_id=?", Integer.class, key));
+    org.junit.jupiter.api.Assertions.assertEquals(
+        0,
+        jdbc.queryForObject(
+            "SELECT count(*) FROM assignment_outbox WHERE mission_id=? AND event_type='audit.mission.review-requested.v1'",
+            Integer.class,
+            key));
+  }
+
+  @Test
+  void titleBatchOnlyReturnsAuthorizedMissions() throws Exception {
+    String id = create();
+    mvc.perform(get("/missions/titles").param("ids", id).with(jwt().jwt(j -> j.subject("owner"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$['" + id + "']").exists());
+    mvc.perform(
+            get("/missions/titles").param("ids", id).with(jwt().jwt(j -> j.subject("outsider"))))
+        .andExpect(status().isOk())
+        .andExpect(content().json("{}"));
+    String ids =
+        java.util.stream.IntStream.range(0, 21)
+            .mapToObj(n -> java.util.UUID.randomUUID().toString())
+            .collect(java.util.stream.Collectors.joining(","));
+    mvc.perform(get("/missions/titles").param("ids", ids).with(jwt()))
+        .andExpect(status().isBadRequest());
   }
 }

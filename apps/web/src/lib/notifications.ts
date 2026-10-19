@@ -56,7 +56,32 @@ export async function notificationRequest(
         },
         response.status,
       );
-    return json(await response.json());
+    const body = await response.json();
+    if (!resource) {
+      // Resolve only this page, with the same user's permissions and no shared cache.
+      const ids = [
+        ...new Set<string>(
+          body.items.map((n: { missionId: string }) => n.missionId),
+        ),
+      ];
+      let titles: Record<string, string> = {};
+      if (ids.length) {
+        try {
+          const titleUrl = new URL("/missions/titles", url.origin);
+          titleUrl.searchParams.set("ids", ids.join(","));
+          const result = await fetch(titleUrl, {
+            headers: { Authorization: "Bearer " + data.accessToken },
+            cache: "no-store", signal: AbortSignal.timeout(5000),
+          });
+          if (result.ok) titles = await result.json();
+        } catch { /* Titles are optional when the mission service is unavailable. */ }
+      }
+      body.items = body.items.map((n: { missionId: string }) => ({
+        ...n,
+        missionTitle: titles[n.missionId] ?? null,
+      }));
+    }
+    return json(body);
   } catch {
     return json(
       {

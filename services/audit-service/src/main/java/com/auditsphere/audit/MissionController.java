@@ -140,6 +140,16 @@ class MissionController {
         result.getTotalElements());
   }
 
+  @GetMapping("/titles")
+  @Transactional(readOnly = true)
+  Map<UUID, String> titles(@RequestParam Set<UUID> ids, @AuthenticationPrincipal Jwt jwt) {
+    if (ids.isEmpty() || ids.size() > 20) throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+    return repository.visibleTitles(ids, jwt.getSubject(), isValidator(jwt)).stream()
+        .collect(
+            java.util.stream.Collectors.toMap(
+                MissionRepository.Title::getId, MissionRepository.Title::getTitle));
+  }
+
   @GetMapping("/{id}")
   @Transactional(readOnly = true)
   MissionView get(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
@@ -321,6 +331,7 @@ class MissionController {
           m.reviewComment = null;
           repository.saveAndFlush(m);
           reviewOutbox.append(m, "START", null);
+          outbox.requestReview(m);
           return MissionView.of(m);
         });
   }

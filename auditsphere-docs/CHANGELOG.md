@@ -1,10 +1,61 @@
 # Journal des changements
 
+## Notifications en temps réel : 2026-10-19
+
+- Flux SSE authentifié via BFF, signal après commit et mise à jour de la liste et du compteur.
+- Lecture synchronisée entre onglets, reconnexion et relecture de secours.
+- Connexions et file de diffusion bornées, périmètre local à une instance documenté dans ADR-0012.
+- Dix tests Java et trois scénarios navigateur réussis, compilation frontend validée.
+
+## Notifications compactes : 2026-10-19
+
+- Action Ouvrir avec flèche déplacée dans une colonne à droite du nom de mission.
+- Présentation allégée sans bordure permanente, libellé accessible conservé.
+
+## Action de notification plus visible : 2026-10-19
+
+- Ligne cliquable, action Ouvrir la mission avec flèche et mise en évidence au survol ou au focus.
+- Compilation et activation souris et clavier vérifiées sans modification des données métier.
+
+## Notifications : titre et lecture au clic : 2026-10-19
+
+- Ordre décroissant par réception conservé avant pagination, date et heure affichées.
+- Colonne Mission avec titre autorisé, suppression de la colonne Lecture.
+- Lecture enregistrée au clic et compteur actualisé avant consultation.
+- Titres chargés par le BFF avec droits courants et concurrence bornée.
+
+## Champ de commentaire de validation : 2026-10-19
+
+- Champ pleine largeur, libellé au-dessus, aide de saisie et hauteur adaptée.
+- Mise en page des boutons compatible mobile, compilation et contrôle navigateur à 1280 et 375 pixels réussis.
+
+## Jeu métier réaliste : 2026-10-19
+
+- Anciennes données métier locales et historiques Kafka et Temporal supprimés après sauvegarde privée.
+- Six missions fictives créées par l’API, couvrant les différents états et une demande de corrections.
+- Noms des quatre comptes personnalisés, identifiants, mots de passe et rôles conservés.
+- Vérification des accès, de douze notifications et de quatre workflows. Contrôle TypeScript réussi.
+
+## Priorité métier et audit continu : 2026-10-19
+
+- Plan métier ajouté avec première tranche Risques et contrôles, permissions et critères d’acceptation.
+- Roadmap et backlog réordonnés vers les preuves, constats, actions correctives puis audit continu.
+- Vision, exigences et parcours alignés, relances Temporal reportées au backlog.
+- Architecture événementielle existante conservée, future expérimentation de règle versionnée décrite sans la présenter comme livrée.
+- Intervention documentaire uniquement, aucun code applicatif ajouté.
+
 ## Reprise DNS de la gateway : 2026-10-19
 
 - Correction de l’échec CI Temporal après changement d’adresse Docker.
 - Cache DNS du client HTTP limité à cinq secondes et connexion bornée à trois secondes.
-- Vérification distante relancée séparément des notifications de validation.
+- CI distante réussie sur 7e4c707, run 39233384313. Notifications de validation encore locales.
+
+## Notifications de validation : 2026-10-19
+
+- Notification interne au validateur désigné à chaque soumission.
+- Événement Kafka enregistré dans la même transaction que la mission et le message Temporal.
+- Type de notification persisté, anciennes affectations conservées et rejeu sans réinitialiser la lecture.
+- Validation locale : 41 tests Java ciblés, 12 scénarios navigateur, compilation frontend et test réel de pannes réussis. Contrôle des secrets réussi.
 
 ## Temporal et revue durable : 2026-10-18
 

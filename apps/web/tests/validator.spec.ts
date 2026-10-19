@@ -45,7 +45,7 @@ test("désignation, accès limité et retrait du validateur", async ({
   });
   await section
     .getByLabel("Choisir un validateur")
-    .selectOption({ label: "Validator Demo" });
+    .selectOption({ label: "Thomas Laurent" });
   expect(
     (
       await page.request.put(`/api/missions/${mission.id}/validator`, {
@@ -58,7 +58,7 @@ test("désignation, accès limité et retrait du validateur", async ({
     .getByRole("button", { name: "Enregistrer le validateur", exact: true })
     .click();
   await expect(
-    section.getByText("Validateur désigné : Validator Demo"),
+    section.getByText("Validateur désigné : Thomas Laurent"),
   ).toBeVisible();
   const context = await browser.newContext();
   const reviewer = await context.newPage();

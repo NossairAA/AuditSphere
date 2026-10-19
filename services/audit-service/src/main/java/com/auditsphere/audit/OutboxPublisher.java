@@ -41,7 +41,7 @@ class OutboxPublisher {
         )
         UPDATE assignment_outbox o SET lease_token = ?, lease_until = now() + interval '30 seconds', attempts = attempts + 1
         FROM candidate c WHERE o.event_id = c.event_id
-        RETURNING o.event_id, o.mission_id, o.recipient_subject, o.aggregate_version, o.occurred_at
+        RETURNING o.event_id, o.mission_id, o.recipient_subject, o.aggregate_version, o.occurred_at, o.event_type
         """,
             lease);
     if (rows.isEmpty()) return;
@@ -50,14 +50,17 @@ class OutboxPublisher {
     try {
       var event = new java.util.LinkedHashMap<String, Object>();
       event.put("eventId", eventId.toString());
-      event.put("eventType", TOPIC);
+      event.put("eventType", row.get("event_type"));
       event.put("eventVersion", 1);
       event.put("missionId", row.get("mission_id").toString());
       event.put("recipientSubject", row.get("recipient_subject"));
       event.put("aggregateVersion", row.get("aggregate_version"));
       event.put("occurredAt", ((java.sql.Timestamp) row.get("occurred_at")).toInstant().toString());
       kafka
-          .send(TOPIC, row.get("mission_id").toString(), mapper.writeValueAsString(event))
+          .send(
+              row.get("event_type").toString(),
+              row.get("mission_id").toString(),
+              mapper.writeValueAsString(event))
           .get(5, TimeUnit.SECONDS);
       jdbc.update(
           "UPDATE assignment_outbox SET published_at=now(), lease_until=NULL, lease_token=NULL WHERE event_id=? AND lease_token=?",

@@ -62,8 +62,13 @@ services:
       retries: 15
   kafka-init:
     image: apache/kafka:4.0.2
-    entrypoint: [/opt/kafka/bin/kafka-topics.sh]
-    command: [--bootstrap-server, kafka:9092, --create, --if-not-exists, --topic, audit.mission.assigned.v1, --partitions, "3", --replication-factor, "1", --config, retention.ms=604800000]
+    entrypoint: [sh, -ec]
+    command:
+      - |
+        for topic in audit.mission.assigned.v1 audit.mission.review-requested.v1
+        do
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic "$$topic" --partitions 3 --replication-factor 1 --config retention.ms=604800000
+        done
     depends_on:
       kafka: {condition: service_healthy}
     restart: "no"

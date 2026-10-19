@@ -7,6 +7,24 @@ servers:
 security:
   - bearerAuth: []
 paths:
+  /missions/titles:
+    get:
+      summary: Titres des missions accessibles parmi vingt identifiants maximum
+      parameters:
+        - in: query
+          name: ids
+          required: true
+          style: form
+          explode: false
+          schema: {type: array, minItems: 1, maxItems: 20, items: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Titres par identifiant, missions absentes ou interdites omises
+          content:
+            application/json:
+              schema: {type: object, additionalProperties: {type: string}}
+        '400': {description: Identifiants invalides ou trop nombreux}
+        '401': {description: Authentification requise}
   /missions:
     get:
       summary: Lister les missions créées, affectées ou désignées pour le validateur courant

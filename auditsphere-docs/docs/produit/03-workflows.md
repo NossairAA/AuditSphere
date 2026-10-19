@@ -2,6 +2,12 @@
 
 **Statut :** Proposé
 
+## Parcours métier prioritaire
+
+Mission → Risques → Contrôles → Preuves → Constats → Actions correctives → Vérification. Les étapes après la mission restent à implémenter. Le [plan métier](04-plan-metier.md) précise le premier écran Risques et contrôles.
+
+Le moteur d’audit continu suivra le parcours Source autorisée → Exécution d’une règle versionnée → Anomalie → Revue humaine → Constat éventuel. Une anomalie automatique ne constitue pas une décision de clôture.
+
 ## Mission d'audit
 
 `Brouillon → Planifiée → En cours → En revue → Rapport émis → Clôturée`

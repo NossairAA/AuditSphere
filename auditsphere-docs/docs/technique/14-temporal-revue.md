@@ -31,8 +31,14 @@ Le test de pannes doit finir avant de lancer les tests navigateur. La CI exécut
 
 ## Limites
 
-Le serveur est destiné au développement local. Les historiques terminés sont conservés 24 heures par le namespace local. L’outbox n’est pas purgée automatiquement. Il n’y a pas encore de délai, notification de revue, Activity de mise à jour métier ni reprise après perte de volume. Voir [ADR-0011](../decisions/ADR-0011-temporal-revue-durable.md).
+Le serveur est destiné au développement local. Les historiques terminés sont conservés 24 heures par le namespace local. L’outbox n’est pas purgée automatiquement. Il n’y a pas encore de délai, Activity de mise à jour métier ni reprise après perte de volume. Voir [ADR-0011](../decisions/ADR-0011-temporal-revue-durable.md).
 
 ## Résultats locaux
 
 32 tests Java ciblés réussis, dont le rejeu de l’historique Temporal, la redélivrance après clôture du workflow et le rollback en cas d’échec de l’outbox. Les 12 scénarios navigateur passent. Le script de panne avec de vrais jetons Keycloak valide le redémarrage du worker et de Temporal, l’enregistrement de la décision pendant une interruption, le redémarrage d’audit-service et le rejeu sans nouvelle exécution. La migration V7 est appliquée. La CI contient ce scénario, son exécution distante reste à faire après publication.
+
+## Extension du 2026-10-19
+
+La soumission produit aussi une notification Kafka indépendante de la disponibilité de Temporal. Le test de pannes vérifie maintenant la reprise du consommateur arrêté et deux notifications pour deux soumissions, sans doublon lors du rejeu. Voir le [guide dédié](15-notifications-validation.md).
+
+La première CI publiée a révélé un cache DNS trop long dans la gateway après redémarrage Docker. Le correctif est publié dans 7e4c707, avec CI distante réussie sur le run 39233384313. Voir le [diagnostic de reprise réseau](16-reprise-dns-gateway.md).

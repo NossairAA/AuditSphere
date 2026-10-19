@@ -1,6 +1,6 @@
 # 01 : Vision produit
 
-**Statut :** Proposé · **Dernière révision :** 2026-10-16
+**Statut :** orientation confirmée, hypothèses métier à préciser · **Dernière révision :** 2026-10-19
 
 ## Problème
 
@@ -9,6 +9,10 @@ Les équipes d'audit interne dispersent souvent leur travail entre feuilles de c
 ## Proposition de valeur
 
 Une plateforme interne unique pour planifier les missions, exécuter les contrôles, stocker les preuves, suivre les constats et vérifier la clôture des actions correctives.
+
+## Priorité métier
+
+Le parcours manuel complet précède le moteur d’audit continu : risques et contrôles, exécution et preuves, constats, puis actions correctives. L’architecture événementielle existante accompagne les besoins de notification et de traitement asynchrone. Voir le [plan métier](04-plan-metier.md), qui définit la prochaine tranche et les limites de chaque étape.
 
 ## Utilisateurs (hypothèses)
 

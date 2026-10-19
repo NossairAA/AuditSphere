@@ -30,6 +30,56 @@ class NotificationIntegrationTest {
   @Autowired ObjectMapper mapper;
   @Autowired JdbcTemplate jdbc;
   @Autowired MockMvc mvc;
+  @org.springframework.test.context.bean.override.mockito.MockitoSpyBean NotificationStream stream;
+  @Autowired org.springframework.transaction.PlatformTransactionManager transactions;
+
+  @Test
+  void liveSignalOnlyFollowsACommittedNewNotification() throws Exception {
+    String subject = "live-" + UUID.randomUUID();
+    UUID id = UUID.randomUUID();
+    String payload = event(id, subject);
+    new org.springframework.transaction.support.TransactionTemplate(transactions)
+        .execute(
+            status -> {
+              try {
+                consumer.receive(payload);
+              } catch (Exception e) {
+                throw new RuntimeException(e);
+              }
+              status.setRollbackOnly();
+              return null;
+            });
+    org.mockito.Mockito.verify(stream, org.mockito.Mockito.never()).changed(subject);
+    consumer.receive(payload);
+    consumer.receive(payload);
+    org.mockito.Mockito.verify(stream, org.mockito.Mockito.times(1)).changed(subject);
+  }
+
+  @Test
+  void streamRequiresAuthenticationAndFiltersByJwtSubject() throws Exception {
+    mvc.perform(get("/notifications/stream")).andExpect(status().isUnauthorized());
+    String subject = "stream-" + UUID.randomUUID();
+    var result =
+        mvc.perform(
+                get("/notifications/stream?recipientSubject=someone-else")
+                    .with(
+                        jwt()
+                            .jwt(j -> j.subject(subject).expiresAt(Instant.now().plusSeconds(60)))))
+            .andExpect(request().asyncStarted())
+            .andExpect(status().isOk())
+            .andReturn();
+    assertTrue(result.getResponse().getContentAsString().contains("data:refresh"));
+    stream.changed("someone-else");
+    consumer.receive(event(UUID.randomUUID(), subject));
+    org.awaitility.Awaitility.await()
+        .atMost(java.time.Duration.ofSeconds(3))
+        .untilAsserted(
+            () ->
+                assertEquals(
+                    2,
+                    result.getResponse().getContentAsString().split("data:refresh", -1).length
+                        - 1));
+  }
 
   String event(UUID id, String subject) throws Exception {
     return mapper.writeValueAsString(
@@ -187,5 +237,30 @@ class NotificationIntegrationTest {
     assertNull(
         jdbc.queryForObject(
             "SELECT read_at FROM notifications WHERE event_id=?", java.sql.Timestamp.class, id));
+  }
+
+  @Test
+  void reviewNotificationKeepsItsTypeRecipientAndReadStateOnReplay() throws Exception {
+    UUID id = UUID.randomUUID();
+    String payload =
+        event(id, "designated-validator")
+            .replace("audit.mission.assigned.v1", "audit.mission.review-requested.v1");
+    consumer.receive(payload);
+    mvc.perform(get("/notifications").with(jwt().jwt(j -> j.subject("designated-validator"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items[0].eventType").value("audit.mission.review-requested.v1"));
+    mvc.perform(
+            put("/notifications/" + id + "/read")
+                .with(jwt().jwt(j -> j.subject("designated-validator"))))
+        .andExpect(status().isOk());
+    consumer.receive(payload);
+    assertEquals(
+        1,
+        jdbc.queryForObject(
+            "SELECT count(*) FROM notifications WHERE event_id=? AND read_at IS NOT NULL",
+            Integer.class,
+            id));
+    mvc.perform(get("/notifications").with(jwt().jwt(j -> j.subject("other-reviewer"))))
+        .andExpect(jsonPath("$.items.length()").value(0));
   }
 }

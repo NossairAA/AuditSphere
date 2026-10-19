@@ -53,7 +53,7 @@ if not production:
   if 'VALIDATOR_PASSWORD' not in env:
    env['VALIDATOR_PASSWORD']=secrets.token_urlsafe(24)
    with (root/'.env').open('a') as f: f.write('VALIDATOR_PASSWORD='+env['VALIDATOR_PASSWORD']+'\n')
-  call(base+'/users',{'username':'validator','enabled':True,'emailVerified':True,'firstName':'Validator','lastName':'Demo','email':'validator@example.invalid','credentials':[{'type':'password','value':env['VALIDATOR_PASSWORD'],'temporary':False}]},'POST',token)
+  call(base+'/users',{'username':'validator','enabled':True,'emailVerified':True,'firstName':'Thomas','lastName':'Laurent','email':'validator@example.invalid','credentials':[{'type':'password','value':env['VALIDATOR_PASSWORD'],'temporary':False}]},'POST',token)
   validators=call(base+'/users?username=validator&exact=true',token=token)
  # Never reset a password or add a role to an existing unrelated account.
  user=validators[0]

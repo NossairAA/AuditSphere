@@ -73,6 +73,8 @@ try:
     mutate('submission',{})
     cycle1=sql("SELECT review_cycle_id FROM missions WHERE id='"+mid+"'")
     wait(lambda:info(cycle1)['status']=='WORKFLOW_EXECUTION_STATUS_RUNNING','workflow started')
+    wait(lambda:len([n for n in request('/notifications',validator)[1].get('items',[]) if n['missionId']==mid and n['eventType']=='audit.mission.review-requested.v1'])==1,'validator notification')
+    sql("UPDATE assignment_outbox SET published_at=NULL,available_at=now(),lease_until=NULL,lease_token=NULL WHERE mission_id='"+mid+"' AND event_type='audit.mission.review-requested.v1'")
     if args.faults:
         compose('stop','workflow-worker');stopped.add('workflow-worker')
     mutate('review',{'decision':'REJECTED','comment':'Correction synthétique'},validator)
@@ -85,6 +87,7 @@ try:
     wait(lambda:completed(cycle1),'rejected workflow completed')
     assert result(cycle1)=='REJECTED'
     if args.faults:
+        compose('stop','notification-service');stopped.add('notification-service')
         compose('stop','temporal');stopped.add('temporal')
     mutate('submission',{})
     cycle2=sql("SELECT review_cycle_id FROM missions WHERE id='"+mid+"'")
@@ -98,6 +101,9 @@ try:
         compose('start','temporal');stopped.discard('temporal')
     wait(lambda:completed(cycle2),'approved workflow completed')
     assert result(cycle2)=='APPROVED'
+    if args.faults:
+        compose('start','notification-service');stopped.discard('notification-service')
+    wait(lambda:len([n for n in request('/notifications',validator)[1].get('items',[]) if n['missionId']==mid and n['eventType']=='audit.mission.review-requested.v1'])==2,'two notifications without replay duplicates')
     run=info(cycle2)['execution']['runId']
     # Simulate the loss of delivery acknowledgements, including for a completed workflow.
     sql("UPDATE review_workflow_outbox SET published_at=NULL,available_at=now(),lease_until=NULL,lease_token=NULL WHERE cycle_id='"+cycle2+"'")

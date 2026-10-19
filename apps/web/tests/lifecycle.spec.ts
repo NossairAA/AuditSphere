@@ -114,12 +114,12 @@ test("dates, conflit de version, démarrage et clôture réservés au propriéta
     });
     await designation
       .getByLabel("Choisir un validateur")
-      .selectOption({ label: "Validator Demo" });
+      .selectOption({ label: "Thomas Laurent" });
     await designation
       .getByRole("button", { name: "Enregistrer le validateur", exact: true })
       .click();
     await expect(
-      designation.getByText("Validateur désigné : Validator Demo"),
+      designation.getByText("Validateur désigné : Thomas Laurent"),
     ).toBeVisible();
     await section
       .getByRole("button", { name: "Soumettre à validation" })
@@ -131,7 +131,28 @@ test("dates, conflit de version, démarrage et clôture réservés au propriéta
     try {
       const reviewer = await reviewContext.newPage();
       await login(reviewer, "validator");
-      await reviewer.goto(`/missions/${id}`);
+      await expect
+        .poll(
+          async () => {
+            const r = await reviewer.request.get("/api/notifications");
+            const data = await r.json();
+            return data.items?.some(
+              (n: { missionId: string; eventType: string }) =>
+                n.missionId === id &&
+                n.eventType === "audit.mission.review-requested.v1",
+            );
+          },
+          { timeout: 20000 },
+        )
+        .toBe(true);
+      await reviewer.goto("/missions/notifications");
+      const notification = reviewer
+        .getByRole("row")
+        .filter({ has: reviewer.locator(`a[href="/missions/${id}"]`) });
+      await expect(notification).toContainText(
+        "Une mission attend votre validation",
+      );
+      await notification.getByRole("link").click();
       const reviewSection = reviewer.getByRole("region", {
         name: "Planification et statut",
       });

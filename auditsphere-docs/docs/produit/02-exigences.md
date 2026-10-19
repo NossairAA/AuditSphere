@@ -1,6 +1,6 @@
 # 02 : Exigences et périmètre
 
-**Statut :** Proposé
+**Statut :** plan priorisé le 2026-10-19, détails métier proposés
 
 ## Fonctionnalités MVP (P0)
 
@@ -12,9 +12,12 @@
 - **F-006** : plan d'action, responsables, délais, revues et clôture contrôlée.
 - **F-007** : historique des événements métier sensibles et export d'un rapport simple.
 
+La prochaine livraison porte sur F-003 à l’échelle d’une mission. Le référentiel global réutilisable vient plus tard. Voir les [critères de la première tranche](04-plan-metier.md).
+
 ## V1 (P1)
 
 - Notifications et escalades, workflows de validation.
+- Première tranche d’audit continu après F-003 à F-006 : règle versionnée, exécution sur une source autorisée, anomalies soumises à revue humaine.
 - Tableaux de bord des échéances et des risques.
 - Recherche documentaire avec filtrage des accès.
 - Modèles de missions et questionnaires réutilisables.
@@ -22,7 +25,7 @@
 
 ## Vision ultérieure (P2)
 
-- Contrôles récurrents automatisés, moteur de règles versionnées, exécutions planifiées.
+- Extension du moteur d’audit continu à plusieurs sources et règles, planification avancée.
 - Audit Replay, comparaison des règles, résultats reproductibles.
 - Multi-entités avancé, analytics à forte volumétrie, extraction de documents assistée.
 

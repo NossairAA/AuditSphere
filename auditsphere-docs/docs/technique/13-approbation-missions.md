@@ -28,3 +28,9 @@ Exécuter sh scripts/start-local.sh pour appliquer la migration et reconstruire 
 ## Validation
 
 29 tests Java ciblés réussis et 12 scénarios navigateur réussis. Les contrôles couvrent le refus de clôture directe, les rôles cumulés, le validateur désigné, les commentaires, les versions périmées, le gel des données, le refus puis la nouvelle soumission, l’approbation et la clôture. Le déclencheur SQL est testé avec une tentative directe de clôture sans approbation. La compilation Next.js passe. Les quatre missions précédemment clôturées localement conservent leur état sans décision inventée. Avant publication, la suite complète de 39 tests Java et le contrôle des secrets passent. La CI distante reste à vérifier.
+
+## Ergonomie du commentaire : 2026-10-19
+
+Le champ de commentaire utilise toute la largeur disponible, avec un libellé au-dessus, une hauteur minimale de 140 pixels et un redimensionnement vertical. Une aide rappelle que le commentaire est obligatoire et limité à 2 000 caractères. Les boutons passent à la ligne si nécessaire sur mobile.
+
+Compilation réussie et vérification navigateur à 1280 et 375 pixels, sans débordement horizontal. La saisie active les actions de décision. Aucune décision ni mission supplémentaire n’a été enregistrée pendant ce contrôle.

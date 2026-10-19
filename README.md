@@ -4,7 +4,11 @@ Plateforme d’audit interne et projet d’apprentissage des systèmes distribu�
 
 ## État actuel
 
-Backend Spring Boot avec gateway, PostgreSQL et Keycloak. Frontend Next.js, React, TypeScript et Tailwind avec connexion, liste filtrée, création et détail des missions. Un service de notifications consomme les affectations via Kafka et une outbox transactionnelle. La session web est conservée côté BFF, les jetons ne sont pas exposés au JavaScript du navigateur.
+Backend Spring Boot avec gateway, PostgreSQL et Keycloak. Frontend Next.js, React, TypeScript et Tailwind avec connexion, liste filtrée, création et détail des missions. Un service de notifications consomme les affectations et les demandes de validation via Kafka et une outbox transactionnelle. La session web est conservée côté BFF, les jetons ne sont pas exposés au JavaScript du navigateur.
+
+## Prochaine étape métier
+
+Risques et contrôles d’une mission, puis exécution et preuves, constats, actions correctives et audit continu. Le [plan métier](auditsphere-docs/docs/produit/04-plan-metier.md) précise les critères de la prochaine tranche, encore à implémenter.
 
 ## Démarrage local
 
@@ -30,14 +34,14 @@ Le lanceur sauvegarde les bases dans .local/backups, prépare les comptes SQL ru
 
 ## Comptes de démonstration
 
-| Identifiant | Rôle | Mot de passe local |
-| --- | --- | --- |
-| manager | Responsable, création autorisée | Valeur MANAGER_PASSWORD dans .env |
-| auditor | Auditeur, lecture des missions affectées | Valeur AUDITOR_PASSWORD dans .env |
-| outsider | Auditeur sans affectation initiale | Valeur OUTSIDER_PASSWORD dans .env |
-| validator | Lecture des missions où il est désigné, approbation à venir | Valeur VALIDATOR_PASSWORD dans .env |
+| Identifiant | Nom affiché fictif | Rôle | Mot de passe local |
+| --- | --- | --- | --- |
+| manager | Claire Martin | Responsable d’audit | Valeur MANAGER_PASSWORD dans .env |
+| auditor | Julien Moreau | Auditeur | Valeur AUDITOR_PASSWORD dans .env |
+| outsider | Sarah Benali | Auditrice | Valeur OUTSIDER_PASSWORD dans .env |
+| validator | Thomas Laurent | Validateur désigné | Valeur VALIDATOR_PASSWORD dans .env |
 
-Le rôle AUDIT_VALIDATOR prépare la future validation humaine. Il ne donne aucun accès global aux missions ni droit de création ou de modification. Le workflow d’approbation reste à implémenter. Sur une installation existante, exécuter `python3 scripts/setup-web.py` pour préparer le rôle et le compte local, sans réinitialiser les mots de passe existants. Voir le [guide du rôle validateur](auditsphere-docs/docs/technique/11-role-validateur.md).
+Le rôle AUDIT_VALIDATOR permet de décider sur les missions soumises où cet utilisateur est désigné. Il ne donne aucun accès global aux missions ni droit de responsable. La soumission produit une notification interne et un workflow Temporal durable. Sur une installation existante, exécuter `python3 scripts/setup-web.py` pour préparer le rôle et le compte local, sans réinitialiser les mots de passe existants. Voir le [guide du rôle validateur](auditsphere-docs/docs/technique/11-role-validateur.md).
 
 Les mots de passe sont aléatoires. Ne pas les publier ni les copier dans la documentation. Le compte administrateur Keycloak est distinct : `admin`, avec KEYCLOAK_ADMIN_PASSWORD dans `.env`.
 
@@ -59,7 +63,7 @@ npm --prefix apps/web run typecheck
 npm --prefix apps/web run build
 ```
 
-La CI GitHub reprend les tests backend, le smoke API, le build frontend et les parcours Chromium. Le fichier de workflow est fourni, son exécution distante pour ce jalon reste à vérifier après publication.
+La CI GitHub reprend les tests backend, le smoke API, le build frontend et les parcours Chromium. La CI du jalon Temporal est verte sur 7e4c707. L’extension des notifications de validation est vérifiée localement et reste non publiée.
 
 ## Services et arrêt
 
@@ -119,3 +123,7 @@ La clôture exige désormais une approbation du validateur désigné. Voir le [p
 ## Temporal en local
 
 La soumission démarre maintenant un workflow durable et la décision du validateur lui est transmise via une outbox PostgreSQL. Le worker est un processus séparé. Consulter [Temporal](http://localhost:8233) et le [guide de reprise](auditsphere-docs/docs/technique/14-temporal-revue.md). PostgreSQL reste la source de vérité métier. Temporal fonctionne ici en mode développement, sans échéance ni relance.
+
+Les notifications de demande de validation sont décrites dans le [guide de soumission](auditsphere-docs/docs/technique/15-notifications-validation.md).
+
+Le [jeu de démonstration métier](auditsphere-docs/docs/technique/17-donnees-demonstration.md) décrit les six missions locales. Les noms sont fictifs, les identifiants de connexion restent inchangés.

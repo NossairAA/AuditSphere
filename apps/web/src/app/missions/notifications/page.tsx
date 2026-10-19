@@ -1,16 +1,19 @@
 "use client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bell, RefreshCw } from "lucide-react";
+import { ArrowRight, Bell, RefreshCw } from "lucide-react";
 import { ErrorNotice, useUser } from "@/components/workspace";
-import { dateLabel } from "@/lib/types";
+
 type NotificationPage = {
   items: {
     id: string;
     missionId: string;
+    missionTitle: string | null;
     occurredAt: string;
     receivedAt: string;
     readAt: string | null;
+    eventType: string;
   }[];
   page: number;
   size: number;
@@ -18,6 +21,7 @@ type NotificationPage = {
 };
 export default function Notifications() {
   const user = useUser();
+  const router = useRouter();
   const [pending, setPending] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState("");
   const [data, setData] = useState<NotificationPage | null>(null);
@@ -26,11 +30,16 @@ export default function Notifications() {
   const [refresh, setRefresh] = useState(0);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
+    const liveRefresh = () => setRefresh((value) => value + 1);
+    window.addEventListener("notifications-live", liveRefresh);
     const timer = setInterval(() => {
       if (document.visibilityState === "visible" && page === 0)
         setRefresh((v) => v + 1);
     }, 30000);
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("notifications-live", liveRefresh);
+    };
   }, [page]);
   useEffect(() => {
     const controller = new AbortController();
@@ -54,7 +63,13 @@ export default function Notifications() {
       });
     return () => controller.abort();
   }, [page, refresh]);
-  async function markRead(id: string) {
+  async function openNotification(n: NotificationPage["items"][number]) {
+    if (pending) return;
+    if (n.readAt) {
+      router.push(`/missions/${n.missionId}`);
+      return;
+    }
+    const id = n.id;
     setPending(id);
     setMutationError("");
     try {
@@ -75,8 +90,8 @@ export default function Notifications() {
             }
           : old,
       );
-      setRefresh((v) => v + 1);
       window.dispatchEvent(new Event("notifications-changed"));
+      router.push(`/missions/${n.missionId}`);
     } catch (e) {
       setMutationError(
         e instanceof Error
@@ -96,8 +111,9 @@ export default function Notifications() {
             Notifications<span className="green">.</span>
           </h1>
           <p>
-            Retrouvez vos nouvelles affectations. La première page s’actualise
-            toutes les 30 secondes.
+            Retrouvez vos affectations et demandes de validation. La première
+            page se met à jour en direct. Les plus récentes apparaissent en
+            premier.
           </p>
         </div>
         <button
@@ -111,10 +127,10 @@ export default function Notifications() {
       <section className="panel" aria-label="Vos notifications">
         <div className="panel-title">
           <div>
-            <h2>Nouvelles affectations</h2>
+            <h2>Votre activité</h2>
             <p>
-              Une affectation passée ne garantit pas l’accès actuel à la
-              mission.
+              Cliquez sur une notification pour ouvrir la mission et la marquer
+              comme lue.
             </p>
           </div>
           <Bell size={24} />
@@ -136,7 +152,7 @@ export default function Notifications() {
           <div className="empty">
             <Bell size={36} />
             <h3>Aucune notification</h3>
-            <p>Vos prochaines affectations apparaîtront ici.</p>
+            <p>Vos prochaines notifications apparaîtront ici.</p>
           </div>
         ) : (
           <div className="table-scroll">
@@ -146,43 +162,57 @@ export default function Notifications() {
                   <th>ACTIVITÉ</th>
                   <th>DATE</th>
                   <th>MISSION</th>
-                  <th>LECTURE</th>
+                  <th className="notification-action-cell">
+                    <span className="sr-only">Action</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {data.items.map((n) => (
                   <tr
                     key={n.id}
-                    className={n.readAt ? undefined : "notification-unread"}
+                    className={`notification-row${n.readAt ? "" : " notification-unread"}`}
+                    onClick={(event) => {
+                      if (!(event.target as HTMLElement).closest("a"))
+                        void openNotification(n);
+                    }}
                   >
                     <td>
-                      <strong>Vous avez été affecté à une mission</strong>
+                      <strong>
+                        {n.eventType === "audit.mission.review-requested.v1"
+                          ? "Une mission attend votre validation"
+                          : "Vous avez été affecté à une mission"}
+                      </strong>
                       {!n.readAt && <span className="status">Non lue</span>}
                     </td>
-                    <td>{dateLabel(n.occurredAt)}</td>
                     <td>
-                      <Link
-                        className="mission-link"
-                        href={"/missions/" + n.missionId}
-                      >
-                        Consulter la mission{" "}
-                        <span className="sr-only">{n.missionId}</span>
-                      </Link>
+                      {new Date(n.receivedAt).toLocaleString("fr-FR", {
+                        dateStyle: "short",
+                        timeStyle: "short",
+                      })}
                     </td>
                     <td>
-                      {n.readAt ? (
-                        <span>Lue</span>
-                      ) : (
-                        <button
-                          className="button secondary"
-                          disabled={pending !== null}
-                          onClick={() => markRead(n.id)}
-                        >
-                          {pending === n.id
-                            ? "Enregistrement…"
-                            : "Marquer comme lue"}
-                        </button>
-                      )}
+                      <strong>
+                        {n.missionTitle || "Mission indisponible"}
+                      </strong>
+                    </td>
+                    <td className="notification-action-cell">
+                      <Link
+                        className="notification-open"
+                        aria-label={`Ouvrir la mission : ${n.missionTitle || "Mission indisponible"}`}
+                        href={"/missions/" + n.missionId}
+                        prefetch={false}
+                        aria-disabled={pending !== null}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          void openNotification(n);
+                        }}
+                      >
+                        <span className="notification-open-action">
+                          {pending === n.id ? "Ouverture…" : "Ouvrir"}
+                          <ArrowRight size={16} aria-hidden="true" />
+                        </span>
+                      </Link>
                     </td>
                   </tr>
                 ))}

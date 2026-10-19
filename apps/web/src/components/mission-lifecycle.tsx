@@ -186,16 +186,23 @@ export default function MissionLifecycle({
         </div>
       )}
       {canReview && mission.status === "PENDING_REVIEW" && (
-        <div>
+        <div className="review-form">
           <label>
             Commentaire de validation
             <textarea
+              rows={5}
+              required
+              aria-describedby="review-comment-help"
+              placeholder="Expliquez votre décision ou les corrections attendues…"
               value={comment}
               maxLength={2000}
               disabled={busy}
               onChange={(e) => setComment(e.target.value)}
             />
           </label>
+          <p id="review-comment-help" className="review-comment-help">
+            Commentaire obligatoire · 2 000 caractères maximum
+          </p>
           <div className="form-actions">
             <button
               className="button primary"

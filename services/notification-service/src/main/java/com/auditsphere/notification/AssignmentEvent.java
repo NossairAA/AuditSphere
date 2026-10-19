@@ -15,7 +15,8 @@ record AssignmentEvent(
     if (eventId == null
         || missionId == null
         || occurredAt == null
-        || !"audit.mission.assigned.v1".equals(eventType)
+        || !("audit.mission.assigned.v1".equals(eventType)
+            || "audit.mission.review-requested.v1".equals(eventType))
         || eventVersion != 1
         || recipientSubject == null
         || recipientSubject.isBlank()

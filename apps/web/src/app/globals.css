@@ -604,14 +604,16 @@ td {
   font-size: 12px;
   margin-bottom: 30px;
 }
-.mission-form label {
+.mission-form label,
+.review-form label {
   display: block;
   font-weight: 600;
   font-size: 12px;
   margin: 23px 0 9px;
 }
 .mission-form input,
-.mission-form textarea {
+.mission-form textarea,
+.review-form textarea {
   width: 100%;
   border: 1px solid #dce3d9;
   border-radius: 6px;
@@ -621,12 +623,14 @@ td {
   resize: vertical;
 }
 .mission-form input::placeholder,
-.mission-form textarea::placeholder {
+.mission-form textarea::placeholder,
+.review-form textarea::placeholder {
   color: #98a092;
   font-size: 12px;
 }
 .mission-form input:focus,
-.mission-form textarea:focus {
+.mission-form textarea:focus,
+.review-form textarea:focus {
   outline: 2px solid #a5bfa0;
   outline-offset: 0;
   border-color: #567c57;
@@ -1157,3 +1161,62 @@ td {
 .lifecycle-form { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; }
 .lifecycle-form label { display: grid; gap: 8px; }
 .lifecycle-form input { padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: white; }
+
+.review-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.review-form textarea {
+  min-height: 140px;
+  line-height: 1.6;
+  font-weight: 400;
+  font-size: 14px;
+}
+.review-comment-help {
+  color: var(--muted);
+  font-size: 12px;
+}
+.review-form .form-actions {
+  flex-wrap: wrap;
+}
+
+.notification-row {
+  cursor: pointer;
+}
+.notification-row:hover,
+.notification-row:focus-within {
+  background: #eaf0e2;
+}
+.notification-action-cell {
+  width: 1%;
+  text-align: right;
+  white-space: nowrap;
+}
+.notification-open {
+  display: inline-flex;
+  border-radius: 4px;
+}
+.notification-open-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.notification-open:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 5px;
+}
+.notification-open:hover .notification-open-action,
+.notification-open:focus-visible .notification-open-action {
+  background: #dce8d8;
+}
+.notification-open[aria-disabled="true"] {
+  opacity: 0.6;
+  cursor: wait;
+}

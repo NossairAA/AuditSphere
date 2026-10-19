@@ -17,13 +17,23 @@ class AssignmentOutbox {
 
   @Transactional(propagation = Propagation.MANDATORY)
   public void append(Mission mission, Set<String> recipients) {
+    append(mission, recipients, "audit.mission.assigned.v1");
+  }
+
+  @Transactional(propagation = Propagation.MANDATORY)
+  public void requestReview(Mission mission) {
+    append(mission, Set.of(mission.validatorSubject), "audit.mission.review-requested.v1");
+  }
+
+  private void append(Mission mission, Set<String> recipients, String type) {
     for (String recipient : recipients) {
       jdbc.update(
-          "INSERT INTO assignment_outbox(event_id, mission_id, recipient_subject, aggregate_version) VALUES (?, ?, ?, ?)",
+          "INSERT INTO assignment_outbox(event_id, mission_id, recipient_subject, aggregate_version, event_type) VALUES (?, ?, ?, ?, ?)",
           UUID.randomUUID(),
           mission.id,
           recipient,
-          mission.version);
+          mission.version,
+          type);
     }
   }
 }

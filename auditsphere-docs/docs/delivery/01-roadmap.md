@@ -1,6 +1,18 @@
 # 08 : Roadmap évolutive
 
-**Statut :** Proposition, durée à ajuster selon équipe et disponibilité.
+**Statut :** priorité métier révisée le 2026-10-19, durée à ajuster.
+
+## Ordre actif
+
+1. Risques et contrôles d’une mission, première tranche de F-003.
+2. Exécution des contrôles et centralisation des preuves.
+3. Constats et recommandations.
+4. Actions correctives et vérification de leur résolution.
+5. Premier moteur d’audit continu sur une source et une règle versionnée, puis planification.
+
+Le [plan métier détaillé](../produit/04-plan-metier.md) fait référence pour les prochains développements. Les échéances et relances Temporal sont reportées au backlog. L’architecture événementielle accompagne chaque besoin concret avec l’outbox et Kafka existants. Les sections datées ci-dessous conservent l’historique des jalons, elles ne remplacent pas cet ordre actif.
+
+## Trajectoire générale
 
 | Phase | Livrable concret | Sortie de phase |
 | --- | --- | --- |
@@ -68,3 +80,7 @@ Dates prévues et transitions Brouillon → En cours → Clôturée livrées loc
 ## Préparation de Temporal
 
 Le rôle AUDIT_VALIDATOR et son compte de démonstration sont préparés et vérifiés localement. La désignation du validateur et ses droits sur une mission sont implémentés localement. La soumission et la décision sont maintenant implémentées dans PostgreSQL, avec approbation obligatoire avant clôture. Temporal suit désormais les cycles de validation avec un worker séparé et une outbox transactionnelle. Les échéances et relances restent à ajouter.
+
+## Notification du validateur : 2026-10-19
+
+La soumission est reliée au service de notifications existant via Kafka. Une nouvelle soumission après refus crée une nouvelle notification. Les échéances et relances Temporal restent au backlog. La priorité actuelle est le programme de risques et contrôles d’une mission.

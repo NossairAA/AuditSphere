@@ -1,6 +1,22 @@
 # 09 : Backlog initial
 
-**Statut :** Proposé, priorités à confirmer.
+**Statut :** priorités métier révisées le 2026-10-19.
+
+## Priorité active
+
+US-003 et F-003 constituent la prochaine tranche : risques et contrôles rattachés à une mission. Les critères, permissions, limites et questions ouvertes figurent dans la [fiche métier](../produit/04-plan-metier.md).
+
+| Ordre | Périmètre | Critère de sortie | État |
+| --- | --- | --- | --- |
+| 1 | F-003, US-003 : programme risques et contrôles | Programme préparé par le responsable, consultable par les auditeurs, références et accès isolés par mission | À implémenter |
+| 2 | Exécution des contrôles, F-004 et US-004 | Résultats et preuves versionnées, consultables uniquement par les personnes autorisées | À réaliser |
+| 3 | F-005, US-005 : constats | Anomalie documentée avec gravité, cause, recommandation et revue | À réaliser |
+| 4 | F-006, US-006 et US-007 : actions correctives | Responsable, échéance, justificatif et vérification avant clôture | À réaliser |
+| 5 | US-011 : première règle d’audit continu | Exécution reproductible et anomalies sans doublon, revue avant constat officiel | À réaliser après le parcours manuel |
+
+Les notifications de soumission sont vérifiées localement et restent à publier. VALID-005 reste proposé, hors de la prochaine tranche. Les sections historiques suivantes décrivent les jalons passés, les fonctionnalités métier nouvelles ci-dessus ne sont pas encore livrées.
+
+## Catalogue des user stories
 
 | ID | Epic / user story | Priorité | État |
 | --- | --- | --- | --- |
@@ -14,7 +30,7 @@
 | US-008 | Comme responsable, j'exporte un rapport de mission. | P0 | Proposé |
 | US-009 | Comme auditeur, je suis notifié d'un retard. | P1 | Proposé |
 | US-010 | Comme responsable, je consulte les indicateurs consolidés. | P1 | Proposé |
-| US-011 | Comme auditeur, je configure un contrôle récurrent. | P2 | Proposé |
+| US-011 | Comme auditeur, je configure un contrôle récurrent. | P1 | Planifié après les actions correctives |
 | US-012 | Comme analyste, je compare deux versions de règles sur l'historique. | P2 | Proposé |
 
 Pour chaque user story ajoutée, utiliser [le modèle de fonctionnalité](../templates/fiche-fonctionnalite.md) et renseigner les critères d'acceptation.
@@ -117,8 +133,23 @@ Les notifications de retard US-009 restent proposées. Le jalon livré porte uni
 | VALID-002 | Désignation sur une mission, séparation responsable et validateur, droits limités à la mission | Vérifié localement, 28 tests Java ciblés et 12 scénarios navigateur |
 | VALID-003 | Soumission et décision persistées, clôture après approbation | Vérifié localement, 29 tests Java ciblés et 12 scénarios navigateur |
 | VALID-004 | Temporal, livraison des décisions et reprise du worker | Vérifié localement, 32 tests Java ciblés, 12 scénarios navigateur et pannes réelles |
-| VALID-005 | Échéances, relances et notifications de revue | Proposé |
+| VALID-005 | Échéances et relances de revue, notification de soumission suivie dans NOTIF-09 | Proposé, après priorité métier |
 
 Voir le [guide du rôle validateur](../technique/11-role-validateur.md).
 
+## Notifications de validation : 2026-10-19
+
+- NOTIF-09 : notification interne au validateur à chaque soumission, outbox atomique avec la mission et le message Temporal. Vérifié localement par 41 tests Java ciblés, 12 scénarios navigateur et le test de pannes.
+- Les relances, échéances, emails et notifications de décision restent hors de cette tranche.
+
 - OPS-DNS-01 : reprise des routes après changement d’adresse Docker, cache DNS borné et scénario de panne Temporal comme vérification distante.
+
+- DEMO-01 : nettoyage des anciennes données et six missions fictives réalistes, vérifié localement. Voir le [jeu de démonstration](../technique/17-donnees-demonstration.md).
+
+- UX-REVIEW-01 : champ de commentaire de validation corrigé, pleine largeur et compatible mobile. Vérifié localement sans modifier les missions de démonstration.
+
+- NOTIF-10 : titres de missions autorisés, ordre décroissant et lecture au clic avec compteur. Implémenté localement, colonne Lecture retirée.
+
+- UX-NOTIF-01 : zone cliquable étendue à la ligne, action compacte dans une colonne distincte et focus clavier visible, vérifiés localement.
+
+- NOTIF-11 : mise à jour SSE de la liste et du compteur, vérifiée localement avec une instance de notification-service. Diffusion partagée entre plusieurs instances à réaliser avant extension.

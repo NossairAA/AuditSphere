@@ -1,12 +1,26 @@
 openapi: 3.0.3
 info:
   title: AuditSphere Notifications
-  version: 0.2.0
+  version: 0.4.0
 servers:
   - url: http://localhost:8080
 security:
   - bearerAuth: []
 paths:
+  /notifications/stream:
+    get:
+      summary: Signaux SSE du sujet authentifié
+      description: Flux limité à 25 secondes et à l’expiration du JWT. Chaque signal refresh demande une relecture des données persistées. Aucun identifiant ou contenu métier dans le signal.
+      responses:
+        '200':
+          description: Flux initial puis changements après commit, reconnexion requise à la fermeture
+          content:
+            text/event-stream:
+              schema: {type: string}
+              example: "data:refresh\n\n"
+        '401': {description: Jeton absent ou expiré}
+        '429': {description: Limite de connexions ou quota atteint}
+        '503': {description: Flux indisponible}
   /notifications:
     get:
       summary: Notifications du sujet authentifié uniquement
@@ -33,8 +47,9 @@ paths:
                     type: array
                     items:
                       type: object
-                      required: [id, missionId, occurredAt, receivedAt, readAt]
+                      required: [id, missionId, occurredAt, receivedAt, readAt, eventType]
                       properties:
+                        eventType: {type: string, enum: [audit.mission.assigned.v1, audit.mission.review-requested.v1]}
                         id: {type: string, format: uuid}
                         missionId: {type: string, format: uuid}
                         occurredAt: {type: string, format: date-time}

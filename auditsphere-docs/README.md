@@ -4,9 +4,13 @@
 
 **Version documentaire :** 0.8.0
 **Statut :** missions, interface et notifications Kafka vérifiées localement / hypothèses métier à valider
-**Mise à jour :** 2026-10-17
+**Mise à jour :** 2026-10-19
 **Responsables :** à définir
 **Langue :** français
+
+## Prochaine tranche
+
+Construire le programme Risques et contrôles d’une mission, puis les preuves, constats et actions correctives. Le moteur d’audit continu suivra ce parcours métier. Voir le [plan métier et ses critères d’acceptation](docs/produit/04-plan-metier.md). Ces fonctionnalités restent à implémenter.
 
 ## Orientation technique
 

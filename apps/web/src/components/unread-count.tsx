@@ -22,13 +22,43 @@ export default function UnreadCount() {
         if (!current.signal.aborted) setCount(null);
       }
     }
+    let stream: EventSource | undefined;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    let disposed = false;
+    function connect() {
+      stream?.close();
+      clearTimeout(retry);
+      if (disposed || document.visibilityState !== "visible" || !navigator.onLine) return;
+      stream = new EventSource("/api/notifications/stream");
+      const currentStream = stream;
+      stream.onmessage = () => {
+        if (disposed || stream !== currentStream) return;
+        void refresh();
+        window.dispatchEvent(new Event("notifications-live"));
+      };
+      stream.onerror = () => {
+        if (disposed || stream !== currentStream) return;
+        currentStream.close();
+        retry = setTimeout(connect, 3000);
+      };
+    }
+    connect();
+    document.addEventListener("visibilitychange", connect);
+    window.addEventListener("online", connect);
+    window.addEventListener("offline", connect);
     void refresh();
     const timer = setInterval(refresh, 30000);
     window.addEventListener("notifications-changed", refresh);
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
     return () => {
+      disposed = true;
+      window.removeEventListener("online", connect);
+      window.removeEventListener("offline", connect);
       controller?.abort();
+      stream?.close();
+      clearTimeout(retry);
+      document.removeEventListener("visibilitychange", connect);
       clearInterval(timer);
       window.removeEventListener("notifications-changed", refresh);
       window.removeEventListener("focus", refresh);
