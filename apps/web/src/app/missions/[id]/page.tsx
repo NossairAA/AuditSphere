@@ -1,4 +1,5 @@
 "use client";
+import AuditProgram from "@/components/audit-program";
 import AdminMissionActions from "@/components/admin-mission-actions";
 import { isSuperAdmin } from "@/lib/types";
 import { use, useEffect, useState } from "react";
@@ -182,6 +183,7 @@ export default function Detail({
             aria-label="Sections de la fiche"
           >
             <a href="#mission-cadre">Vue d’ensemble</a>
+            <a href="#mission-programme">Risques et contrôles</a>
             <a href="#mission-equipe">Équipe et validation</a>
             <a href="#mission-suivi">Décisions et suivi</a>
             <a href="#mission-pilotage">Actions disponibles</a>
@@ -205,6 +207,11 @@ export default function Detail({
                 <h3>Objectifs et description</h3>
                 <p className="preserve">{mission.description}</p>
               </section>
+              <AuditProgram
+                key={mission.id}
+                mission={mission}
+                onUpdated={setMission}
+              />
               <div
                 id="mission-equipe"
                 tabIndex={-1}

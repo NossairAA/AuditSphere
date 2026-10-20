@@ -1373,4 +1373,252 @@ class MissionIntegrationTest {
         .andExpect(jsonPath("adminOverrideAction").isEmpty())
         .andExpect(jsonPath("version").value(4));
   }
+
+  org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors
+          .JwtRequestPostProcessor
+      programJwt(String subject, String role) {
+    return jwt()
+        .jwt(
+            j ->
+                j.subject(subject)
+                    .claim("realm_access", java.util.Map.of("roles", java.util.List.of(role))))
+        .authorities(new SimpleGrantedAuthority("ROLE_" + role));
+  }
+
+  org.springframework.test.web.servlet.ResultActions saveRisk(
+      String mission, long version, String subject, String role) throws Exception {
+    return mvc.perform(
+        put("/missions/" + mission + "/risks")
+            .with(programJwt(subject, role))
+            .contentType("application/json")
+            .content(
+                mapper.writeValueAsString(
+                    java.util.Map.of(
+                        "version",
+                        version,
+                        "title",
+                        "Paiement en double",
+                        "description",
+                        "Factures payées deux fois",
+                        "probability",
+                        3,
+                        "impact",
+                        4))));
+  }
+
+  @Test
+  void programPersistsLinksAndAuditTrailAndDetectsConflicts() throws Exception {
+    String id = create();
+    var response =
+        saveRisk(id, 0, "owner", "AUDIT_MANAGER")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("mission.version").value(1))
+            .andReturn();
+    String risk =
+        mapper.readTree(response.getResponse().getContentAsString()).at("/risks/0/id").asText();
+    saveRisk(id, 0, "owner", "AUDIT_MANAGER").andExpect(status().isConflict());
+    String controlBody =
+        mapper.writeValueAsString(
+            java.util.Map.of(
+                "version",
+                1,
+                "objective",
+                "Vérifier les doublons",
+                "procedure",
+                "Comparer fournisseur, numéro et montant",
+                "riskIds",
+                java.util.List.of(risk)));
+    response =
+        mvc.perform(
+                put("/missions/" + id + "/controls")
+                    .with(programJwt("owner", "AUDIT_MANAGER"))
+                    .contentType("application/json")
+                    .content(controlBody))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("controls[0].riskIds[0]").value(risk))
+            .andExpect(jsonPath("mission.version").value(2))
+            .andReturn();
+    String control =
+        mapper.readTree(response.getResponse().getContentAsString()).at("/controls/0/id").asText();
+    mvc.perform(
+            put("/missions/" + id + "/controls")
+                .with(programJwt("owner", "AUDIT_MANAGER"))
+                .contentType("application/json")
+                .content(
+                    mapper.writeValueAsString(
+                        java.util.Map.of(
+                            "version",
+                            2,
+                            "id",
+                            control,
+                            "objective",
+                            "Contrôle révisé",
+                            "procedure",
+                            "Nouvelle procédure",
+                            "riskIds",
+                            java.util.List.of(risk)))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("controls.length()").value(1));
+    org.junit.jupiter.api.Assertions.assertEquals(
+        3,
+        jdbc.queryForObject(
+            "SELECT count(*) FROM program_change_log WHERE mission_id=?",
+            Integer.class,
+            java.util.UUID.fromString(id)));
+    org.junit.jupiter.api.Assertions.assertEquals(
+        "Vérifier les doublons",
+        jdbc.queryForObject(
+            "SELECT previous_data->>'objective' FROM program_change_log WHERE mission_id=? AND previous_data IS NOT NULL",
+            String.class,
+            java.util.UUID.fromString(id)));
+  }
+
+  @Test
+  void programPermissionsAndMissionIsolation() throws Exception {
+    String id = create();
+    saveRisk(id, 0, "assigned", "AUDITOR").andExpect(status().isForbidden());
+    saveRisk(id, 0, "stranger", "AUDIT_MANAGER").andExpect(status().isNotFound());
+    saveRisk(id, 0, "owner", "AUDITOR").andExpect(status().isForbidden());
+    saveRisk(id, 0, "administrator", "SUPER_ADMIN").andExpect(status().isOk());
+    jdbc.update(
+        "UPDATE missions SET validator_subject='validator' WHERE id=?",
+        java.util.UUID.fromString(id));
+    for (String subject : java.util.List.of("owner", "assigned", "validator")) {
+      mvc.perform(
+              get("/missions/" + id + "/program")
+                  .with(
+                      programJwt(
+                          subject, subject.equals("validator") ? "AUDIT_VALIDATOR" : "AUDITOR")))
+          .andExpect(status().isOk());
+    }
+    mvc.perform(get("/missions/" + id + "/program").with(programJwt("validator", "AUDITOR")))
+        .andExpect(status().isNotFound());
+    mvc.perform(get("/missions/" + id + "/program").with(programJwt("stranger", "AUDIT_MANAGER")))
+        .andExpect(status().isNotFound());
+    String other = create();
+    var response = saveRisk(other, 0, "owner", "AUDIT_MANAGER").andReturn();
+    String foreign =
+        mapper.readTree(response.getResponse().getContentAsString()).at("/risks/0/id").asText();
+    mvc.perform(
+            put("/missions/" + id + "/controls")
+                .with(programJwt("owner", "AUDIT_MANAGER"))
+                .contentType("application/json")
+                .content(
+                    mapper.writeValueAsString(
+                        java.util.Map.of(
+                            "version",
+                            1,
+                            "objective",
+                            "Test",
+                            "procedure",
+                            "Test",
+                            "riskIds",
+                            java.util.List.of(foreign)))))
+        .andExpect(status().isBadRequest());
+    mvc.perform(
+            put("/missions/" + id + "/risks")
+                .with(programJwt("owner", "AUDIT_MANAGER"))
+                .contentType("application/json")
+                .content(
+                    mapper.writeValueAsString(
+                        java.util.Map.of(
+                            "version",
+                            1,
+                            "id",
+                            foreign,
+                            "title",
+                            "Test",
+                            "description",
+                            "Test",
+                            "probability",
+                            1,
+                            "impact",
+                            1))))
+        .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void programLockedDuringReviewAndDeletedMissionHidden() throws Exception {
+    String id = create();
+    jdbc.update(
+        "UPDATE missions SET status='PENDING_REVIEW',planned_start_date=current_date,planned_end_date=current_date,started_at=now(),submitted_at=now(),validator_subject='validator' WHERE id=?",
+        java.util.UUID.fromString(id));
+    saveRisk(id, 0, "owner", "AUDIT_MANAGER").andExpect(status().isConflict());
+    saveRisk(id, 0, "admin", "SUPER_ADMIN").andExpect(status().isConflict());
+    mvc.perform(
+            get("/missions/" + id + "/program").with(programJwt("validator", "AUDIT_VALIDATOR")))
+        .andExpect(status().isOk());
+    jdbc.update(
+        "UPDATE missions SET status='APPROVED',reviewed_at=now(),reviewed_by='validator',review_decision='APPROVED',review_comment='Validé' WHERE id=?",
+        java.util.UUID.fromString(id));
+    saveRisk(id, 0, "owner", "AUDIT_MANAGER").andExpect(status().isConflict());
+    jdbc.update(
+        "UPDATE missions SET status='CLOSED',closed_at=now() WHERE id=?",
+        java.util.UUID.fromString(id));
+    saveRisk(id, 0, "owner", "AUDIT_MANAGER").andExpect(status().isConflict());
+    jdbc.update("UPDATE missions SET deleted_at=now() WHERE id=?", java.util.UUID.fromString(id));
+    mvc.perform(get("/missions/" + id + "/program").with(programJwt("admin", "SUPER_ADMIN")))
+        .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void programSupportsMultipleRisksAndRejectsInvalidFields() throws Exception {
+    String id = create();
+    for (int probability : new int[] {0, 6})
+      mvc.perform(
+              put("/missions/" + id + "/risks")
+                  .with(programJwt("owner", "AUDIT_MANAGER"))
+                  .contentType("application/json")
+                  .content(
+                      mapper.writeValueAsString(
+                          java.util.Map.of(
+                              "version",
+                              0,
+                              "title",
+                              "Risque",
+                              "description",
+                              "Test",
+                              "probability",
+                              probability,
+                              "impact",
+                              3))))
+          .andExpect(status().isBadRequest());
+    saveRisk(id, 0, "owner", "AUDIT_MANAGER").andExpect(status().isOk());
+    var response = saveRisk(id, 1, "owner", "AUDIT_MANAGER").andExpect(status().isOk()).andReturn();
+    var risks = mapper.readTree(response.getResponse().getContentAsString()).get("risks");
+    var ids = java.util.List.of(risks.get(0).get("id").asText(), risks.get(1).get("id").asText());
+    mvc.perform(
+            put("/missions/" + id + "/controls")
+                .with(programJwt("owner", "AUDIT_MANAGER"))
+                .contentType("application/json")
+                .content(
+                    mapper.writeValueAsString(
+                        java.util.Map.of(
+                            "version",
+                            2,
+                            "objective",
+                            "Contrôle",
+                            "procedure",
+                            "Test",
+                            "riskIds",
+                            java.util.List.of()))))
+        .andExpect(status().isBadRequest());
+    mvc.perform(
+            put("/missions/" + id + "/controls")
+                .with(programJwt("owner", "AUDIT_MANAGER"))
+                .contentType("application/json")
+                .content(
+                    mapper.writeValueAsString(
+                        java.util.Map.of(
+                            "version",
+                            2,
+                            "objective",
+                            "Contrôle",
+                            "procedure",
+                            "Test",
+                            "riskIds",
+                            ids))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("controls[0].riskIds.length()").value(2));
+  }
 }

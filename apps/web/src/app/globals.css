@@ -1337,3 +1337,118 @@ td {
   .mission-followup { padding: 20px; }
   .mission-dates { gap: 16px 10px; }
 }
+
+.mission-program {
+  margin-top: 24px;
+  padding: 26px;
+  scroll-margin-top: 24px;
+}
+.mission-program > p {
+  color: var(--muted);
+  margin: 12px 0;
+}
+.program-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 26px 0 14px;
+}
+.program-section-heading h3 {
+  margin: 0;
+}
+.program-section-heading h3 span {
+  font-weight: 400;
+}
+.program-items {
+  display: grid;
+  gap: 12px;
+}
+.program-item {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow-wrap: anywhere;
+}
+.program-item h4 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+.program-item p {
+  margin: 8px 0;
+  line-height: 1.6;
+}
+.program-rating,
+.program-empty {
+  color: var(--muted);
+  font-size: 13px;
+}
+.program-lock {
+  padding: 12px;
+  background: #f5f1e7;
+  border-radius: 8px;
+}
+.program-editor {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.program-editor fieldset {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+.program-editor label {
+  display: block;
+  margin: 14px 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.program-editor input:not([type="checkbox"]),
+.program-editor textarea,
+.program-editor select {
+  display: block;
+  width: 100%;
+  border: 1px solid #cbd7ce;
+  border-radius: 8px;
+  padding: 12px;
+  background: white;
+  font: inherit;
+  color: inherit;
+}
+.program-editor textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+.program-rating-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.program-editor .program-risk-choices {
+  margin-top: 18px;
+}
+.program-risk-choices label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow-wrap: anywhere;
+}
+.program-editor-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+@media (max-width: 600px) {
+  .mission-program {
+    padding: 20px;
+  }
+  .program-section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .program-rating-fields {
+    grid-template-columns: 1fr;
+  }
+}

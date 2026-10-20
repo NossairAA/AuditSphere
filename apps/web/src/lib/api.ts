@@ -6,6 +6,9 @@ export async function missions(
   request: Request,
   id?: string,
   resource?:
+    | "program"
+    | "risks"
+    | "controls"
     | "assignments"
     | "participants"
     | "auditors"
@@ -66,48 +69,65 @@ export async function missions(
       if (!input || typeof input !== "object" || Array.isArray(input))
         return json({ error: "Formulaire invalide" }, 400);
       body = JSON.stringify(
-        resource === "override"
+        resource === "risks"
           ? {
               version: input.version,
-              action: input.action,
-              reason: input.reason,
+              id: input.id,
+              title: input.title,
+              description: input.description,
+              probability: input.probability,
+              impact: input.impact,
             }
-          : request.method === "DELETE" || resource === "withdrawal"
-            ? { version: input.version, reason: input.reason }
-            : request.method === "PUT"
-              ? resource === "review"
-                ? {
-                    version: input.version,
-                    decision: input.decision,
-                    comment: input.comment,
-                  }
-                : resource === "submission"
-                  ? { version: input.version }
-                  : resource === "validator"
+          : resource === "controls"
+            ? {
+                version: input.version,
+                id: input.id,
+                objective: input.objective,
+                procedure: input.procedure,
+                riskIds: input.riskIds,
+              }
+            : resource === "override"
+              ? {
+                  version: input.version,
+                  action: input.action,
+                  reason: input.reason,
+                }
+              : request.method === "DELETE" || resource === "withdrawal"
+                ? { version: input.version, reason: input.reason }
+                : request.method === "PUT"
+                  ? resource === "review"
                     ? {
                         version: input.version,
-                        validatorSubject: input.validatorSubject,
+                        decision: input.decision,
+                        comment: input.comment,
                       }
-                    : resource === "schedule"
-                      ? {
-                          version: input.version,
-                          plannedStartDate: input.plannedStartDate,
-                          plannedEndDate: input.plannedEndDate,
-                        }
-                      : resource === "status"
-                        ? { version: input.version, status: input.status }
-                        : {
-                            assigneeSubjects: input.assigneeSubjects,
+                    : resource === "submission"
+                      ? { version: input.version }
+                      : resource === "validator"
+                        ? {
                             version: input.version,
+                            validatorSubject: input.validatorSubject,
                           }
-              : {
-                  title: input.title,
-                  description: input.description,
-                  perimeter: input.perimeter,
-                  assigneeSubjects: input.assigneeSubjects ?? [],
-                  plannedStartDate: input.plannedStartDate ?? null,
-                  plannedEndDate: input.plannedEndDate ?? null,
-                },
+                        : resource === "schedule"
+                          ? {
+                              version: input.version,
+                              plannedStartDate: input.plannedStartDate,
+                              plannedEndDate: input.plannedEndDate,
+                            }
+                          : resource === "status"
+                            ? { version: input.version, status: input.status }
+                            : {
+                                assigneeSubjects: input.assigneeSubjects,
+                                version: input.version,
+                              }
+                  : {
+                      title: input.title,
+                      description: input.description,
+                      perimeter: input.perimeter,
+                      assigneeSubjects: input.assigneeSubjects ?? [],
+                      plannedStartDate: input.plannedStartDate ?? null,
+                      plannedEndDate: input.plannedEndDate ?? null,
+                    },
       );
       headers["Content-Type"] = "application/json";
     } else if (resource === "auditors" || resource === "validators") {
@@ -132,9 +152,11 @@ export async function missions(
         {
           error:
             response.status === 409
-              ? resource === "status" || resource === "schedule"
-                ? "Modification impossible : vérifiez les dates, le statut et la version. Rechargez la fiche avant de recommencer."
-                : "Cette mission a été modifiée. Rechargez la fiche avant de recommencer."
+              ? resource === "risks" || resource === "controls"
+                ? "Programme verrouillé, limite de 100 éléments atteinte ou fiche modifiée. Actualisez la fiche avant de recommencer."
+                : resource === "status" || resource === "schedule"
+                  ? "Modification impossible : vérifiez les dates, le statut et la version. Rechargez la fiche avant de recommencer."
+                  : "Cette mission a été modifiée. Rechargez la fiche avant de recommencer."
               : response.status === 404
                 ? "Mission introuvable ou accès non autorisé"
                 : response.status === 400

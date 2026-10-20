@@ -43,7 +43,8 @@ try:
   else:
    (backup/(cycle+'.json')).write_text(compose('exec','-T','temporal','temporal','workflow','show','--workflow-id',workflow,'--output','json').stdout)
    compose('exec','-T','temporal','temporal','workflow','delete','--workflow-id',workflow,input='y\n')
- sql('audit',f"BEGIN; DELETE FROM assignment_outbox WHERE mission_id IN ({values}); DELETE FROM review_workflow_outbox WHERE mission_id IN ({values}); DELETE FROM mission_assignments WHERE mission_id IN ({values}); DELETE FROM missions WHERE id IN ({values}); COMMIT;")
+ program_cleanup = f"DELETE FROM mission_control_risks WHERE mission_id IN ({values}); " if sql('audit',"SELECT to_regclass('public.mission_control_risks') IS NOT NULL") == 't' else ''
+ sql('audit',f"BEGIN; {program_cleanup}DELETE FROM assignment_outbox WHERE mission_id IN ({values}); DELETE FROM review_workflow_outbox WHERE mission_id IN ({values}); DELETE FROM mission_assignments WHERE mission_id IN ({values}); DELETE FROM missions WHERE id IN ({values}); COMMIT;")
  sql('notification',f"DELETE FROM notifications WHERE mission_id IN ({values})")
  # Keep mission_action_log, including evidence of draft deletion.
  manifest.unlink()

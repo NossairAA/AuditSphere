@@ -12,6 +12,7 @@ class Mission {
   @Version Long version;
 
   String assignmentRevision;
+  UUID programRevision;
 
   @Column(length = 255)
   String validatorSubject;

@@ -130,3 +130,5 @@ La soumission démarre maintenant un workflow durable et la décision du validat
 Les notifications de demande de validation sont décrites dans le [guide de soumission](auditsphere-docs/docs/technique/15-notifications-validation.md).
 
 Le [jeu de démonstration métier](auditsphere-docs/docs/technique/17-donnees-demonstration.md) décrit les six missions locales. Les noms sont fictifs, les identifiants de connexion restent inchangés.
+
+Le [programme d’audit](auditsphere-docs/docs/technique/21-programme-audit.md) permet de préparer les risques et contrôles depuis la fiche de mission. Connectez-vous comme responsable, ouvrez une mission en brouillon ou en cours, puis utilisez Ajouter un risque et Ajouter un contrôle.

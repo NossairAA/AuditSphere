@@ -1,5 +1,14 @@
 # Journal des changements
 
+## Programme d’audit : 2026-10-20
+
+- Publication des changements précédents dans 6ca0b6c, CI GitHub réussie.
+- Risques et contrôles rattachés aux missions, création et modification depuis la fiche.
+- Permissions par mission, verrouillage selon le statut, conflits de version et journal transactionnel.
+- Échelles initiales de 1 à 5, plafonds de 100 risques et 100 contrôles par mission.
+- 50 tests du service d’audit et un parcours navigateur réussis, compilation frontend validée.
+- Nouvelle tranche vérifiée en local, validation CI distante à suivre après publication.
+
 ## Fiche de mission allégée : 2026-10-20
 
 - Navigation directe entre les sections, action principale mise en avant et formulaires ouverts à la demande.

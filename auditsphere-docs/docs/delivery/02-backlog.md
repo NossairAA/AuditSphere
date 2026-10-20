@@ -10,11 +10,11 @@ La [fiche de mission](../technique/19-fiche-mission.md) est réorganisée et vé
 
 Le retrait des soumissions et la suppression des brouillons sont implémentés et vérifiés en local le 2026-10-20. Voir le [guide](../technique/18-retrait-suppression.md).
 
-US-003 et F-003 constituent la prochaine tranche métier : risques et contrôles rattachés à une mission. Les critères, permissions, limites et questions ouvertes figurent dans la [fiche métier](../produit/04-plan-metier.md).
+US-003 et F-003 sont implémentés et vérifiés localement dans le [programme d’audit](../technique/21-programme-audit.md). La prochaine tranche métier porte sur l’exécution des contrôles et les preuves. Le périmètre livré concerne les risques et contrôles rattachés à une mission. Les critères, permissions, limites et questions ouvertes figurent dans la [fiche métier](../produit/04-plan-metier.md).
 
 | Ordre | Périmètre | Critère de sortie | État |
 | --- | --- | --- | --- |
-| 1 | F-003, US-003 : programme risques et contrôles | Programme préparé par le responsable, consultable par les auditeurs, références et accès isolés par mission | À implémenter |
+| 1 | F-003, US-003 : programme risques et contrôles | Programme préparé par le responsable, consultable par les auditeurs, références et accès isolés par mission | Vérifié localement |
 | 2 | Exécution des contrôles, F-004 et US-004 | Résultats et preuves versionnées, consultables uniquement par les personnes autorisées | À réaliser |
 | 3 | F-005, US-005 : constats | Anomalie documentée avec gravité, cause, recommandation et revue | À réaliser |
 | 4 | F-006, US-006 et US-007 : actions correctives | Responsable, échéance, justificatif et vérification avant clôture | À réaliser |

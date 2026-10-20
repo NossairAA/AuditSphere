@@ -40,7 +40,8 @@ for db in ['audit','web','notification']:
   sql(service,admin,db,'SET ROLE web_owner;\n'+schema+'\nRESET ROLE;\nGRANT SELECT,INSERT,UPDATE,DELETE ON web_sessions TO web_runtime;\n')
  elif db=='audit':
   sql(service,admin,db,"SELECT 'GRANT SELECT,INSERT ON mission_action_log TO audit_runtime' WHERE EXISTS(SELECT FROM pg_tables WHERE schemaname='public' AND tablename='mission_action_log')\\gexec\n")
-  sql(service,admin,db,"SELECT format('GRANT SELECT,INSERT,UPDATE,DELETE ON %I TO audit_runtime',tablename) FROM pg_tables WHERE schemaname='public' AND tablename IN ('missions','mission_assignments','assignment_outbox','review_workflow_outbox')\\gexec\n")
+  sql(service,admin,db,"SELECT 'GRANT SELECT,INSERT ON program_change_log TO audit_runtime' WHERE EXISTS(SELECT FROM pg_tables WHERE schemaname='public' AND tablename='program_change_log')\\gexec\n")
+  sql(service,admin,db,"SELECT format('GRANT SELECT,INSERT,UPDATE,DELETE ON %I TO audit_runtime',tablename) FROM pg_tables WHERE schemaname='public' AND tablename IN ('missions','mission_assignments','assignment_outbox','review_workflow_outbox','mission_risks','mission_controls','mission_control_risks')\\gexec\n")
  else:
   sql(service,admin,db,"SELECT 'GRANT SELECT,INSERT ON notifications TO notification_runtime' WHERE EXISTS(SELECT FROM pg_tables WHERE schemaname='public' AND tablename='notifications')\\gexec\n")
   sql(service,admin,db,"SELECT 'GRANT UPDATE(read_at) ON notifications TO notification_runtime' WHERE EXISTS(SELECT FROM information_schema.columns WHERE table_schema='public' AND table_name='notifications' AND column_name='read_at')\\gexec\n")
