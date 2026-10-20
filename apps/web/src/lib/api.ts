@@ -15,7 +15,9 @@ export async function missions(
     | "validator"
     | "submission"
     | "review"
-    | "withdrawal",
+    | "withdrawal"
+    | "override"
+    | "action-log",
 ) {
   const rejection = rateLimit(request);
   if (rejection) return rejection;
@@ -25,6 +27,11 @@ export async function missions(
       return json({ error: "Votre session a expiré. Reconnectez-vous." }, 401);
     if (id && !/^[0-9a-f-]{36}$/i.test(id))
       return json({ error: "Mission introuvable" }, 404);
+    if (
+      (resource === "override" || resource === "action-log") &&
+      !data.roles.includes("SUPER_ADMIN")
+    )
+      return json({ error: "Action réservée au superadministrateur" }, 403);
     const url = new URL(
       resource === "auditors" || resource === "validators"
         ? "/missions/" + resource
@@ -41,6 +48,7 @@ export async function missions(
       if (!validMutation(request, data, request.headers.get("x-csrf-token")))
         return json({ error: "Requête refusée" }, 403);
       if (
+        !data.roles.includes("SUPER_ADMIN") &&
         !data.roles.includes(
           resource === "review" ? "AUDIT_VALIDATOR" : "AUDIT_MANAGER",
         )
@@ -58,42 +66,48 @@ export async function missions(
       if (!input || typeof input !== "object" || Array.isArray(input))
         return json({ error: "Formulaire invalide" }, 400);
       body = JSON.stringify(
-        request.method === "DELETE" || resource === "withdrawal"
-          ? { version: input.version, reason: input.reason }
-          : request.method === "PUT"
-            ? resource === "review"
-              ? {
-                  version: input.version,
-                  decision: input.decision,
-                  comment: input.comment,
-                }
-              : resource === "submission"
-                ? { version: input.version }
-                : resource === "validator"
-                  ? {
-                      version: input.version,
-                      validatorSubject: input.validatorSubject,
-                    }
-                  : resource === "schedule"
+        resource === "override"
+          ? {
+              version: input.version,
+              action: input.action,
+              reason: input.reason,
+            }
+          : request.method === "DELETE" || resource === "withdrawal"
+            ? { version: input.version, reason: input.reason }
+            : request.method === "PUT"
+              ? resource === "review"
+                ? {
+                    version: input.version,
+                    decision: input.decision,
+                    comment: input.comment,
+                  }
+                : resource === "submission"
+                  ? { version: input.version }
+                  : resource === "validator"
                     ? {
                         version: input.version,
-                        plannedStartDate: input.plannedStartDate,
-                        plannedEndDate: input.plannedEndDate,
+                        validatorSubject: input.validatorSubject,
                       }
-                    : resource === "status"
-                      ? { version: input.version, status: input.status }
-                      : {
-                          assigneeSubjects: input.assigneeSubjects,
+                    : resource === "schedule"
+                      ? {
                           version: input.version,
+                          plannedStartDate: input.plannedStartDate,
+                          plannedEndDate: input.plannedEndDate,
                         }
-            : {
-                title: input.title,
-                description: input.description,
-                perimeter: input.perimeter,
-                assigneeSubjects: input.assigneeSubjects ?? [],
-                plannedStartDate: input.plannedStartDate ?? null,
-                plannedEndDate: input.plannedEndDate ?? null,
-              },
+                      : resource === "status"
+                        ? { version: input.version, status: input.status }
+                        : {
+                            assigneeSubjects: input.assigneeSubjects,
+                            version: input.version,
+                          }
+              : {
+                  title: input.title,
+                  description: input.description,
+                  perimeter: input.perimeter,
+                  assigneeSubjects: input.assigneeSubjects ?? [],
+                  plannedStartDate: input.plannedStartDate ?? null,
+                  plannedEndDate: input.plannedEndDate ?? null,
+                },
       );
       headers["Content-Type"] = "application/json";
     } else if (resource === "auditors" || resource === "validators") {

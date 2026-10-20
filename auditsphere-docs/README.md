@@ -80,3 +80,7 @@ Le [cycle de vie manuel des missions](docs/technique/10-cycle-missions.md) ajout
 - [Temporal et reprise des validations](docs/technique/14-temporal-revue.md)
 
 - [Retrait de soumission et suppression des brouillons](docs/technique/18-retrait-suppression.md)
+
+- [Structure de la fiche de mission](docs/technique/19-fiche-mission.md)
+
+- [Superadministrateur et dérogations](docs/technique/20-superadmin.md)

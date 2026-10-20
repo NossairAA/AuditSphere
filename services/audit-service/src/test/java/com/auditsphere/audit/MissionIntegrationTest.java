@@ -1189,4 +1189,188 @@ class MissionIntegrationTest {
             Integer.class,
             java.util.UUID.fromString(id)));
   }
+
+  org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors
+          .JwtRequestPostProcessor
+      adminJwt(String subject) {
+    return jwt()
+        .jwt(
+            j ->
+                j.subject(subject)
+                    .claim(
+                        "realm_access",
+                        java.util.Map.of("roles", java.util.List.of("SUPER_ADMIN"))))
+        .authorities(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"));
+  }
+
+  org.springframework.test.web.servlet.ResultActions overrideMission(
+      String id, long version, String action, String reason) throws Exception {
+    return mvc.perform(
+        put("/missions/" + id + "/override")
+            .with(adminJwt("owner"))
+            .contentType("application/json")
+            .content(
+                mapper.writeValueAsString(
+                    java.util.Map.of("version", version, "action", action, "reason", reason))));
+  }
+
+  @Test
+  void superAdminHasGlobalAccessWithoutChangingOwnership() throws Exception {
+    String id = create();
+    mvc.perform(get("/missions/" + id).with(adminJwt("administrator")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("ownerSubject").value("owner"));
+    mvc.perform(get("/missions/titles").param("ids", id).with(adminJwt("administrator")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$." + id).exists());
+    mvc.perform(get("/missions").param("size", "100").with(adminJwt("administrator")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items[?(@.id == '" + id + "')]").isNotEmpty());
+    mvc.perform(
+            put("/missions/" + id + "/schedule")
+                .with(adminJwt("administrator"))
+                .contentType("application/json")
+                .content(
+                    "{\"version\":0,\"plannedStartDate\":\"2026-11-01\",\"plannedEndDate\":\"2026-11-10\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("ownerSubject").value("owner"));
+    org.junit.jupiter.api.Assertions.assertEquals(
+        1,
+        jdbc.queryForObject(
+            "SELECT count(*) FROM mission_action_log WHERE mission_id=? AND action='ADMIN_CHANGE'",
+            Integer.class,
+            java.util.UUID.fromString(id)));
+    mvc.perform(get("/missions/" + id).with(jwt().jwt(j -> j.subject("superadmin"))))
+        .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void overridesRequireAdminReasonAndCurrentVersion() throws Exception {
+    String id = pendingReview();
+    mvc.perform(
+            put("/missions/" + id + "/override")
+                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER")))
+                .contentType("application/json")
+                .content("{\"version\":4,\"action\":\"CLOSE\",\"reason\":\"Test\"}"))
+        .andExpect(status().isForbidden());
+    overrideMission(id, 4, "CLOSE", " ").andExpect(status().isBadRequest());
+    overrideMission(id, 3, "CLOSE", "Erreur de périmètre").andExpect(status().isConflict());
+    overrideMission(id, 4, "INVALID", "Test").andExpect(status().isBadRequest());
+    mvc.perform(get("/missions/" + id + "/action-log").with(jwt()))
+        .andExpect(status().isForbidden());
+    org.junit.jupiter.api.Assertions.assertEquals(
+        0,
+        jdbc.queryForObject(
+            "SELECT count(*) FROM mission_action_log WHERE mission_id=? AND"
+                + " action='ADMIN_OVERRIDE'",
+            Integer.class,
+            java.util.UUID.fromString(id)));
+  }
+
+  @Test
+  void explicitOverridesCloseReopenSelfApproveAndHideMissionWithHistory() throws Exception {
+    String id = pendingReview();
+    overrideMission(id, 4, "CLOSE", "Clôture exceptionnelle")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("status").value("CLOSED"));
+    org.junit.jupiter.api.Assertions.assertEquals(
+        "WITHDRAWN",
+        jdbc.queryForObject(
+            "SELECT decision FROM review_workflow_outbox WHERE mission_id=? AND"
+                + " event_type='DECISION'",
+            String.class,
+            java.util.UUID.fromString(id)));
+    overrideMission(id, 5, "REOPEN", "Travaux complémentaires")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("status").value("IN_PROGRESS"));
+    overrideMission(id, 6, "APPROVE", "Approbation personnelle explicitement autorisée")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("reviewedBy").value("owner"))
+        .andExpect(jsonPath("status").value("APPROVED"));
+    overrideMission(id, 7, "DELETE", "Mission à retirer").andExpect(status().isNoContent());
+    mvc.perform(get("/missions/" + id).with(adminJwt("owner"))).andExpect(status().isNotFound());
+    mvc.perform(get("/missions/titles").param("ids", id).with(adminJwt("owner")))
+        .andExpect(content().json("{}"));
+    overrideMission(id, 8, "REOPEN", "Test").andExpect(status().isNotFound());
+    mvc.perform(get("/missions/" + id + "/action-log").with(adminJwt("owner")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(4))
+        .andExpect(jsonPath("$[0].previous_status").value("APPROVED"))
+        .andExpect(jsonPath("$[0].resulting_status").value("DELETED"));
+    org.junit.jupiter.api.Assertions.assertEquals(
+        2,
+        jdbc.queryForObject(
+            "SELECT count(*) FROM review_workflow_outbox WHERE mission_id=?",
+            Integer.class,
+            java.util.UUID.fromString(id)));
+  }
+
+  @Test
+  void superAdminCannotSilentlySelfApproveOrClose() throws Exception {
+    String id = pendingReview();
+    mvc.perform(
+            put("/missions/" + id + "/review")
+                .with(adminJwt("owner"))
+                .contentType("application/json")
+                .content("{\"version\":4,\"decision\":\"APPROVED\",\"comment\":\"Test\"}"))
+        .andExpect(status().isNotFound());
+    mvc.perform(
+            put("/missions/" + id + "/status")
+                .with(adminJwt("owner"))
+                .contentType("application/json")
+                .content("{\"version\":4,\"status\":\"CLOSED\"}"))
+        .andExpect(status().isConflict());
+    overrideMission(id, 4, "APPROVE", "Dérogation motivée").andExpect(status().isOk());
+    org.junit.jupiter.api.Assertions.assertEquals(
+        "APPROVED",
+        jdbc.queryForObject(
+            "SELECT decision FROM review_workflow_outbox WHERE mission_id=? AND"
+                + " event_type='DECISION'",
+            String.class,
+            java.util.UUID.fromString(id)));
+  }
+
+  @Test
+  void pendingDeletionEndsCycleAndDraftOverrideKeepsValidDates() throws Exception {
+    String id = pendingReview();
+    overrideMission(id, 4, "DELETE", "Erreur de création").andExpect(status().isNoContent());
+    org.junit.jupiter.api.Assertions.assertEquals(
+        "WITHDRAWN",
+        jdbc.queryForObject(
+            "SELECT decision FROM review_workflow_outbox WHERE mission_id=? AND"
+                + " event_type='DECISION'",
+            String.class,
+            java.util.UUID.fromString(id)));
+    String draft = create();
+    overrideMission(draft, 0, "CLOSE", "Test").andExpect(status().isConflict());
+    overrideMission(draft, 0, "APPROVE", "Test").andExpect(status().isConflict());
+    overrideMission(draft, 0, "DELETE", "Brouillon erroné").andExpect(status().isNoContent());
+  }
+
+  @Test
+  void overrideFailureRollsBackTraceAndState() throws Exception {
+    String id = pendingReview();
+    ReviewOutbox target =
+        org.springframework.test.util.AopTestUtils.getUltimateTargetObject(reviewOutbox);
+    org.mockito.Mockito.doThrow(new IllegalStateException("Synthetic failure"))
+        .when(target)
+        .append(
+            org.mockito.ArgumentMatchers.any(Mission.class),
+            org.mockito.ArgumentMatchers.eq("DECISION"),
+            org.mockito.ArgumentMatchers.eq("APPROVED"));
+    org.junit.jupiter.api.Assertions.assertThrows(
+        jakarta.servlet.ServletException.class,
+        () -> overrideMission(id, 4, "APPROVE", "Test atomique"));
+    org.junit.jupiter.api.Assertions.assertEquals(
+        0,
+        jdbc.queryForObject(
+            "SELECT count(*) FROM mission_action_log WHERE mission_id=? AND"
+                + " action='ADMIN_OVERRIDE'",
+            Integer.class,
+            java.util.UUID.fromString(id)));
+    mvc.perform(get("/missions/" + id).with(adminJwt("owner")))
+        .andExpect(jsonPath("status").value("PENDING_REVIEW"))
+        .andExpect(jsonPath("adminOverrideAction").isEmpty())
+        .andExpect(jsonPath("version").value(4));
+  }
 }

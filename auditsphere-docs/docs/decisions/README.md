@@ -29,3 +29,5 @@ Utiliser le modèle dans [`docs/templates/adr.md`](../templates/adr.md).
 - [ADR-0012 : Notifications en direct](ADR-0012-notifications-temps-reel.md)
 
 - [ADR-0013 : Retrait et suppression](ADR-0013-retrait-suppression.md)
+
+- [ADR-0014 : Superadministrateur et dérogations](ADR-0014-superadmin.md)

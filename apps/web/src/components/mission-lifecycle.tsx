@@ -1,8 +1,9 @@
 "use client";
+import { canManageMission } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ErrorNotice, useUser } from "./workspace";
-import { type Mission, plannedDateLabel, dateLabel } from "@/lib/types";
+import { type Mission } from "@/lib/types";
 export default function MissionLifecycle({
   mission,
   onUpdated,
@@ -14,9 +15,7 @@ export default function MissionLifecycle({
   const router = useRouter();
   const [action, setAction] = useState<"delete" | "withdraw" | null>(null);
   const [reason, setReason] = useState("");
-  const canEdit =
-    user?.subject === mission.ownerSubject &&
-    user.roles.includes("AUDIT_MANAGER");
+  const canEdit = canManageMission(user, mission);
   const [comment, setComment] = useState("");
   const canReview =
     user?.roles.includes("AUDIT_VALIDATOR") &&
@@ -28,6 +27,9 @@ export default function MissionLifecycle({
   const [start, setStart] = useState(mission.plannedStartDate || "");
   const [end, setEnd] = useState(mission.plannedEndDate || "");
   const [notice, setNotice] = useState("");
+  const [editingDates, setEditingDates] = useState(
+    !mission.plannedStartDate || !mission.plannedEndDate,
+  );
   async function save(
     resource: "schedule" | "status" | "submission" | "review",
     body: object,
@@ -115,7 +117,7 @@ export default function MissionLifecycle({
       className="panel participants"
       aria-label="Planification et statut"
     >
-      <h2>Planification et statut</h2>
+      <h2>Actions de la mission</h2>
       {error && (
         <>
           <ErrorNotice message={error} />
@@ -125,52 +127,6 @@ export default function MissionLifecycle({
         </>
       )}
       {notice && <p role="status">{notice}</p>}
-      {canEdit && ["DRAFT", "IN_PROGRESS"].includes(mission.status) ? (
-        <form
-          className="lifecycle-form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void save("schedule", {
-              plannedStartDate: start,
-              plannedEndDate: end,
-            });
-          }}
-        >
-          <label>
-            Date de début prévue
-            <input
-              type="date"
-              required
-              value={start}
-              max="9999-12-31"
-              onChange={(e) => setStart(e.target.value)}
-              disabled={busy}
-            />
-          </label>
-          <label>
-            Date de fin prévue
-            <input
-              type="date"
-              required
-              value={end}
-              min={start || "0001-01-01"}
-              max="9999-12-31"
-              onChange={(e) => setEnd(e.target.value)}
-              disabled={busy}
-            />
-          </label>
-          <button className="button secondary" disabled={busy}>
-            Enregistrer les dates
-          </button>
-        </form>
-      ) : (
-        <p>
-          Début prévu : {plannedDateLabel(mission.plannedStartDate)} · Fin
-          prévue : {plannedDateLabel(mission.plannedEndDate)}
-        </p>
-      )}
-      {mission.startedAt && <p>Démarrée le {dateLabel(mission.startedAt)}</p>}
-      {mission.closedAt && <p>Clôturée le {dateLabel(mission.closedAt)}</p>}
       {canEdit && mission.status === "DRAFT" && (
         <div className="form-actions">
           {!mission.plannedStartDate && (
@@ -185,90 +141,6 @@ export default function MissionLifecycle({
           >
             Démarrer la mission
           </button>
-        </div>
-      )}
-      {mission.withdrawnAt && (
-        <div>
-          <h3>Dernier retrait de soumission</h3>
-          <p>Retirée le {dateLabel(mission.withdrawnAt)}</p>
-          <p className="preserve">{mission.withdrawalReason}</p>
-        </div>
-      )}
-      {canEdit && ["DRAFT", "PENDING_REVIEW"].includes(mission.status) && (
-        <div className="review-form">
-          {action ? (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                void confirmAction();
-              }}
-            >
-              <p>
-                {action === "delete"
-                  ? "La suppression du brouillon est définitive. Une trace de cette action sera conservée."
-                  : "La mission repassera en cours. Le cycle de validation actuel sera terminé et une nouvelle soumission sera nécessaire."}
-              </p>
-              <label>
-                Motif obligatoire
-                <textarea
-                  rows={3}
-                  required
-                  maxLength={2000}
-                  value={reason}
-                  disabled={busy}
-                  onChange={(e) => setReason(e.target.value)}
-                />
-              </label>
-              <div className="form-actions">
-                <button
-                  type="button"
-                  className="button secondary"
-                  disabled={busy}
-                  onClick={() => {
-                    setAction(null);
-                    setReason("");
-                  }}
-                >
-                  Annuler
-                </button>
-                <button
-                  className="button secondary"
-                  disabled={busy || !reason.trim()}
-                >
-                  {action === "delete"
-                    ? "Confirmer la suppression"
-                    : "Confirmer le retrait"}
-                </button>
-              </div>
-            </form>
-          ) : (
-            <div className="form-actions">
-              <button
-                className="button secondary"
-                disabled={busy}
-                onClick={() =>
-                  setAction(mission.status === "DRAFT" ? "delete" : "withdraw")
-                }
-              >
-                {mission.status === "DRAFT"
-                  ? "Supprimer le brouillon"
-                  : "Retirer la soumission"}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-      {mission.reviewDecision && (
-        <div>
-          <h3>
-            {mission.reviewDecision === "APPROVED"
-              ? "Mission approuvée"
-              : "Corrections demandées"}
-          </h3>
-          <p className="preserve">{mission.reviewComment}</p>
-          {mission.reviewedAt && (
-            <p>Décision du {dateLabel(mission.reviewedAt)}</p>
-          )}
         </div>
       )}
       {mission.status === "PENDING_REVIEW" && (
@@ -357,6 +229,132 @@ export default function MissionLifecycle({
             >
               Clôturer la mission
             </button>
+          )}
+        </div>
+      )}
+      {canEdit && ["DRAFT", "IN_PROGRESS"].includes(mission.status) && (
+        <div className="mission-schedule-editor">
+          {editingDates ? (
+            <form
+              className="lifecycle-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void save("schedule", {
+                  plannedStartDate: start,
+                  plannedEndDate: end,
+                });
+              }}
+            >
+              <label>
+                Date de début prévue
+                <input
+                  type="date"
+                  required
+                  value={start}
+                  max="9999-12-31"
+                  onChange={(e) => setStart(e.target.value)}
+                  disabled={busy}
+                />
+              </label>
+              <label>
+                Date de fin prévue
+                <input
+                  type="date"
+                  required
+                  value={end}
+                  min={start || "0001-01-01"}
+                  max="9999-12-31"
+                  onChange={(e) => setEnd(e.target.value)}
+                  disabled={busy}
+                />
+              </label>
+              <button
+                type="button"
+                className="button secondary"
+                disabled={busy}
+                onClick={() => {
+                  setStart(mission.plannedStartDate || "");
+                  setEnd(mission.plannedEndDate || "");
+                  setEditingDates(false);
+                }}
+              >
+                Annuler la modification des dates
+              </button>
+              <button className="button secondary" disabled={busy}>
+                Enregistrer les dates
+              </button>
+            </form>
+          ) : (
+            <button
+              className="button secondary schedule-toggle"
+              onClick={() => setEditingDates(true)}
+            >
+              Modifier les dates
+            </button>
+          )}
+        </div>
+      )}
+      {canEdit && ["DRAFT", "PENDING_REVIEW"].includes(mission.status) && (
+        <div className="review-form mission-secondary-actions">
+          {action ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void confirmAction();
+              }}
+            >
+              <p>
+                {action === "delete"
+                  ? "La suppression du brouillon est définitive. Une trace de cette action sera conservée."
+                  : "La mission repassera en cours. Le cycle de validation actuel sera terminé et une nouvelle soumission sera nécessaire."}
+              </p>
+              <label>
+                Motif obligatoire
+                <textarea
+                  rows={3}
+                  required
+                  maxLength={2000}
+                  value={reason}
+                  disabled={busy}
+                  onChange={(e) => setReason(e.target.value)}
+                />
+              </label>
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="button secondary"
+                  disabled={busy}
+                  onClick={() => {
+                    setAction(null);
+                    setReason("");
+                  }}
+                >
+                  Annuler
+                </button>
+                <button
+                  className="button secondary"
+                  disabled={busy || !reason.trim()}
+                >
+                  {action === "delete"
+                    ? "Confirmer la suppression"
+                    : "Confirmer le retrait"}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="form-actions">
+              <button
+                className="button secondary"
+                disabled={busy}
+                onClick={() =>
+                  setAction(mission.status === "DRAFT" ? "delete" : "withdraw")
+                }
+              >
+                {mission.status === "DRAFT"
+                  ? "Supprimer le brouillon"
+                  : "Retirer la soumission"}
+              </button>
+            </div>
           )}
         </div>
       )}

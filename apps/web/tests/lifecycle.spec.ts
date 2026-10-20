@@ -45,6 +45,9 @@ test("dates, conflit de version, démarrage et clôture réservés au propriéta
   const id = new URL(page.url()).pathname.split("/").pop()!;
   recordMission(id);
   const section = page.getByRole("region", { name: "Planification et statut" });
+  await section
+    .getByRole("button", { name: "Modifier les dates", exact: true })
+    .click();
   await expect(section.getByLabel("Date de début prévue")).toHaveValue(
     "2026-11-01",
   );
@@ -69,6 +72,9 @@ test("dates, conflit de version, démarrage et clôture réservés au propriéta
   await section.getByRole("button", { name: "Démarrer la mission" }).click();
   await expect(section.getByRole("alert")).toContainText("version");
   await section.getByRole("button", { name: "Recharger la fiche" }).click();
+  await section
+    .getByRole("button", { name: "Modifier les dates", exact: true })
+    .click();
   await expect(section.getByLabel("Date de début prévue")).toHaveValue(
     "2026-11-02",
   );
@@ -177,7 +183,9 @@ test("dates, conflit de version, démarrage et clôture réservés au propriéta
       );
       await page.reload();
       await expect(
-        section.getByText("Préciser le périmètre avant clôture."),
+        page
+          .getByRole("region", { name: "Décisions et suivi" })
+          .getByText("Préciser le périmètre avant clôture."),
       ).toBeVisible();
       await section
         .getByRole("button", { name: "Soumettre à validation" })

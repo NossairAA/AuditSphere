@@ -1,4 +1,5 @@
 "use client";
+import { canManageMission } from "@/lib/types";
 import { useEffect, useState } from "react";
 import { useUser, ErrorNotice } from "./workspace";
 import type { Mission } from "@/lib/types";
@@ -171,7 +172,13 @@ export function Participants({
       setBusy(false);
     }
   }
-  const name = (id: string) => people.find((p) => p.subject === id)?.name || id;
+  const name = (id: string) =>
+    people.find((p) => p.subject === id)?.name ||
+    (error
+      ? "Nom indisponible"
+      : people.length
+        ? "Compte indisponible"
+        : "Chargement…");
   return (
     <section className="panel participants">
       <h2>Participants</h2>
@@ -236,8 +243,7 @@ export function Participants({
           ) : (
             <p>Aucun auditeur affecté.</p>
           )}
-          {user?.subject === mission.ownerSubject &&
-            user.roles.includes("AUDIT_MANAGER") &&
+          {canManageMission(user, mission) &&
             !["PENDING_REVIEW", "APPROVED"].includes(mission.status) && (
               <button
                 className="button secondary"

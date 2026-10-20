@@ -1,5 +1,33 @@
 # Journal des changements
 
+## Fiche de mission allégée : 2026-10-20
+
+- Navigation directe entre les sections, action principale mise en avant et formulaires ouverts à la demande.
+- Dates et validateur consultables avant modification, section distincte pour les décisions et les repères de suivi.
+- Compilation et quatre parcours navigateur réussis, vérification visuelle sur ordinateur et mobile sans débordement horizontal.
+- Documentation actualisée, changements disponibles en local et non poussés.
+
+## Nettoyage Kafka : 2026-10-20
+
+- Le dernier push `d74df3e` a passé son scénario Temporal mais échoué pendant le nettoyage CI.
+- Gestion des partitions Kafka encore sans offset et réellement vides, tout retard positif reste bloquant.
+- Quatre tests Python réussis, ajoutés à la CI. La validation distante du correctif reste à faire.
+
+## Superadministrateur : 2026-10-20
+
+- Rôle SUPER_ADMIN et compte local superadmin, sans privilège d’infrastructure.
+- Accès global aux missions, dérogations motivées avec confirmation, journal et suppression logique.
+- Approbation personnelle explicitement autorisée par dérogation, coordination Temporal conservée.
+- 59 tests Java et 11 parcours navigateur réussis, compilation et vérification réelle des décisions Temporal.
+- Documentation et contrat API actualisés, aucune donnée de test conservée dans la liste des missions.
+
+## Fiche de mission : 2026-10-20
+
+- Correctifs de retrait et suppression publiés dans `d74df3e`.
+- Fiche restructurée autour du statut, des informations clés, de l’équipe et des actions contextuelles.
+- Panneau de prochaine étape, adaptation mobile et séparation des actions secondaires.
+- Compilation et trois parcours navigateur réussis, données de test nettoyées.
+
 ## Retrait et suppression : 2026-10-20
 
 - Publication du socle notifications dans le commit `4cd8d43`, après 47 tests Java et 13 tests navigateur réussis.

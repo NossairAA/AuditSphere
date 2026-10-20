@@ -61,6 +61,25 @@ if not production:
   raise SystemExit('Le compte validator existe déjà avec une autre identité. Aucune modification de ses droits.')
  call(base+'/users/'+user['id']+'/role-mappings/realm',[validator_role],'POST',token)
 print('Rôle AUDIT_VALIDATOR prêt. Aucun accès global aux missions ajouté.')
+try:
+ admin_role=call(base+'/roles/SUPER_ADMIN',token=token)
+except urllib.error.HTTPError as error:
+ if error.code != 404: raise
+ call(base+'/roles',{'name':'SUPER_ADMIN','description':'Administration globale des missions et dérogations tracées'},'POST',token)
+ admin_role=call(base+'/roles/SUPER_ADMIN',token=token)
+if not production:
+ admins=call(base+'/users?username=superadmin&exact=true',token=token)
+ if not admins:
+  if 'SUPERADMIN_PASSWORD' not in env:
+   env['SUPERADMIN_PASSWORD']=secrets.token_urlsafe(24)
+   with (root/'.env').open('a') as f: f.write('SUPERADMIN_PASSWORD='+env['SUPERADMIN_PASSWORD']+'\n')
+  call(base+'/users',{'username':'superadmin','enabled':True,'emailVerified':True,'firstName':'Alexandre','lastName':'Bernard','email':'superadmin@example.invalid','credentials':[{'type':'password','value':env['SUPERADMIN_PASSWORD'],'temporary':False}]},'POST',token)
+  admins=call(base+'/users?username=superadmin&exact=true',token=token)
+ if admins[0].get('email') != 'superadmin@example.invalid':
+  raise SystemExit('Compte superadmin existant avec une autre identité, droits inchangés.')
+ call(base+'/users/'+admins[0]['id']+'/role-mappings/realm',[admin_role],'POST',token)
+print('Rôle SUPER_ADMIN prêt. Compte de démonstration créé uniquement en local.')
+
 client={'clientId':'auditsphere-web','name':'AuditSphere Web','protocol':'openid-connect','publicClient':False,'secret':env['WEB_CLIENT_SECRET'],'standardFlowEnabled':True,'directAccessGrantsEnabled':False,'serviceAccountsEnabled':False,'redirectUris':[app_origin+'/auth/callback'],'webOrigins':[app_origin],'attributes':{'pkce.code.challenge.method':'S256','post.logout.redirect.uris':app_origin+'/'},'protocolMappers':[{'name':'api-audience','protocol':'openid-connect','protocolMapper':'oidc-audience-mapper','config':{'included.custom.audience':'auditsphere-api','access.token.claim':'true','id.token.claim':'false'}}]}
 existing=call('/admin/realms/auditsphere/clients?clientId=auditsphere-web',token=token)
 if existing:call('/admin/realms/auditsphere/clients/'+existing[0]['id'],client,'PUT',token)

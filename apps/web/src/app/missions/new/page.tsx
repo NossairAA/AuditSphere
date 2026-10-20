@@ -1,4 +1,5 @@
 "use client";
+import { canManage } from "@/lib/types";
 import Link from "next/link";
 import { AuditorPicker } from "@/components/assignments";
 import { useState } from "react";
@@ -11,7 +12,7 @@ export default function NewMission() {
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [selected, setSelected] = useState<string[]>([]);
-  if (!user?.roles.includes("AUDIT_MANAGER"))
+  if (!canManage(user))
     return (
       <div className="panel empty">
         <ShieldCheck size={32} />

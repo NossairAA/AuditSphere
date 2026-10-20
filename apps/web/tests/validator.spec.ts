@@ -85,6 +85,9 @@ test("désignation, accès limité et retrait du validateur", async ({
         })
       ).status(),
     ).toBe(409);
+    await section
+      .getByRole("button", { name: "Modifier le validateur", exact: true })
+      .click();
     await section.getByLabel("Choisir un validateur").selectOption("");
     await section
       .getByRole("button", { name: "Enregistrer le validateur", exact: true })

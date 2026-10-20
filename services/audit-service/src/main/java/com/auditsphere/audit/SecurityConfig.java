@@ -30,7 +30,7 @@ class SecurityConfig {
                 a.requestMatchers("/actuator/health", "/actuator/health/**")
                     .permitAll()
                     .requestMatchers(org.springframework.http.HttpMethod.POST, "/missions")
-                    .hasRole("AUDIT_MANAGER")
+                    .hasAnyRole("AUDIT_MANAGER", "SUPER_ADMIN")
                     .requestMatchers(
                         org.springframework.http.HttpMethod.PUT,
                         "/missions/*/assignments",
@@ -39,16 +39,22 @@ class SecurityConfig {
                         "/missions/*/validator",
                         "/missions/*/submission",
                         "/missions/*/withdrawal")
-                    .hasRole("AUDIT_MANAGER")
+                    .hasAnyRole("AUDIT_MANAGER", "SUPER_ADMIN")
                     .requestMatchers(
                         org.springframework.http.HttpMethod.GET,
                         "/missions/auditors",
                         "/missions/validators")
-                    .hasRole("AUDIT_MANAGER")
+                    .hasAnyRole("AUDIT_MANAGER", "SUPER_ADMIN")
                     .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/missions/*")
-                    .hasRole("AUDIT_MANAGER")
+                    .hasAnyRole("AUDIT_MANAGER", "SUPER_ADMIN")
                     .requestMatchers(org.springframework.http.HttpMethod.PUT, "/missions/*/review")
-                    .hasRole("AUDIT_VALIDATOR")
+                    .hasAnyRole("AUDIT_VALIDATOR", "SUPER_ADMIN")
+                    .requestMatchers(
+                        org.springframework.http.HttpMethod.PUT, "/missions/*/override")
+                    .hasRole("SUPER_ADMIN")
+                    .requestMatchers(
+                        org.springframework.http.HttpMethod.GET, "/missions/*/action-log")
+                    .hasRole("SUPER_ADMIN")
                     .anyRequest()
                     .authenticated())
         .oauth2ResourceServer(o -> o.jwt(j -> j.jwtAuthenticationConverter(converter)))

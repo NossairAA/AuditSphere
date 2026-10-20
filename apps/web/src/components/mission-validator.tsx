@@ -1,4 +1,5 @@
 "use client";
+import { canManageMission } from "@/lib/types";
 import { useEffect, useState } from "react";
 import { type Mission } from "@/lib/types";
 import { ErrorNotice, useUser } from "./workspace";
@@ -12,9 +13,9 @@ export default function MissionValidator({
 }) {
   const user = useUser();
   const canEdit =
-    user?.subject === mission.ownerSubject &&
-    user.roles.includes("AUDIT_MANAGER") &&
+    canManageMission(user, mission) &&
     ["DRAFT", "IN_PROGRESS"].includes(mission.status);
+  const [editing, setEditing] = useState(!mission.validatorSubject);
   const [people, setPeople] = useState<Person[]>([]),
     [page, setPage] = useState(0),
     [selected, setSelected] = useState(mission.validatorSubject || ""),
@@ -44,7 +45,7 @@ export default function MissionValidator({
     return () => controller.abort();
   }, [mission.id, mission.validatorSubject, retry]);
   useEffect(() => {
-    if (!canEdit) return;
+    if (!canEdit || !editing) return;
     const controller = new AbortController();
     setLoading(true);
     setError("");
@@ -63,7 +64,7 @@ export default function MissionValidator({
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [canEdit, page, retry]);
+  }, [canEdit, editing, page, retry]);
   async function save() {
     setBusy(true);
     setError("");
@@ -126,7 +127,12 @@ export default function MissionValidator({
           </button>
         </>
       )}
-      {canEdit && (
+      {canEdit && !editing && (
+        <button className="button secondary" onClick={() => setEditing(true)}>
+          Modifier le validateur
+        </button>
+      )}
+      {canEdit && editing && (
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -156,22 +162,39 @@ export default function MissionValidator({
             </select>
           </label>
           <div className="form-actions">
+            {(page > 0 || people.length >= 50) && (
+              <>
+                <button
+                  type="button"
+                  className="button secondary"
+                  disabled={page === 0 || busy || loading}
+                  onClick={() => setPage((v) => v - 1)}
+                >
+                  Page précédente des validateurs
+                </button>
+                <span>Page {page + 1}</span>
+                <button
+                  type="button"
+                  className="button secondary"
+                  disabled={
+                    page === 10000 || people.length < 50 || busy || loading
+                  }
+                  onClick={() => setPage((v) => v + 1)}
+                >
+                  Page suivante des validateurs
+                </button>
+              </>
+            )}
             <button
               type="button"
               className="button secondary"
-              disabled={page === 0 || busy || loading}
-              onClick={() => setPage((v) => v - 1)}
+              disabled={busy}
+              onClick={() => {
+                setSelected(mission.validatorSubject || "");
+                setEditing(false);
+              }}
             >
-              Page précédente des validateurs
-            </button>
-            <span>Page {page + 1}</span>
-            <button
-              type="button"
-              className="button secondary"
-              disabled={page === 10000 || busy || loading}
-              onClick={() => setPage((v) => v + 1)}
-            >
-              Page suivante des validateurs
+              Annuler la modification du validateur
             </button>
             <button className="button primary" disabled={busy || loading}>
               Enregistrer le validateur

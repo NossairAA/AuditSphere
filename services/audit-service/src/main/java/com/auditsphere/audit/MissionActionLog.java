@@ -29,6 +29,41 @@ class MissionActionLog {
   }
 
   @Transactional(propagation = Propagation.MANDATORY)
+  public UUID admin(
+      Mission mission,
+      String actor,
+      String action,
+      String operation,
+      String reason,
+      String before,
+      String after) {
+    UUID id = UUID.randomUUID();
+    jdbc.update(
+        "INSERT INTO"
+            + " mission_action_log(id,mission_id,actor_subject,action,operation,reason,mission_version,review_cycle_id,previous_status,resulting_status)"
+            + " VALUES (?,?,?,?,?,?,?,?,?,?)",
+        id,
+        mission.id,
+        actor,
+        action,
+        operation,
+        reason,
+        mission.version,
+        mission.reviewCycleId,
+        before,
+        after);
+    return id;
+  }
+
+  public java.util.List<java.util.Map<String, Object>> list(UUID mission) {
+    return jdbc.queryForList(
+        "SELECT"
+            + " actor_subject,action,operation,reason,mission_version,previous_status,resulting_status,occurred_at"
+            + " FROM mission_action_log WHERE mission_id=? ORDER BY occurred_at DESC,id LIMIT 100",
+        mission);
+  }
+
+  @Transactional(propagation = Propagation.MANDATORY)
   public void removeDraftEvents(UUID mission) {
     jdbc.update("DELETE FROM assignment_outbox WHERE mission_id=?", mission);
   }

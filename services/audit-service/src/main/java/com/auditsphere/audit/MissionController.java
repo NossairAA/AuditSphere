@@ -69,7 +69,10 @@ class MissionController {
       String reviewDecision,
       String reviewComment,
       Instant withdrawnAt,
-      String withdrawalReason) {
+      String withdrawalReason,
+      String adminOverrideAction,
+      String adminOverrideReason,
+      Instant adminOverrideAt) {
     static MissionView of(Mission m) {
       return new MissionView(
           m.id,
@@ -92,7 +95,10 @@ class MissionController {
           m.reviewDecision,
           m.reviewComment,
           m.withdrawnAt,
-          m.withdrawalReason);
+          m.withdrawalReason,
+          m.adminOverrideAction,
+          m.adminOverrideReason,
+          m.adminOverrideAt);
     }
   }
 
@@ -115,6 +121,15 @@ class MissionController {
           m.plannedEndDate = body.plannedEndDate();
           m.assigneeSubjects.addAll(body.assigneeSubjects());
           repository.saveAndFlush(m);
+          if (isAdmin(jwt))
+            actionLog.admin(
+                m,
+                jwt.getSubject(),
+                "ADMIN_CHANGE",
+                "CREATE",
+                "Modification administrative",
+                null,
+                m.status);
           outbox.append(m, m.assigneeSubjects);
           return ResponseEntity.created(URI.create("/missions/" + m.id)).body(MissionView.of(m));
         });
@@ -134,6 +149,7 @@ class MissionController {
         repository.findVisible(
             jwt.getSubject(),
             isValidator(jwt),
+            isAdmin(jwt),
             org.springframework.data.domain.PageRequest.of(
                 page,
                 size,
@@ -151,7 +167,7 @@ class MissionController {
   @Transactional(readOnly = true)
   Map<UUID, String> titles(@RequestParam Set<UUID> ids, @AuthenticationPrincipal Jwt jwt) {
     if (ids.isEmpty() || ids.size() > 20) throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
-    return repository.visibleTitles(ids, jwt.getSubject(), isValidator(jwt)).stream()
+    return repository.visibleTitles(ids, jwt.getSubject(), isValidator(jwt), isAdmin(jwt)).stream()
         .collect(
             java.util.stream.Collectors.toMap(
                 MissionRepository.Title::getId, MissionRepository.Title::getTitle));
@@ -164,7 +180,9 @@ class MissionController {
         repository
             .findById(id)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-    if (!m.ownerSubject.equals(jwt.getSubject())
+    if (m.deletedAt != null) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+    if (!isAdmin(jwt)
+        && !m.ownerSubject.equals(jwt.getSubject())
         && !m.assigneeSubjects.contains(jwt.getSubject())
         && !(isValidator(jwt) && jwt.getSubject().equals(m.validatorSubject)))
       throw new ResponseStatusException(HttpStatus.NOT_FOUND);
@@ -212,6 +230,15 @@ class MissionController {
           // Force a version increment even when the replacement set is unchanged.
           m.assignmentRevision = UUID.randomUUID().toString();
           repository.saveAndFlush(m);
+          if (isAdmin(jwt))
+            actionLog.admin(
+                m,
+                jwt.getSubject(),
+                "ADMIN_CHANGE",
+                "ASSIGNMENTS",
+                "Modification administrative",
+                null,
+                m.status);
           outbox.append(m, added);
 
           return MissionView.of(m);
@@ -219,7 +246,7 @@ class MissionController {
   }
 
   private void checkOwner(Mission m, Jwt jwt, long version) {
-    if (!m.ownerSubject.equals(jwt.getSubject()))
+    if (m.deletedAt != null || (!isAdmin(jwt) && !m.ownerSubject.equals(jwt.getSubject())))
       throw new ResponseStatusException(HttpStatus.NOT_FOUND);
     if (m.version != version) throw new ResponseStatusException(HttpStatus.CONFLICT);
   }
@@ -258,6 +285,15 @@ class MissionController {
           m.plannedStartDate = body.plannedStartDate();
           m.plannedEndDate = body.plannedEndDate();
           repository.saveAndFlush(m);
+          if (isAdmin(jwt))
+            actionLog.admin(
+                m,
+                jwt.getSubject(),
+                "ADMIN_CHANGE",
+                "SCHEDULE",
+                "Modification administrative",
+                null,
+                m.status);
           return MissionView.of(m);
         });
   }
@@ -284,6 +320,15 @@ class MissionController {
             m.closedAt = Instant.now();
           } else throw new ResponseStatusException(HttpStatus.CONFLICT);
           repository.saveAndFlush(m);
+          if (isAdmin(jwt))
+            actionLog.admin(
+                m,
+                jwt.getSubject(),
+                "ADMIN_CHANGE",
+                "STATUS",
+                "Modification administrative",
+                null,
+                m.status);
           return MissionView.of(m);
         });
   }
@@ -326,6 +371,15 @@ class MissionController {
           m.withdrawnAt = Instant.now();
           m.withdrawalReason = body.reason().strip();
           repository.saveAndFlush(m);
+          if (isAdmin(jwt))
+            actionLog.admin(
+                m,
+                jwt.getSubject(),
+                "ADMIN_CHANGE",
+                "WITHDRAWAL",
+                "Modification administrative",
+                null,
+                m.status);
           return MissionView.of(m);
         });
   }
@@ -340,6 +394,7 @@ class MissionController {
   private Mission reviewMission(UUID id) {
     return repository
         .findForUpdate(id)
+        .filter(m -> m.deletedAt == null)
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
   }
 
@@ -379,6 +434,15 @@ class MissionController {
           m.reviewDecision = null;
           m.reviewComment = null;
           repository.saveAndFlush(m);
+          if (isAdmin(jwt))
+            actionLog.admin(
+                m,
+                jwt.getSubject(),
+                "ADMIN_CHANGE",
+                "SUBMISSION",
+                "Modification administrative",
+                null,
+                m.status);
           reviewOutbox.append(m, "START", null);
           outbox.requestReview(m);
           return MissionView.of(m);
@@ -391,7 +455,7 @@ class MissionController {
     return tx.execute(
         state -> {
           Mission m = reviewMission(id);
-          if (!jwt.getSubject().equals(m.validatorSubject)
+          if ((!jwt.getSubject().equals(m.validatorSubject))
               || jwt.getSubject().equals(m.ownerSubject))
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
           if (m.version != body.version() || !m.status.equals("PENDING_REVIEW"))
@@ -402,9 +466,107 @@ class MissionController {
           m.reviewedAt = Instant.now();
           m.status = body.decision().equals("APPROVED") ? "APPROVED" : "IN_PROGRESS";
           repository.saveAndFlush(m);
+          if (isAdmin(jwt))
+            actionLog.admin(
+                m,
+                jwt.getSubject(),
+                "ADMIN_CHANGE",
+                "REVIEW",
+                "Modification administrative",
+                null,
+                m.status);
           reviewOutbox.append(m, "DECISION", m.reviewDecision);
           return MissionView.of(m);
         });
+  }
+
+  private boolean isAdmin(Jwt jwt) {
+    Map<String, Object> realm = jwt.getClaim("realm_access");
+    return realm != null
+        && realm.get("roles") instanceof List<?> roles
+        && roles.contains("SUPER_ADMIN");
+  }
+
+  record AdminOverride(
+      @NotNull @PositiveOrZero Long version,
+      @NotBlank @Pattern(regexp = "APPROVE|CLOSE|REOPEN|DELETE") String action,
+      @NotBlank @Size(max = 2000) String reason) {}
+
+  @PutMapping("/{id}/override")
+  ResponseEntity<?> override(
+      @PathVariable UUID id,
+      @Valid @RequestBody AdminOverride body,
+      @AuthenticationPrincipal Jwt jwt) {
+    return tx.execute(
+        state -> {
+          Mission m = reviewMission(id);
+          if (m.deletedAt != null) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+          if (m.version != body.version()) throw new ResponseStatusException(HttpStatus.CONFLICT);
+          String before = m.status;
+          boolean pending = before.equals("PENDING_REVIEW");
+          String after =
+              switch (body.action()) {
+                case "APPROVE" -> "APPROVED";
+                case "CLOSE" -> "CLOSED";
+                case "REOPEN" -> "IN_PROGRESS";
+                default -> "DELETED";
+              };
+          if (!body.action().equals("DELETE") && (before.equals("DRAFT") || before.equals(after)))
+            throw new ResponseStatusException(HttpStatus.CONFLICT);
+          if (body.action().equals("APPROVE") && before.equals("CLOSED"))
+            throw new ResponseStatusException(HttpStatus.CONFLICT);
+          m.adminOverrideId =
+              actionLog.admin(
+                  m,
+                  jwt.getSubject(),
+                  "ADMIN_OVERRIDE",
+                  body.action(),
+                  body.reason().strip(),
+                  before,
+                  after);
+          m.adminOverrideAction = body.action();
+          m.adminOverrideReason = body.reason().strip();
+          m.adminOverrideAt = Instant.now();
+          if (pending)
+            reviewOutbox.append(
+                m, "DECISION", body.action().equals("APPROVE") ? "APPROVED" : "WITHDRAWN");
+          switch (body.action()) {
+            case "APPROVE" -> {
+              m.adminApprovalId = m.adminOverrideId;
+              m.status = "APPROVED";
+              m.reviewDecision = "APPROVED";
+              m.reviewComment = body.reason().strip();
+              m.reviewedAt = Instant.now();
+              m.reviewedBy = jwt.getSubject();
+            }
+            case "CLOSE" -> {
+              m.status = "CLOSED";
+              m.closedAt = Instant.now();
+            }
+            case "REOPEN" -> {
+              m.adminApprovalId = null;
+              m.status = "IN_PROGRESS";
+              m.closedAt = null;
+              m.reviewDecision = null;
+              m.reviewComment = null;
+              m.reviewedAt = null;
+              m.reviewedBy = null;
+            }
+            case "DELETE" -> {
+              m.deletedAt = Instant.now();
+              actionLog.removeDraftEvents(m.id);
+            }
+          }
+          repository.saveAndFlush(m);
+          return body.action().equals("DELETE")
+              ? ResponseEntity.noContent().build()
+              : ResponseEntity.ok(MissionView.of(m));
+        });
+  }
+
+  @GetMapping("/{id}/action-log")
+  java.util.List<java.util.Map<String, Object>> actionLog(@PathVariable UUID id) {
+    return actionLog.list(id);
   }
 
   private boolean isValidator(Jwt jwt) {
@@ -457,6 +619,15 @@ class MissionController {
           checkValidatorAssignment(m, jwt, body);
           m.validatorSubject = body.validatorSubject();
           repository.saveAndFlush(m);
+          if (isAdmin(jwt))
+            actionLog.admin(
+                m,
+                jwt.getSubject(),
+                "ADMIN_CHANGE",
+                "VALIDATOR",
+                "Modification administrative",
+                null,
+                m.status);
           return MissionView.of(m);
         });
   }

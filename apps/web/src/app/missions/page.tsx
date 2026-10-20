@@ -1,4 +1,5 @@
 "use client";
+import { canManage } from "@/lib/types";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
@@ -63,7 +64,7 @@ export default function Missions() {
             audits.
           </p>
         </div>
-        {user?.roles.includes("AUDIT_MANAGER") && (
+        {canManage(user) && (
           <Link className="button primary" href="/missions/new">
             <Plus size={18} /> Nouvelle mission
           </Link>
@@ -83,7 +84,7 @@ export default function Missions() {
           </span>
           <strong className="metric-text">{roleLabels(user?.roles)}</strong>
           <small>
-            {user?.roles.includes("AUDIT_MANAGER")
+            {canManage(user)
               ? "Création et suivi des missions"
               : "Consultation des missions de votre périmètre"}
           </small>
@@ -151,7 +152,7 @@ export default function Missions() {
                 ? "Essayez un autre titre ou périmètre."
                 : "Vos missions apparaîtront ici dès leur création ou leur affectation."}
             </p>
-            {user?.roles.includes("AUDIT_MANAGER") && !search && (
+            {canManage(user) && !search && (
               <Link className="button secondary" href="/missions/new">
                 Créer votre première mission <Plus size={16} />
               </Link>

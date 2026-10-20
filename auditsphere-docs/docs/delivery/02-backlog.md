@@ -4,6 +4,10 @@
 
 ## Priorité active
 
+Le [superadministrateur](../technique/20-superadmin.md) et les dérogations explicites sont vérifiés localement, avant la reprise du programme métier.
+
+La [fiche de mission](../technique/19-fiche-mission.md) est réorganisée et vérifiée localement avant la reprise des fonctionnalités métier. La navigation entre sections, les formulaires à la demande et le suivi séparé sont également validés sur ordinateur et mobile.
+
 Le retrait des soumissions et la suppression des brouillons sont implémentés et vérifiés en local le 2026-10-20. Voir le [guide](../technique/18-retrait-suppression.md).
 
 US-003 et F-003 constituent la prochaine tranche métier : risques et contrôles rattachés à une mission. Les critères, permissions, limites et questions ouvertes figurent dans la [fiche métier](../produit/04-plan-metier.md).

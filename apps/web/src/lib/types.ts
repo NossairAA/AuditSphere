@@ -16,6 +16,9 @@ export type Mission = {
   reviewedBy: string | null;
   reviewDecision: "APPROVED" | "REJECTED" | null;
   reviewComment: string | null;
+  adminOverrideAction: string | null;
+  adminOverrideReason: string | null;
+  adminOverrideAt: string | null;
   ownerSubject: string;
   validatorSubject: string | null;
   assigneeSubjects: string[];
@@ -47,6 +50,7 @@ export const plannedDateLabel = (date: string | null) =>
 
 export const roleLabels = (roles: string[] = []) =>
   [
+    ["SUPER_ADMIN", "Superadministrateur"],
     ["AUDIT_MANAGER", "Responsable"],
     ["AUDITOR", "Auditeur"],
     ["AUDIT_VALIDATOR", "Validateur"],
@@ -54,3 +58,16 @@ export const roleLabels = (roles: string[] = []) =>
     .filter(([role]) => roles.includes(role))
     .map(([, label]) => label)
     .join(" · ") || "Utilisateur";
+
+export const isSuperAdmin = (user?: { roles: string[] } | null) =>
+  !!user?.roles.includes("SUPER_ADMIN");
+export const canManage = (user?: { roles: string[] } | null) =>
+  isSuperAdmin(user) || !!user?.roles.includes("AUDIT_MANAGER");
+export const canManageMission = (
+  user: { roles: string[]; subject: string } | null | undefined,
+  mission: Mission,
+) =>
+  isSuperAdmin(user) ||
+  (!!user &&
+    user.subject === mission.ownerSubject &&
+    user.roles.includes("AUDIT_MANAGER"));

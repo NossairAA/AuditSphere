@@ -2,6 +2,7 @@
 """Remove only explicitly recorded synthetic mission IDs from the local Compose stack."""
 import argparse, json, os, subprocess, time, uuid
 from pathlib import Path
+from kafka_cleanup import offsets_drained
 root=Path(__file__).resolve().parents[1]
 parser=argparse.ArgumentParser()
 parser.add_argument('manifest',type=Path)
@@ -30,8 +31,7 @@ try:
  deadline=time.monotonic()+45
  while True:
   output=compose('exec','-T','kafka','/opt/kafka/bin/kafka-consumer-groups.sh','--bootstrap-server','localhost:9092','--describe','--group','notification-service-v1').stdout
-  rows=[l.split() for l in output.splitlines() if l.startswith('notification-service-v1 ')]
-  if rows and all(r[5]=='0' for r in rows): break
+  if offsets_drained(output): break
   if time.monotonic()>deadline: raise RuntimeError('Kafka non vidé, nettoyage abandonné sans suppression')
   time.sleep(1)
  cycles=sql('audit',f"SELECT DISTINCT cycle_id FROM review_workflow_outbox WHERE mission_id IN ({values})")

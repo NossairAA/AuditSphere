@@ -4,6 +4,8 @@
 
 ## Ordre actif
 
+Administration globale des missions et dérogations tracées ajoutées et vérifiées localement le 2026-10-20 à la demande de l’utilisateur.
+
 Préalable terminé en local le 2026-10-20 : retrait de soumission et suppression contrôlée des brouillons, avec tests et nettoyage des données synthétiques.
 
 1. Risques et contrôles d’une mission, première tranche de F-003.

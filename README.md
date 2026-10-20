@@ -40,8 +40,11 @@ Le lanceur sauvegarde les bases dans .local/backups, prépare les comptes SQL ru
 | auditor | Julien Moreau | Auditeur | Valeur AUDITOR_PASSWORD dans .env |
 | outsider | Sarah Benali | Auditrice | Valeur OUTSIDER_PASSWORD dans .env |
 | validator | Thomas Laurent | Validateur désigné | Valeur VALIDATOR_PASSWORD dans .env |
+| superadmin | Alexandre Bernard | Superadministrateur des missions | Valeur SUPERADMIN_PASSWORD dans .env |
 
 Le rôle AUDIT_VALIDATOR permet de décider sur les missions soumises où cet utilisateur est désigné. Il ne donne aucun accès global aux missions ni droit de responsable. La soumission produit une notification interne et un workflow Temporal durable. Sur une installation existante, exécuter `python3 scripts/setup-web.py` pour préparer le rôle et le compte local, sans réinitialiser les mots de passe existants. Voir le [guide du rôle validateur](auditsphere-docs/docs/technique/11-role-validateur.md).
+
+Le [superadministrateur](auditsphere-docs/docs/technique/20-superadmin.md) accède à toutes les missions et dispose de dérogations explicites, confirmées et journalisées.
 
 Les mots de passe sont aléatoires. Ne pas les publier ni les copier dans la documentation. Le compte administrateur Keycloak est distinct : `admin`, avec KEYCLOAK_ADMIN_PASSWORD dans `.env`.
 

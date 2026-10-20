@@ -1,12 +1,73 @@
 openapi: 3.0.3
 info:
   title: AuditSphere Mission API
-  version: 0.8.0
+  version: 0.9.0
 servers:
   - url: http://localhost:8080
 security:
   - bearerAuth: []
 paths:
+  /missions/{id}/override:
+    put:
+      summary: Dérogation explicite réservée à SUPER_ADMIN
+      description: Motif obligatoire, version courante et journal atomique. APPROVE en cours ou en attente, CLOSE sauf brouillon ou déjà clôturée, REOPEN sauf brouillon ou déjà en cours, DELETE sur toute mission active.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version, action, reason]
+              properties:
+                version: {type: integer, format: int64, minimum: 0}
+                action: {type: string, enum: [APPROVE, CLOSE, REOPEN, DELETE]}
+                reason: {type: string, minLength: 1, maxLength: 2000}
+      responses:
+        '200':
+          description: Mission modifiée
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Mission'}
+        '204': {description: Mission supprimée logiquement}
+        '400': {description: Formulaire invalide}
+        '401': {description: Authentification requise}
+        '403': {description: Rôle SUPER_ADMIN requis}
+        '404': {description: Mission absente ou supprimée}
+        '409': {description: Version ou statut incompatible}
+  /missions/{id}/action-log:
+    get:
+      summary: Cent dernières entrées du journal, SUPER_ADMIN uniquement
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Journal décroissant, disponible aussi après suppression par identifiant
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 100
+                items:
+                  type: object
+                  properties:
+                    actor_subject: {type: string}
+                    action: {type: string}
+                    operation: {type: string, nullable: true}
+                    reason: {type: string}
+                    previous_status: {type: string, nullable: true}
+                    resulting_status: {type: string, nullable: true}
+                    mission_version: {type: integer, format: int64}
+                    occurred_at: {type: string, format: date-time}
+        '401': {description: Authentification requise}
+        '403': {description: Rôle SUPER_ADMIN requis}
   /missions/titles:
     get:
       summary: Titres des missions accessibles parmi vingt identifiants maximum
@@ -106,7 +167,7 @@ paths:
         '204': {description: Brouillon supprimé}
         '400': {description: Version ou motif invalide}
         '401': {description: Authentification requise}
-        '403': {description: Rôle responsable requis}
+        '403': {description: Rôle responsable ou SUPER_ADMIN requis}
         '404': {description: Mission absente ou autre propriétaire}
         '409': {description: Version obsolète ou statut incompatible}
   /missions/{id}/withdrawal:
@@ -130,7 +191,7 @@ paths:
               schema: {$ref: '#/components/schemas/Mission'}
         '400': {description: Version ou motif invalide}
         '401': {description: Authentification requise}
-        '403': {description: Rôle responsable requis}
+        '403': {description: Rôle responsable ou SUPER_ADMIN requis}
         '404': {description: Mission absente ou autre propriétaire}
         '409': {description: Version obsolète ou statut incompatible}
   /missions/auditors:
@@ -149,7 +210,7 @@ paths:
                 type: array
                 items: {$ref: '#/components/schemas/Person'}
         '401': {description: Authentification requise}
-        '403': {description: Rôle responsable requis}
+        '403': {description: Rôle responsable ou SUPER_ADMIN requis}
         '503': {description: Annuaire indisponible}
   /missions/{id}/assignments:
     put:
@@ -172,7 +233,7 @@ paths:
               schema: {$ref: '#/components/schemas/Mission'}
         '400': {description: Auditeur inconnu, désactivé ou entrée invalide}
         '401': {description: Authentification requise}
-        '403': {description: Rôle responsable requis}
+        '403': {description: Rôle responsable ou SUPER_ADMIN requis}
         '404': {description: Mission absente ou utilisateur non propriétaire}
         '409': {description: Version périmée, recharger la mission}
         '503': {description: Annuaire indisponible, affectations conservées}
@@ -217,7 +278,7 @@ paths:
               schema: {$ref: '#/components/schemas/Mission'}
         '400': {description: Version absente, dates invalides ou statut inconnu}
         '401': {description: Authentification requise}
-        '403': {description: Rôle responsable requis}
+        '403': {description: Rôle responsable ou SUPER_ADMIN requis}
         '404': {description: Mission absente ou utilisateur non propriétaire}
         '409': {description: Version périmée ou opération interdite dans cet état}
   /missions/{id}/status:
@@ -241,7 +302,7 @@ paths:
               schema: {$ref: '#/components/schemas/Mission'}
         '400': {description: Version absente, dates invalides ou statut inconnu}
         '401': {description: Authentification requise}
-        '403': {description: Rôle responsable requis}
+        '403': {description: Rôle responsable ou SUPER_ADMIN requis}
         '404': {description: Mission absente ou utilisateur non propriétaire}
         '409': {description: Version périmée ou opération interdite dans cet état}
 
@@ -425,6 +486,9 @@ components:
             reviewedBy: {type: string, nullable: true}
             reviewDecision: {type: string, enum: [APPROVED, REJECTED], nullable: true}
             withdrawnAt: {type: string, format: date-time, nullable: true}
+            adminOverrideAction: {type: string, nullable: true}
+            adminOverrideReason: {type: string, nullable: true}
+            adminOverrideAt: {type: string, format: date-time, nullable: true}
             withdrawalReason: {type: string, nullable: true}
             reviewComment: {type: string, nullable: true}
             createdAt: {type: string, format: date-time}

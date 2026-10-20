@@ -27,6 +27,16 @@ class Mission {
   @Column(length = 2000)
   String withdrawalReason;
 
+  Instant deletedAt;
+  UUID adminOverrideId;
+  UUID adminApprovalId;
+  String adminOverrideAction;
+
+  @jakarta.persistence.Column(length = 2000)
+  String adminOverrideReason;
+
+  Instant adminOverrideAt;
+
   Instant reviewedAt;
   String reviewedBy;
   String reviewDecision;
