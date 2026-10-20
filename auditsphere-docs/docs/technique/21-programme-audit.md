@@ -8,7 +8,7 @@ Un risque comprend un titre, une description, une probabilité et un impact. Les
 
 Un contrôle comprend un objectif et une procédure de vérification. Il couvre au moins un risque, éventuellement plusieurs, appartenant tous à sa mission. Exemple : Paiement en double, couvert par Vérifier les doublons de factures.
 
-La création et la modification sont disponibles. La suppression, l’archivage, l’exécution, les résultats et les preuves restent hors de cette tranche. Un programme vide ne bloque pas la soumission d’une mission, les règles de complétude restent à définir.
+La création et la modification sont disponibles. La suppression, l’archivage et les preuves restent hors de cette tranche. La saisie des résultats est décrite dans le [guide des résultats](22-resultats-controles.md). Un programme vide ne bloque pas la soumission d’une mission, les règles de complétude restent à définir.
 
 ## Permissions et concurrence
 
@@ -36,4 +36,4 @@ Chaque mission est limitée à 100 risques et 100 contrôles. Les champs sont bo
 
 50 tests du service d’audit réussis, dont quatre nouveaux scénarios couvrant persistance et journal, permissions et isolation, verrouillage et suppression logique, échelles et liens multiples. Un parcours navigateur vérifie la création, la modification, la consultation par un auditeur et le verrouillage après soumission. Compilation frontend réussie. Les données créées par le test navigateur sont nettoyées par identifiant.
 
-Les changements précédents ont été publiés dans 6ca0b6c, avec CI GitHub réussie. Le programme d’audit est vérifié localement, sa validation distante reste à faire après publication.
+Les changements précédents ont été publiés dans 6ca0b6c, avec CI GitHub réussie. Le programme d’audit est publié dans a1c7391. Sa CI a échoué à l’étape navigateur, un quota partagé a renvoyé 429 au lieu du conflit 409 attendu. Le lanceur isolé corrige l’interférence entre les fichiers de tests, sans relever les quotas.

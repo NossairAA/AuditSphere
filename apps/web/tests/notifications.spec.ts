@@ -293,12 +293,17 @@ test("nouvelle notification en direct sur une liste déjà ouverte", async ({
     const otherTab = await auditor.newPage();
     await otherTab.goto("/missions/notifications");
     await otherTab.locator(`a[href="/missions/${mission.id}"]`).click();
-    await expect(
-      a.locator("header").getByRole("status", {
-        name: `${before} notifications non lues`,
-        exact: true,
-      }),
-    ).toBeVisible({ timeout: 8000 });
+    if (before === 0) {
+      // The badge is hidden when the last unread notification has been opened.
+      await expect(a.locator("header .notification-badge")).toHaveCount(0, { timeout: 8000 });
+    } else {
+      await expect(
+        a.locator("header").getByRole("status", {
+          name: `${before} notifications non lues`,
+          exact: true,
+        }),
+      ).toBeVisible({ timeout: 8000 });
+    }
     await expect(
       a
         .locator("tbody tr")

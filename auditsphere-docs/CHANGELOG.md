@@ -1,5 +1,24 @@
 # Journal des changements
 
+## Isolation des quotas dans les tests navigateur : 2026-10-21
+
+- Diagnostic CI a1c7391 : le test de désignation reçoit 429 au lieu du conflit 409 attendu, puis une connexion échoue.
+- Nouveau lanceur isolant les processus BFF et les quotas gateway entre fichiers de tests.
+- Limites applicatives et test dédié aux réponses 429 conservés.
+- Test de synchronisation des notifications corrigé pour attendre un badge absent lorsque le compteur revient à zéro.
+- Disponibilité des services vérifiée explicitement avant chaque groupe, arrêt du frontend même en cas d’échec.
+- Lanceur complet vérifié localement : 16 tests réussis, données de test nettoyées. Validation distante à faire après publication.
+
+## Résultats des contrôles : 2026-10-20
+
+- Saisie et correction par les auditeurs affectés, conclusion et justification obligatoires.
+- Auteur et date fournis par le serveur, journal transactionnel des changements.
+- Saisie uniquement En cours, version contrôlée et résultat à refaire après modification du contrôle.
+- 52 tests du service d’audit et 16 tests navigateur réussis, compilation frontend validée et migration locale appliquée.
+- Nettoyage des données de test effectué, sept missions conservées.
+- CI du commit précédent a1c7391 en échec à l’étape navigateur, quotas partagés entre les tests identifiés. Nouvelle tranche non publiée.
+- Pièces justificatives hors périmètre de cette tranche.
+
 ## Programme d’audit : 2026-10-20
 
 - Publication des changements précédents dans 6ca0b6c, CI GitHub réussie.

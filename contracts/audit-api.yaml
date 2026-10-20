@@ -1,12 +1,41 @@
 openapi: 3.0.3
 info:
   title: AuditSphere Mission API
-  version: 0.10.0
+  version: 0.11.0
 servers:
   - url: http://localhost:8080
 security:
   - bearerAuth: []
 paths:
+  /missions/{id}/results:
+    put:
+      summary: Renseigner ou corriger le résultat d’un contrôle
+      description: Auditeur affecté ou SUPER_ADMIN, uniquement En cours. Auteur et date déterminés par le serveur, trace atomique et version de mission obligatoire.
+      parameters:
+        - {in: path, name: id, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version, controlId, outcome, comment]
+              properties:
+                version: {type: integer, format: int64, minimum: 0}
+                controlId: {type: string, format: uuid}
+                outcome: {type: string, enum: [CONFORMING, NON_CONFORMING, NOT_APPLICABLE]}
+                comment: {type: string, minLength: 1, maxLength: 4000}
+      responses:
+        '200':
+          description: Résultat enregistré et version incrémentée
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AuditProgram'}
+        '400': {description: Champs invalides}
+        '401': {description: Authentification requise}
+        '403': {description: Saisie non autorisée}
+        '404': {description: Mission ou contrôle introuvable ou hors périmètre}
+        '409': {description: Version périmée ou mission hors statut En cours}
   /missions/{id}/program:
     get:
       summary: Consulter le programme de la mission
@@ -497,10 +526,21 @@ components:
         description: {type: string, minLength: 1, maxLength: 4000}
         probability: {type: integer, minimum: 1, maximum: 5}
         impact: {type: integer, minimum: 1, maximum: 5}
+    ControlResult:
+      type: object
+      nullable: true
+      required: [outcome, comment, authorSubject, authorName, recordedAt]
+      properties:
+        outcome: {type: string, enum: [CONFORMING, NON_CONFORMING, NOT_APPLICABLE]}
+        comment: {type: string, minLength: 1, maxLength: 4000}
+        authorSubject: {type: string}
+        authorName: {type: string}
+        recordedAt: {type: string, format: date-time}
     Control:
       type: object
       required: [id, objective, procedure, riskIds]
       properties:
+        result: {$ref: '#/components/schemas/ControlResult'}
         id: {type: string, format: uuid}
         objective: {type: string, minLength: 1, maxLength: 1000}
         procedure: {type: string, minLength: 1, maxLength: 4000}

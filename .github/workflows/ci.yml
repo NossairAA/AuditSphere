@@ -37,19 +37,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
         working-directory: apps/web
       - name: Start web and test browser journeys
-        run: |
-          npm --prefix apps/web start > /tmp/auditsphere-web.log 2>&1 &
-          WEB_PID=$!
-          trap 'kill "$WEB_PID" 2>/dev/null || true' EXIT
-          for attempt in $(seq 1 60)
-          do
-            if curl -fsS http://localhost:3000/ > /dev/null
-            then
-              break
-            fi
-            sleep 1
-          done
-          npm --prefix apps/web run test:e2e
+        run: sh scripts/test-browser-isolated.sh
       - if: failure()
         run: docker compose logs --tail=100
       - if: always()

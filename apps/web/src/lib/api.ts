@@ -9,6 +9,7 @@ export async function missions(
     | "program"
     | "risks"
     | "controls"
+    | "results"
     | "assignments"
     | "participants"
     | "auditors"
@@ -53,7 +54,11 @@ export async function missions(
       if (
         !data.roles.includes("SUPER_ADMIN") &&
         !data.roles.includes(
-          resource === "review" ? "AUDIT_VALIDATOR" : "AUDIT_MANAGER",
+          resource === "results"
+            ? "AUDITOR"
+            : resource === "review"
+              ? "AUDIT_VALIDATOR"
+              : "AUDIT_MANAGER",
         )
       )
         return json({ error: "Votre rôle ne permet pas cette action" }, 403);
@@ -69,65 +74,72 @@ export async function missions(
       if (!input || typeof input !== "object" || Array.isArray(input))
         return json({ error: "Formulaire invalide" }, 400);
       body = JSON.stringify(
-        resource === "risks"
+        resource === "results"
           ? {
               version: input.version,
-              id: input.id,
-              title: input.title,
-              description: input.description,
-              probability: input.probability,
-              impact: input.impact,
+              controlId: input.controlId,
+              outcome: input.outcome,
+              comment: input.comment,
             }
-          : resource === "controls"
+          : resource === "risks"
             ? {
                 version: input.version,
                 id: input.id,
-                objective: input.objective,
-                procedure: input.procedure,
-                riskIds: input.riskIds,
+                title: input.title,
+                description: input.description,
+                probability: input.probability,
+                impact: input.impact,
               }
-            : resource === "override"
+            : resource === "controls"
               ? {
                   version: input.version,
-                  action: input.action,
-                  reason: input.reason,
+                  id: input.id,
+                  objective: input.objective,
+                  procedure: input.procedure,
+                  riskIds: input.riskIds,
                 }
-              : request.method === "DELETE" || resource === "withdrawal"
-                ? { version: input.version, reason: input.reason }
-                : request.method === "PUT"
-                  ? resource === "review"
-                    ? {
-                        version: input.version,
-                        decision: input.decision,
-                        comment: input.comment,
-                      }
-                    : resource === "submission"
-                      ? { version: input.version }
-                      : resource === "validator"
-                        ? {
-                            version: input.version,
-                            validatorSubject: input.validatorSubject,
-                          }
-                        : resource === "schedule"
+              : resource === "override"
+                ? {
+                    version: input.version,
+                    action: input.action,
+                    reason: input.reason,
+                  }
+                : request.method === "DELETE" || resource === "withdrawal"
+                  ? { version: input.version, reason: input.reason }
+                  : request.method === "PUT"
+                    ? resource === "review"
+                      ? {
+                          version: input.version,
+                          decision: input.decision,
+                          comment: input.comment,
+                        }
+                      : resource === "submission"
+                        ? { version: input.version }
+                        : resource === "validator"
                           ? {
                               version: input.version,
-                              plannedStartDate: input.plannedStartDate,
-                              plannedEndDate: input.plannedEndDate,
+                              validatorSubject: input.validatorSubject,
                             }
-                          : resource === "status"
-                            ? { version: input.version, status: input.status }
-                            : {
-                                assigneeSubjects: input.assigneeSubjects,
+                          : resource === "schedule"
+                            ? {
                                 version: input.version,
+                                plannedStartDate: input.plannedStartDate,
+                                plannedEndDate: input.plannedEndDate,
                               }
-                  : {
-                      title: input.title,
-                      description: input.description,
-                      perimeter: input.perimeter,
-                      assigneeSubjects: input.assigneeSubjects ?? [],
-                      plannedStartDate: input.plannedStartDate ?? null,
-                      plannedEndDate: input.plannedEndDate ?? null,
-                    },
+                            : resource === "status"
+                              ? { version: input.version, status: input.status }
+                              : {
+                                  assigneeSubjects: input.assigneeSubjects,
+                                  version: input.version,
+                                }
+                    : {
+                        title: input.title,
+                        description: input.description,
+                        perimeter: input.perimeter,
+                        assigneeSubjects: input.assigneeSubjects ?? [],
+                        plannedStartDate: input.plannedStartDate ?? null,
+                        plannedEndDate: input.plannedEndDate ?? null,
+                      },
       );
       headers["Content-Type"] = "application/json";
     } else if (resource === "auditors" || resource === "validators") {

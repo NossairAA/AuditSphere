@@ -66,7 +66,9 @@ npm --prefix apps/web run typecheck
 npm --prefix apps/web run build
 ```
 
-La CI GitHub reprend les tests backend, le smoke API, le build frontend et les parcours Chromium. La CI du jalon Temporal est verte sur 7e4c707. L’extension des notifications de validation est vérifiée localement et reste non publiée.
+La CI GitHub reprend les tests backend, le smoke API, le build frontend et les parcours Chromium. Les tests navigateur sont lancés par `sh scripts/test-browser-isolated.sh`, avec un frontend neuf et une gateway redémarrée pour chaque fichier de tests. Cela isole les quotas en mémoire sans modifier les limites de sécurité. Le port 3000 doit être libre avant de lancer cette commande. Les journaux frontend restent dans `.local/browser-logs`, hors Git.
+
+Le commit a1c7391 a échoué en CI sur un quota HTTP 429 au lieu du conflit 409 attendu. Le correctif d’isolation est local, sa validation distante reste à faire après publication.
 
 ## Services et arrêt
 

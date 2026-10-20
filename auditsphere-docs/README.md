@@ -86,3 +86,5 @@ Le [cycle de vie manuel des missions](docs/technique/10-cycle-missions.md) ajout
 - [Superadministrateur et dérogations](docs/technique/20-superadmin.md)
 
 - [Programme d’audit : risques et contrôles](docs/technique/21-programme-audit.md)
+
+- [Résultats des contrôles](docs/technique/22-resultats-controles.md)

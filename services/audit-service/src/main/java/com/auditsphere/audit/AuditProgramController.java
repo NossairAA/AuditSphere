@@ -28,7 +28,29 @@ class AuditProgramController {
 
   record Risk(UUID id, String title, String description, int probability, int impact) {}
 
-  record Control(UUID id, String objective, String procedure, Set<UUID> riskIds) {}
+  record Result(
+      String outcome,
+      String comment,
+      String authorSubject,
+      String authorName,
+      java.time.Instant recordedAt) {}
+
+  record Control(UUID id, String objective, String procedure, Set<UUID> riskIds, Result result) {}
+
+  record ResultInput(
+      @NotNull @PositiveOrZero Long version,
+      @NotNull UUID controlId,
+      @NotBlank @Pattern(regexp = "CONFORMING|NON_CONFORMING|NOT_APPLICABLE") String outcome,
+      @NotBlank @Size(max = 4000) String comment) {}
+
+  private Result result(String value) {
+    if (value == null) return null;
+    try {
+      return json.readValue(value, Result.class);
+    } catch (JsonProcessingException e) {
+      throw new IllegalStateException(e);
+    }
+  }
 
   record Program(MissionController.MissionView mission, List<Risk> risks, List<Control> controls) {}
 
@@ -100,13 +122,14 @@ class AuditProgramController {
         m.id);
     var controls =
         jdbc.query(
-            "SELECT id,objective,procedure FROM mission_controls WHERE mission_id=? ORDER BY created_at,id",
+            "SELECT id,objective,procedure,result_data FROM mission_controls WHERE mission_id=? ORDER BY created_at,id",
             (r, n) ->
                 new Control(
                     r.getObject("id", UUID.class),
                     r.getString("objective"),
                     r.getString("procedure"),
-                    links.getOrDefault(r.getObject("id", UUID.class), Set.of())),
+                    links.getOrDefault(r.getObject("id", UUID.class), Set.of()),
+                    result(r.getString("result_data"))),
             m.id);
     return new Program(MissionController.MissionView.of(m), risks(m.id), controls);
   }
@@ -215,7 +238,11 @@ class AuditProgramController {
     UUID id = before == null ? UUID.randomUUID() : before.id();
     Control after =
         new Control(
-            id, input.objective().strip(), input.procedure().strip(), Set.copyOf(input.riskIds()));
+            id,
+            input.objective().strip(),
+            input.procedure().strip(),
+            Set.copyOf(input.riskIds()),
+            null);
     if (before == null)
       jdbc.update(
           "INSERT INTO mission_controls(id,mission_id,objective,procedure) VALUES (?,?,?,?)",
@@ -225,7 +252,7 @@ class AuditProgramController {
           after.procedure());
     else
       jdbc.update(
-          "UPDATE mission_controls SET objective=?,procedure=? WHERE id=? AND mission_id=?",
+          "UPDATE mission_controls SET objective=?,procedure=?,result_data=NULL WHERE id=? AND mission_id=?",
           after.objective(),
           after.procedure(),
           id,
@@ -238,6 +265,42 @@ class AuditProgramController {
           id,
           risk);
     changed(m, jwt, id, "CONTROL", before, after);
+    return program(m);
+  }
+
+  @PutMapping("/results")
+  @Transactional(timeout = 5)
+  Program recordResult(
+      @PathVariable UUID missionId,
+      @Valid @RequestBody ResultInput input,
+      @AuthenticationPrincipal Jwt jwt) {
+    Mission m = accessible(missionId, jwt, true);
+    if (!(role(jwt, "SUPER_ADMIN")
+        || (role(jwt, "AUDITOR") && m.assigneeSubjects.contains(jwt.getSubject()))))
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+    if (m.version != input.version() || !m.status.equals("IN_PROGRESS"))
+      throw new ResponseStatusException(HttpStatus.CONFLICT);
+    Control control =
+        program(m).controls().stream()
+            .filter(c -> c.id().equals(input.controlId()))
+            .findFirst()
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    String name = jwt.getClaimAsString("name");
+    if (name == null || name.isBlank()) name = jwt.getClaimAsString("preferred_username");
+    if (name == null || name.isBlank()) name = jwt.getSubject();
+    Result after =
+        new Result(
+            input.outcome(),
+            input.comment().strip(),
+            jwt.getSubject(),
+            name,
+            java.time.Instant.now());
+    jdbc.update(
+        "UPDATE mission_controls SET result_data=CAST(? AS jsonb) WHERE id=? AND mission_id=?",
+        serialized(after),
+        control.id(),
+        m.id);
+    changed(m, jwt, control.id(), "RESULT", control.result(), after);
     return program(m);
   }
 }

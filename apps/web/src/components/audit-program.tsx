@@ -1,4 +1,5 @@
 "use client";
+import ControlResultForm, { type ControlResult } from "./control-result";
 import { useEffect, useState, type FormEvent } from "react";
 import { ClipboardCheck, Plus } from "lucide-react";
 import { canManageMission, type Mission } from "@/lib/types";
@@ -16,6 +17,7 @@ type Control = {
   objective: string;
   procedure: string;
   riskIds: string[];
+  result: ControlResult | null;
 };
 type Program = { mission: Mission; risks: Risk[]; controls: Control[] };
 type Editor =
@@ -254,6 +256,12 @@ export default function AuditProgram({
                     )
                     .join(", ")}
                 </p>
+                <ControlResultForm
+                  mission={program.mission}
+                  controlId={c.id}
+                  result={c.result}
+                  onSaved={reload}
+                />
                 {canEdit && (
                   <button
                     className="button secondary"
@@ -277,6 +285,12 @@ export default function AuditProgram({
                 {editor.value ? "Modifier" : "Ajouter"}{" "}
                 {editor.kind === "risks" ? "un risque" : "un contrôle"}
               </h3>
+              {editor.kind === "controls" && editor.value?.result && (
+                <p role="note">
+                  Modifier ce contrôle effacera son résultat courant. Il devra
+                  être exécuté à nouveau. Le résultat précédent restera tracé.
+                </p>
+              )}
               <fieldset disabled={busy || loading}>
                 {editor.kind === "risks" ? (
                   <>

@@ -1621,4 +1621,156 @@ class MissionIntegrationTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("controls[0].riskIds.length()").value(2));
   }
+
+  String programControl(String id) throws Exception {
+    var r = saveRisk(id, 0, "owner", "AUDIT_MANAGER").andReturn();
+    String risk = mapper.readTree(r.getResponse().getContentAsString()).at("/risks/0/id").asText();
+    var c =
+        mvc.perform(
+                put("/missions/" + id + "/controls")
+                    .with(programJwt("owner", "AUDIT_MANAGER"))
+                    .contentType("application/json")
+                    .content(
+                        mapper.writeValueAsString(
+                            java.util.Map.of(
+                                "version",
+                                1,
+                                "objective",
+                                "Doublons",
+                                "procedure",
+                                "Comparer les factures",
+                                "riskIds",
+                                java.util.List.of(risk)))))
+            .andExpect(status().isOk())
+            .andReturn();
+    return mapper.readTree(c.getResponse().getContentAsString()).at("/controls/0/id").asText();
+  }
+
+  org.springframework.test.web.servlet.ResultActions recordControl(
+      String id,
+      String control,
+      long version,
+      String subject,
+      String role,
+      String outcome,
+      String comment)
+      throws Exception {
+    return mvc.perform(
+        put("/missions/" + id + "/results")
+            .with(programJwt(subject, role))
+            .contentType("application/json")
+            .content(
+                mapper.writeValueAsString(
+                    java.util.Map.of(
+                        "version",
+                        version,
+                        "controlId",
+                        control,
+                        "outcome",
+                        outcome,
+                        "comment",
+                        comment))));
+  }
+
+  @Test
+  void resultsPersistCorrectionsAndInvalidateWhenControlChanges() throws Exception {
+    String id = create(), control = programControl(id);
+    jdbc.update(
+        "UPDATE missions SET status='IN_PROGRESS',planned_start_date=current_date,planned_end_date=current_date,started_at=now() WHERE id=?",
+        java.util.UUID.fromString(id));
+    recordControl(
+            id, control, 2, "assigned", "AUDITOR", "NON_CONFORMING", "Deux factures identiques")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("controls[0].result.authorSubject").value("assigned"))
+        .andExpect(jsonPath("controls[0].result.recordedAt").exists());
+    recordControl(id, control, 2, "assigned", "AUDITOR", "CONFORMING", "Version périmée")
+        .andExpect(status().isConflict());
+    recordControl(
+            id,
+            control,
+            3,
+            "assigned",
+            "AUDITOR",
+            "CONFORMING",
+            "Après vérification, références distinctes")
+        .andExpect(status().isOk());
+    org.junit.jupiter.api.Assertions.assertEquals(
+        2,
+        jdbc.queryForObject(
+            "SELECT count(*) FROM program_change_log WHERE mission_id=? AND resource='RESULT'",
+            Integer.class,
+            java.util.UUID.fromString(id)));
+    String risk =
+        jdbc.queryForObject(
+                "SELECT id FROM mission_risks WHERE mission_id=?",
+                java.util.UUID.class,
+                java.util.UUID.fromString(id))
+            .toString();
+    mvc.perform(
+            put("/missions/" + id + "/controls")
+                .with(programJwt("owner", "AUDIT_MANAGER"))
+                .contentType("application/json")
+                .content(
+                    mapper.writeValueAsString(
+                        java.util.Map.of(
+                            "version",
+                            4,
+                            "id",
+                            control,
+                            "objective",
+                            "Doublons",
+                            "procedure",
+                            "Nouvelle procédure",
+                            "riskIds",
+                            java.util.List.of(risk)))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("controls[0].result").isEmpty());
+    org.junit.jupiter.api.Assertions.assertEquals(
+        "CONFORMING",
+        jdbc.queryForObject(
+            "SELECT previous_data->'result'->>'outcome' FROM program_change_log WHERE mission_id=? AND resource='CONTROL' AND previous_data IS NOT NULL",
+            String.class,
+            java.util.UUID.fromString(id)));
+  }
+
+  @Test
+  void resultsEnforceAssignmentLifecycleAndInputValidation() throws Exception {
+    String id = create(), control = programControl(id);
+    recordControl(id, control, 2, "assigned", "AUDITOR", "CONFORMING", "Test")
+        .andExpect(status().isConflict());
+    jdbc.update(
+        "UPDATE missions SET status='IN_PROGRESS',planned_start_date=current_date,planned_end_date=current_date,started_at=now(),validator_subject='validator' WHERE id=?",
+        java.util.UUID.fromString(id));
+    recordControl(id, control, 2, "owner", "AUDIT_MANAGER", "CONFORMING", "Test")
+        .andExpect(status().isForbidden());
+    recordControl(id, control, 2, "validator", "AUDIT_VALIDATOR", "CONFORMING", "Test")
+        .andExpect(status().isForbidden());
+    recordControl(id, control, 2, "stranger", "AUDITOR", "CONFORMING", "Test")
+        .andExpect(status().isNotFound());
+    recordControl(id, control, 2, "assigned", "AUDITOR", "INVALID", "Test")
+        .andExpect(status().isBadRequest());
+    recordControl(id, control, 2, "assigned", "AUDITOR", "CONFORMING", " ")
+        .andExpect(status().isBadRequest());
+    String other = create(), foreign = programControl(other);
+    recordControl(id, foreign, 2, "assigned", "AUDITOR", "CONFORMING", "Test")
+        .andExpect(status().isNotFound());
+    recordControl(
+            id, control, 2, "administrator", "SUPER_ADMIN", "NOT_APPLICABLE", "Hors périmètre")
+        .andExpect(status().isOk());
+    jdbc.update(
+        "UPDATE missions SET status='PENDING_REVIEW',submitted_at=now() WHERE id=?",
+        java.util.UUID.fromString(id));
+    recordControl(id, control, 3, "assigned", "AUDITOR", "CONFORMING", "Test")
+        .andExpect(status().isConflict());
+    jdbc.update(
+        "UPDATE missions SET status='APPROVED',reviewed_at=now(),reviewed_by='validator',review_decision='APPROVED',review_comment='Validé' WHERE id=?",
+        java.util.UUID.fromString(id));
+    recordControl(id, control, 3, "administrator", "SUPER_ADMIN", "CONFORMING", "Test")
+        .andExpect(status().isConflict());
+    jdbc.update(
+        "UPDATE missions SET status='CLOSED',closed_at=now() WHERE id=?",
+        java.util.UUID.fromString(id));
+    recordControl(id, control, 3, "assigned", "AUDITOR", "CONFORMING", "Test")
+        .andExpect(status().isConflict());
+  }
 }

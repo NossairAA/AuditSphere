@@ -113,6 +113,14 @@ test("programme préparé par le responsable, consultable par l’auditeur et ve
     path: "../../.local/design/program-mobile.png",
     fullPage: true,
   });
+  const beforeStart = await (
+    await page.request.get(`/api/missions/${mission.id}`)
+  ).json();
+  const started = await page.request.put(`/api/missions/${mission.id}/status`, {
+    headers: { Origin: "http://localhost:3000", "x-csrf-token": session.csrf },
+    data: { version: beforeStart.version, status: "IN_PROGRESS" },
+  });
+  expect(started.ok()).toBe(true);
   const context = await browser.newContext();
   const auditor = await context.newPage();
   try {
@@ -125,6 +133,39 @@ test("programme préparé par le responsable, consultable par l’auditeur et ve
     await expect(
       read.getByRole("button", { name: "Ajouter un risque" }),
     ).toHaveCount(0);
+    await read
+      .getByRole("button", { name: "Renseigner le résultat", exact: true })
+      .click();
+    await read
+      .getByLabel("Conclusion", { exact: true })
+      .selectOption("NON_CONFORMING");
+    await read
+      .getByLabel("Justification du résultat")
+      .fill("Deux factures identiques ont été réglées.");
+    await read
+      .getByRole("button", { name: "Enregistrer le résultat", exact: true })
+      .click();
+    await expect(
+      read.getByText("Deux factures identiques ont été réglées.", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(read.getByText(/Renseigné par Julien Moreau/)).toBeVisible();
+    await read
+      .getByRole("button", { name: "Corriger le résultat", exact: true })
+      .click();
+    await read
+      .getByLabel("Justification du résultat")
+      .fill("Deux factures identiques, références confirmées.");
+    await read
+      .getByRole("button", { name: "Enregistrer le résultat", exact: true })
+      .click();
+    await expect(
+      read.getByText("Deux factures identiques, références confirmées.", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await read.screenshot({path:"../../.local/design/control-result.png"});
     const auditorSession = await (
       await auditor.request.get("/api/session")
     ).json();
@@ -156,7 +197,9 @@ test("programme préparé par le responsable, consultable par l’auditeur et ve
     "x-csrf-token": session.csrf,
   };
   const validators = await (await page.request.get("/api/validators")).json();
-  const validator = validators.find((p: { name: string }) => p.name === "Thomas Laurent");
+  const validator = validators.find(
+    (p: { name: string }) => p.name === "Thomas Laurent",
+  );
   const designation = await page.request.put(
     `/api/missions/${mission.id}/validator`,
     {
@@ -166,18 +209,20 @@ test("programme préparé par le responsable, consultable par l’auditeur et ve
   );
   expect(designation.ok()).toBe(true);
   current = await designation.json();
-  const started = await page.request.put(`/api/missions/${mission.id}/status`, {
-    headers,
-    data: { version: current.version, status: "IN_PROGRESS" },
-  });
-  expect(started.ok()).toBe(true);
-  current = await started.json();
   const submitted = await page.request.put(
     `/api/missions/${mission.id}/submission`,
     { headers, data: { version: current.version } },
   );
   expect(submitted.ok()).toBe(true);
   await page.reload();
+  await expect(
+    program.getByText("Deux factures identiques, références confirmées.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    program.getByRole("button", { name: "Corriger le résultat" }),
+  ).toHaveCount(0);
   await expect(
     program.getByText(
       "Programme en lecture seule pendant la validation et après approbation.",

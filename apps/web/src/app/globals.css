@@ -1452,3 +1452,6 @@ td {
     grid-template-columns: 1fr;
   }
 }
+
+.control-result { margin: 18px 0; padding-top: 16px; border-top: 1px solid var(--line); }
+.control-result h5 { font-size: 14px; margin: 0 0 10px; }

@@ -9,7 +9,7 @@ Administration globale des missions et dérogations tracées ajoutées et vérif
 Préalable terminé en local le 2026-10-20 : retrait de soumission et suppression contrôlée des brouillons, avec tests et nettoyage des données synthétiques.
 
 1. Risques et contrôles d’une mission, première tranche de F-003 vérifiée localement le 2026-10-20.
-2. Exécution des contrôles et centralisation des preuves.
+2. Résultats des contrôles implémentés et vérifiés localement. Centralisation des preuves à réaliser.
 3. Constats et recommandations.
 4. Actions correctives et vérification de leur résolution.
 5. Premier moteur d’audit continu sur une source et une règle versionnée, puis planification.

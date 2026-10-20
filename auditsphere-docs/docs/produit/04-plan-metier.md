@@ -14,7 +14,7 @@ Le socle local comprend les missions, leurs permissions, la validation humaine s
 | Ordre | Tranche | Résultat attendu | État |
 | --- | --- | --- | --- |
 | 1 | Risques et contrôles d’une mission | Le responsable prépare un programme consultable par les auditeurs affectés | Vérifié localement |
-| 2 | Exécution et preuves | L’auditeur consigne un résultat et ses justificatifs, avec accès contrôlé et versions conservées | À réaliser |
+| 2 | Exécution et preuves | L’auditeur consigne un résultat et ses justificatifs, avec accès contrôlé et versions conservées | Résultats implémentés, preuves à réaliser |
 | 3 | Constats | Une anomalie documentée devient un constat avec gravité, cause et recommandation | À réaliser |
 | 4 | Actions correctives | Un responsable suit une action et son échéance, puis un acteur habilité vérifie la correction | À réaliser |
 | 5 | Audit continu | Une règle versionnée s’exécute sur une source autorisée et produit des anomalies reproductibles | À réaliser après le parcours manuel |
