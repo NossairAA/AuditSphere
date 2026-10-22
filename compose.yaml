@@ -1,5 +1,14 @@
 name: auditsphere
 services:
+  garage:
+    image: dxflrs/garage:v2.4.1
+    command: [/garage, server, --single-node]
+    ports: ["127.0.0.1:3900:3900"]
+    volumes:
+      - ./.local/garage.toml:/etc/garage.toml:ro
+      - garage-meta:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+    restart: unless-stopped
   temporal-storage:
     image: temporalio/temporal:1.9.1
     user: "0:0"
@@ -178,9 +187,16 @@ services:
       TEMPORAL_TARGET: temporal:7233
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       DIRECTORY_URL: http://keycloak:8080
+      USER_ADMIN_CLIENT_SECRET: ${USER_ADMIN_CLIENT_SECRET:-not-provisioned}
       DIRECTORY_CLIENT_SECRET: ${DIRECTORY_CLIENT_SECRET:?Run setup-web.py --configure-only}
       OIDC_ISSUER: http://localhost:8180/realms/auditsphere
       OIDC_JWKS: http://keycloak:8080/realms/auditsphere/protocol/openid-connect/certs
+      EVIDENCE_S3_ENDPOINT: ${EVIDENCE_S3_ENDPOINT:-http://garage:3900}
+      EVIDENCE_S3_REGION: garage
+      EVIDENCE_S3_BUCKET: ${EVIDENCE_S3_BUCKET:-auditsphere-evidence}
+      EVIDENCE_S3_ACCESS_KEY: ${EVIDENCE_S3_ACCESS_KEY:-not-provisioned}
+      EVIDENCE_S3_SECRET_KEY: ${EVIDENCE_S3_SECRET_KEY:-not-provisioned}
+      EVIDENCE_S3_PATH_STYLE: "true"
     depends_on:
       audit-db: {condition: service_healthy}
       keycloak: {condition: service_started}
@@ -196,6 +212,8 @@ services:
       OIDC_JWKS: http://keycloak:8080/realms/auditsphere/protocol/openid-connect/certs
     depends_on: [audit-service, notification-service]
 volumes:
+  garage-meta:
+  garage-data:
   temporal-data:
   kafka-data:
   notification-data:

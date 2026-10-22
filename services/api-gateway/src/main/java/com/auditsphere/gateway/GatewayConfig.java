@@ -35,7 +35,9 @@ class GatewayConfig {
         .route(
             "notifications",
             r -> r.path("/notifications", "/notifications/**").uri(notificationUrl))
-        .route("audit", r -> r.path("/missions", "/missions/**").uri(url))
+        .route(
+            "audit",
+            r -> r.path("/missions", "/missions/**", "/admin/**", "/account/security").uri(url))
         .build();
   }
 

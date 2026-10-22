@@ -11,13 +11,23 @@ WEB_PID=''
 cleanup() {
   if [ -n "$WEB_PID" ]; then
     kill "$WEB_PID" 2>/dev/null || true
+    # Long-lived SSE connections must not stall the next isolated suite.
+    stop_attempt=0
+    while kill -0 "$WEB_PID" 2>/dev/null && [ "$stop_attempt" -lt 5 ]; do
+      sleep 1
+      stop_attempt=$((stop_attempt + 1))
+    done
+    kill -KILL "$WEB_PID" 2>/dev/null || true
     wait "$WEB_PID" 2>/dev/null || true
     WEB_PID=''
   fi
 }
 trap cleanup EXIT
 trap 'exit 130' INT TERM
-for spec in apps/web/tests/*.spec.ts; do
+if [ "$#" -eq 0 ]; then
+  set -- apps/web/tests/*.spec.ts
+fi
+for spec in "$@"; do
   name=$(basename "$spec" .spec.ts)
   echo "Suite isolée : $name"
   docker compose restart api-gateway >/dev/null

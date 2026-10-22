@@ -11,7 +11,8 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 class SecurityConfig {
   @Bean
-  SecurityFilterChain security(HttpSecurity http) throws Exception {
+  SecurityFilterChain security(HttpSecurity http, org.springframework.jdbc.core.JdbcTemplate jdbc)
+      throws Exception {
     var converter = new JwtAuthenticationConverter();
     converter.setJwtGrantedAuthoritiesConverter(
         jwt -> {
@@ -23,11 +24,17 @@ class SecurityConfig {
               .map(a -> (org.springframework.security.core.GrantedAuthority) a)
               .toList();
         });
-    return http.csrf(c -> c.disable())
+    return http.addFilterAfter(
+            new AccountSecurity(jdbc),
+            org.springframework.security.oauth2.server.resource.web.authentication
+                .BearerTokenAuthenticationFilter.class)
+        .csrf(c -> c.disable())
         .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(
             a ->
-                a.requestMatchers("/actuator/health", "/actuator/health/**")
+                a.requestMatchers("/admin", "/admin/**")
+                    .hasRole("SUPER_ADMIN")
+                    .requestMatchers("/actuator/health", "/actuator/health/**")
                     .permitAll()
                     .requestMatchers(org.springframework.http.HttpMethod.POST, "/missions")
                     .hasAnyRole("AUDIT_MANAGER", "SUPER_ADMIN")

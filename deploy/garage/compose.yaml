@@ -1,0 +1,11 @@
+name: auditsphere-storage
+services:
+  garage:
+    image: dxflrs/garage:v2.4.1
+    command: [/garage, server, --single-node]
+    restart: unless-stopped
+    ports: ["${GARAGE_BIND_IP:?Adresse Tailscale requise}:3900:3900"]
+    volumes:
+      - ./.local/garage.toml:/etc/garage.toml:ro
+      - ./meta:/var/lib/garage/meta
+      - ./data:/var/lib/garage/data

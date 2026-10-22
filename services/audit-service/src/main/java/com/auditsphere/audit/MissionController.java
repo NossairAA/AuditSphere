@@ -142,25 +142,59 @@ class MissionController {
   MissionPage list(
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "20") int size,
+      @RequestParam(defaultValue = "") String q,
+      @RequestParam(defaultValue = "") String status,
+      @RequestParam(defaultValue = "") String owner,
+      @RequestParam(defaultValue = "false") boolean overdue,
+      @RequestParam(defaultValue = "created") String sort,
       @AuthenticationPrincipal Jwt jwt) {
-    if (page < 0 || size < 1 || size > 100)
+    if (page < 0
+        || size < 1
+        || size > 100
+        || q.length() > 200
+        || owner.length() > 255
+        || !Set.of("", "DRAFT", "IN_PROGRESS", "PENDING_REVIEW", "APPROVED", "CLOSED")
+            .contains(status)
+        || !Set.of("created", "title", "end").contains(sort))
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
     var result =
         repository.findVisible(
             jwt.getSubject(),
             isValidator(jwt),
             isAdmin(jwt),
+            q.isBlank()
+                ? ""
+                : "%"
+                    + q.strip()
+                        .toLowerCase(java.util.Locale.ROOT)
+                        .replace("!", "!!")
+                        .replace("%", "!%")
+                        .replace("_", "!_")
+                    + "%",
+            status,
+            owner,
+            overdue,
+            java.time.LocalDate.now(java.time.ZoneOffset.UTC),
             org.springframework.data.domain.PageRequest.of(
                 page,
                 size,
                 org.springframework.data.domain.Sort.by(
-                    org.springframework.data.domain.Sort.Order.desc("createdAt"),
+                    sort.equals("created")
+                        ? org.springframework.data.domain.Sort.Order.desc("createdAt")
+                        : org.springframework.data.domain.Sort.Order.asc(
+                            sort.equals("title") ? "title" : "plannedEndDate"),
                     org.springframework.data.domain.Sort.Order.asc("id"))));
     return new MissionPage(
         result.getContent().stream().map(MissionView::of).toList(),
         page,
         size,
         result.getTotalElements());
+  }
+
+  @GetMapping("/owners")
+  List<AuditorDirectory.Person> owners(@AuthenticationPrincipal Jwt jwt) {
+    return directory.participants(
+        repository.visibleOwners(jwt.getSubject(), isValidator(jwt), isAdmin(jwt)));
   }
 
   @GetMapping("/titles")

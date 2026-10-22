@@ -12,12 +12,12 @@ La [fiche de mission](../technique/19-fiche-mission.md) est réorganisée et vé
 
 Le retrait des soumissions et la suppression des brouillons sont implémentés et vérifiés en local le 2026-10-20. Voir le [guide](../technique/18-retrait-suppression.md).
 
-US-003 et F-003 sont implémentés et vérifiés localement dans le [programme d’audit](../technique/21-programme-audit.md). La saisie des [résultats des contrôles](../technique/22-resultats-controles.md) est implémentée, avec migration, tests du service, parcours navigateur et compilation frontend vérifiés en local. La prochaine tranche porte sur les preuves. Le périmètre livré concerne les risques et contrôles rattachés à une mission. Les critères, permissions, limites et questions ouvertes figurent dans la [fiche métier](../produit/04-plan-metier.md).
+US-003 et F-003 sont implémentés et vérifiés localement dans le [programme d’audit](../technique/21-programme-audit.md). La saisie des [résultats des contrôles](../technique/22-resultats-controles.md) est implémentée, avec migration, tests du service, parcours navigateur et compilation frontend vérifiés en local. Les [preuves privées](../technique/23-preuves-controles.md) sont également implémentées et vérifiées localement. La prochaine tranche métier porte sur les constats. Le périmètre livré concerne les risques et contrôles rattachés à une mission. Les critères, permissions, limites et questions ouvertes figurent dans la [fiche métier](../produit/04-plan-metier.md).
 
 | Ordre | Périmètre | Critère de sortie | État |
 | --- | --- | --- | --- |
 | 1 | F-003, US-003 : programme risques et contrôles | Programme préparé par le responsable, consultable par les auditeurs, références et accès isolés par mission | Vérifié localement |
-| 2 | Exécution des contrôles, F-004 et US-004 | Résultats et preuves versionnées, consultables uniquement par les personnes autorisées | Résultats implémentés, preuves à réaliser |
+| 2 | Exécution des contrôles, F-004 et US-004 | Résultats et preuves versionnées, consultables uniquement par les personnes autorisées | Résultats et ajout de preuves vérifiés localement |
 | 3 | F-005, US-005 : constats | Anomalie documentée avec gravité, cause, recommandation et revue | À réaliser |
 | 4 | F-006, US-006 et US-007 : actions correctives | Responsable, échéance, justificatif et vérification avant clôture | À réaliser |
 | 5 | US-011 : première règle d’audit continu | Exécution reproductible et anomalies sans doublon, revue avant constat officiel | À réaliser après le parcours manuel |
@@ -161,3 +161,11 @@ Voir le [guide du rôle validateur](../technique/11-role-validateur.md).
 - UX-NOTIF-01 : zone cliquable étendue à la ligne, action compacte dans une colonne distincte et focus clavier visible, vérifiés localement.
 
 - NOTIF-11 : mise à jour SSE de la liste et du compteur, vérifiée localement avec une instance de notification-service. Diffusion partagée entre plusieurs instances à réaliser avant extension.
+
+## Refonte ergonomique du 21 octobre 2026
+
+La navigation par onglets, les filtres de missions, le détail des contrôles et l’administration des comptes sont implémentés localement. Voir le [guide de navigation](../technique/24-navigation-administration.md). La prochaine tranche métier reste les constats.
+
+- UX-DASH-01 : tableau de bord superadmin distinct du répertoire, compteurs, répartition par statut et cinq retards prioritaires. Vérifié localement par deux tests Java ciblés et quatre tests navigateur.
+
+- DEMO-02 : extension du jeu fictif avec 40 missions, 120 risques et 160 contrôles pour exercer pagination, filtres, retards et parcours de revue. Voir le [jeu de démonstration](../technique/17-donnees-demonstration.md).

@@ -1,4 +1,5 @@
 "use client";
+import { useUnsavedGuard } from "./unsaved-guard";
 import { useState, type FormEvent } from "react";
 import { type Mission, isSuperAdmin } from "@/lib/types";
 import { ErrorNotice, useUser } from "./workspace";
@@ -26,6 +27,8 @@ export default function ControlResultForm({
   onSaved: () => void;
 }) {
   const user = useUser();
+  const [dirty, setDirty] = useState(false);
+  useUnsavedGuard(dirty);
   const [editing, setEditing] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -57,6 +60,7 @@ export default function ControlResultForm({
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
+      setDirty(false);
       setEditing(false);
       onSaved();
     } catch (e) {
@@ -103,7 +107,11 @@ export default function ControlResultForm({
         </button>
       )}
       {allowed && editing && (
-        <form className="program-editor" onSubmit={save}>
+        <form
+          onChange={() => setDirty(true)}
+          className="program-editor"
+          onSubmit={save}
+        >
           <fieldset disabled={busy}>
             <label htmlFor={`outcome-${controlId}`}>Conclusion</label>
             <select
@@ -139,7 +147,12 @@ export default function ControlResultForm({
               <button
                 className="button secondary"
                 type="button"
-                onClick={() => setEditing(false)}
+                onClick={() => {
+                  if (!dirty || confirm("Abandonner les modifications ?")) {
+                    setDirty(false);
+                    setEditing(false);
+                  }
+                }}
               >
                 Annuler
               </button>

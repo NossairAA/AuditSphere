@@ -42,7 +42,7 @@ test("programme préparé par le responsable, consultable par l’auditeur et ve
   expect(response.status()).toBe(201);
   const mission = await response.json();
   recordMission(mission.id);
-  await page.goto(`/missions/${mission.id}`);
+  await page.goto(`/missions/${mission.id}?tab=risks`);
   const program = page.getByRole("region", { name: "Programme d’audit" });
   await program
     .getByRole("button", { name: "Ajouter un risque", exact: true })
@@ -51,13 +51,19 @@ test("programme préparé par le responsable, consultable par l’auditeur et ve
   await program
     .getByLabel("Description du risque")
     .fill("Une facture peut être réglée deux fois.");
-  await program.getByLabel("Probabilité", { exact: true }).selectOption("3");
-  await program.getByLabel("Impact", { exact: true }).selectOption("4");
+  await page
+    .getByRole("dialog")
+    .getByLabel("Probabilité", { exact: true })
+    .selectOption("3");
+  await page
+    .getByRole("dialog")
+    .getByLabel("Impact", { exact: true })
+    .selectOption("4");
   await program
     .getByRole("button", { name: "Enregistrer le programme" })
     .click();
   await expect(
-    program.getByRole("heading", { name: "Paiement en double", exact: true }),
+    program.getByText("Paiement en double", { exact: true }),
   ).toBeVisible();
   await program
     .getByRole("button", { name: "Ajouter un contrôle", exact: true })
@@ -76,12 +82,11 @@ test("programme préparé par le responsable, consultable par l’auditeur et ve
   await program
     .getByRole("button", { name: "Enregistrer le programme" })
     .click();
-  await expect(
-    program.getByRole("heading", {
-      name: "Vérifier les doublons de factures",
-      exact: true,
-    }),
-  ).toBeVisible();
+  await expect(program.getByText("Programme enregistré.")).toBeVisible();
+  const savedProgram = await (
+    await page.request.get(`/api/missions/${mission.id}/program`)
+  ).json();
+  const controlId = savedProgram.controls[0].id;
   await program
     .getByRole("button", {
       name: "Modifier le risque Paiement en double",
@@ -93,6 +98,10 @@ test("programme préparé par le responsable, consultable par l’auditeur et ve
     .fill("Risque financier lié aux doubles règlements.");
   await program
     .getByRole("button", { name: "Enregistrer le programme" })
+    .click();
+  await program
+    .locator("summary")
+    .filter({ hasText: "Paiement en double" })
     .click();
   await expect(
     program.getByText("Risque financier lié aux doubles règlements.", {
@@ -125,10 +134,10 @@ test("programme préparé par le responsable, consultable par l’auditeur et ve
   const auditor = await context.newPage();
   try {
     await login(auditor, "auditor");
-    await auditor.goto(`/missions/${mission.id}`);
+    await auditor.goto(`/missions/${mission.id}/controls/${controlId}`);
     const read = auditor.getByRole("region", { name: "Programme d’audit" });
     await expect(
-      read.getByRole("heading", { name: "Paiement en double", exact: true }),
+      read.getByText("Paiement en double", { exact: true }),
     ).toBeVisible();
     await expect(
       read.getByRole("button", { name: "Ajouter un risque" }),
@@ -165,7 +174,43 @@ test("programme préparé par le responsable, consultable par l’auditeur et ve
         exact: true,
       }),
     ).toBeVisible();
-    await read.screenshot({path:"../../.local/design/control-result.png"});
+    await read.screenshot({ path: "../../.local/design/control-result.png" });
+    await read.getByText("Preuves du contrôle", { exact: true }).click();
+    const fixture = Buffer.concat([
+      Buffer.from("%PDF-1.4\n% Synthetic test fixture\n"),
+      Buffer.alloc(40000, 32),
+      Buffer.from("\n%%EOF"),
+    ]);
+    await read
+      .getByLabel("Ajouter une preuve")
+      .setInputFiles({
+        name: "facture-test.pdf",
+        mimeType: "application/pdf",
+        buffer: fixture,
+      });
+    await read
+      .getByRole("button", { name: "Joindre le fichier", exact: true })
+      .click();
+    const proof = read.getByRole("link", {
+      name: "facture-test.pdf",
+      exact: true,
+    });
+    await expect(proof).toBeVisible();
+    const href = (await proof.getAttribute("href"))!;
+    const downloaded = await auditor.request.get(href);
+    expect(downloaded.status()).toBe(200);
+    expect(downloaded.headers()["content-disposition"]).toContain("attachment");
+    expect(downloaded.headers()["x-content-type-options"]).toBe("nosniff");
+    expect(await downloaded.body()).toEqual(fixture);
+    const ownerDownload = await page.request.get(href);
+    expect(ownerDownload.status()).toBe(200);
+    const fresh = await browser.newContext();
+    try {
+      await login(await fresh.newPage(), "outsider");
+      expect((await fresh.request.get(href)).status()).toBe(404);
+    } finally {
+      await fresh.close();
+    }
     const auditorSession = await (
       await auditor.request.get("/api/session")
     ).json();
@@ -214,7 +259,7 @@ test("programme préparé par le responsable, consultable par l’auditeur et ve
     { headers, data: { version: current.version } },
   );
   expect(submitted.ok()).toBe(true);
-  await page.reload();
+  await page.goto(`/missions/${mission.id}/controls/${controlId}`);
   await expect(
     program.getByText("Deux factures identiques, références confirmées.", {
       exact: true,

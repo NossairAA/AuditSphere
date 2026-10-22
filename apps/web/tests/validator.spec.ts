@@ -41,7 +41,7 @@ test("désignation, accès limité et retrait du validateur", async ({
   expect(created.status()).toBe(201);
   const mission = await created.json();
   recordMission(mission.id);
-  await page.goto(`/missions/${mission.id}`);
+  await page.goto(`/missions/${mission.id}?tab=team`);
   const section = page.getByRole("region", {
     name: "Validateur de la mission",
   });

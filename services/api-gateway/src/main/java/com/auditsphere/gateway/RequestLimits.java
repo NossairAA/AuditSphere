@@ -46,6 +46,14 @@ class RequestLimits implements GlobalFilter, Ordered {
   }
 
   public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+    boolean evidenceUpload =
+        exchange.getRequest().getMethod() == HttpMethod.POST
+            && exchange
+                .getRequest()
+                .getPath()
+                .value()
+                .matches("/missions/[0-9a-fA-F-]{36}/controls/[0-9a-fA-F-]{36}/evidence");
+    int maxBody = evidenceUpload ? 11 * 1024 * 1024 : 32768;
     String address =
         String.valueOf(
             exchange.getRequest().getRemoteAddress() == null
@@ -61,13 +69,13 @@ class RequestLimits implements GlobalFilter, Ordered {
             subject -> {
               if (!allow("user:" + subject, 240))
                 return reject(exchange, HttpStatus.TOO_MANY_REQUESTS);
-              if (exchange.getRequest().getHeaders().getContentLength() > 32768)
+              if (exchange.getRequest().getHeaders().getContentLength() > maxBody)
                 return reject(exchange, HttpStatus.PAYLOAD_TOO_LARGE);
               if (exchange.getRequest().getMethod() != HttpMethod.POST
                   && exchange.getRequest().getMethod() != HttpMethod.PUT
                   && exchange.getRequest().getMethod() != HttpMethod.DELETE)
                 return chain.filter(exchange);
-              return DataBufferUtils.join(exchange.getRequest().getBody(), 32768)
+              return DataBufferUtils.join(exchange.getRequest().getBody(), maxBody)
                   .timeout(Duration.ofSeconds(5))
                   .map(
                       buffer -> {

@@ -1,6 +1,9 @@
 "use client";
+import ControlEvidence from "./control-evidence";
 import ControlResultForm, { type ControlResult } from "./control-result";
-import { useEffect, useState, type FormEvent } from "react";
+import Link from "next/link";
+import { useUnsavedGuard } from "./unsaved-guard";
+import { useEffect, useState, useRef, type FormEvent } from "react";
 import { ClipboardCheck, Plus } from "lucide-react";
 import { canManageMission, type Mission } from "@/lib/types";
 import { ErrorNotice, useUser } from "./workspace";
@@ -21,7 +24,8 @@ type Control = {
 };
 type Program = { mission: Mission; risks: Risk[]; controls: Control[] };
 type Editor =
-  { kind: "risks"; value?: Risk } | { kind: "controls"; value?: Control };
+  | { kind: "risks"; value?: Risk }
+  | { kind: "controls"; value?: Control; riskId?: string };
 const probabilities = [
   "Très faible",
   "Faible",
@@ -32,12 +36,27 @@ const probabilities = [
 const impacts = ["Mineur", "Limité", "Significatif", "Majeur", "Critique"];
 export default function AuditProgram({
   mission,
+  mode = "risks",
+  controlId,
+  returnTo = "/missions",
   onUpdated,
 }: {
   mission: Mission;
+  mode?: "risks" | "controls";
+  controlId?: string;
+  returnTo?: string;
   onUpdated: (mission: Mission) => void;
 }) {
   const user = useUser();
+  const [search, setSearch] = useState("");
+  const [probability, setProbability] = useState("");
+  const [impact, setImpact] = useState("");
+  const [uncovered, setUncovered] = useState(false);
+  const [riskFilter, setRiskFilter] = useState("");
+  const [outcome, setOutcome] = useState("");
+  const [dirty, setDirty] = useState(false);
+  const dialog = useRef<HTMLDialogElement>(null);
+  useUnsavedGuard(dirty);
   const [program, setProgram] = useState<Program | null>(null);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [error, setError] = useState("");
@@ -71,6 +90,16 @@ export default function AuditProgram({
       });
     return () => abort.abort();
   }, [mission.id, mission.version, retry]);
+  useEffect(() => {
+    if (editor) dialog.current?.showModal();
+    else dialog.current?.close();
+  }, [editor]);
+  function closeEditor() {
+    if (!dirty || window.confirm("Abandonner les modifications ?")) {
+      setDirty(false);
+      setEditor(null);
+    }
+  }
   function open(next: Editor) {
     setError("");
     setNotice("");
@@ -114,6 +143,7 @@ export default function AuditProgram({
       if (!r.ok) throw new Error(data.error);
       setProgram(data);
       onUpdated(data.mission);
+      setDirty(false);
       setEditor(null);
       setNotice("Programme enregistré.");
     } catch (e) {
@@ -140,6 +170,25 @@ export default function AuditProgram({
       setBusy(false);
     }
   }
+  const riskItems =
+    program?.risks.filter(
+      (r) =>
+        r.title
+          .toLocaleLowerCase("fr")
+          .includes(search.toLocaleLowerCase("fr")) &&
+        (!probability || r.probability === Number(probability)) &&
+        (!impact || r.impact === Number(impact)) &&
+        (!uncovered || !program.controls.some((c) => c.riskIds.includes(r.id))),
+    ) || [];
+  const controlItems =
+    program?.controls.filter(
+      (c) =>
+        c.objective
+          .toLocaleLowerCase("fr")
+          .includes(search.toLocaleLowerCase("fr")) &&
+        (!riskFilter || c.riskIds.includes(riskFilter)) &&
+        (!outcome || (c.result?.outcome || "TODO") === outcome),
+    ) || [];
   return (
     <section
       className="panel mission-program"
@@ -167,242 +216,435 @@ export default function AuditProgram({
       {loading && <p role="status">Chargement du programme…</p>}
       {program && (
         <>
-          <div className="program-section-heading">
-            <h3>
-              Risques <span>({program.risks.length})</span>
-            </h3>
-            {canEdit && (
-              <button
-                className="button secondary"
-                disabled={busy || loading || program.risks.length >= 100}
-                onClick={() => open({ kind: "risks" })}
-              >
-                <Plus size={16} /> Ajouter un risque
-              </button>
-            )}
-          </div>
-          {!program.risks.length && (
-            <p className="program-empty">
-              Aucun risque défini. Commencez par identifier ce qui pourrait
-              compromettre les objectifs de la mission.
-            </p>
-          )}
-          <div className="program-items">
-            {program.risks.map((r) => (
-              <article key={r.id} className="program-item" aria-label={r.title}>
-                <h4>{r.title}</h4>
-                <p className="preserve">{r.description}</p>
-                <p className="program-rating">
-                  Probabilité : {r.probability}/5 ·{" "}
-                  {probabilities[r.probability - 1]}
-                  <br />
-                  Impact : {r.impact}/5 · {impacts[r.impact - 1]}
-                </p>
+          {!controlId && (
+            <div className="program-tools">
+              <div className="program-section-heading">
+                <h3>
+                  {mode === "risks" ? "Risques" : "Contrôles"} (
+                  {mode === "risks"
+                    ? program.risks.length
+                    : program.controls.length}
+                  )
+                </h3>
                 {canEdit && (
                   <button
-                    className="button secondary"
-                    disabled={busy || loading}
-                    onClick={() => open({ kind: "risks", value: r })}
-                    aria-label={`Modifier le risque ${r.title}`}
+                    className="button primary"
+                    disabled={
+                      busy ||
+                      loading ||
+                      (mode === "controls" && !program.risks.length) ||
+                      (mode === "risks"
+                        ? program.risks.length
+                        : program.controls.length) >= 100
+                    }
+                    onClick={() => open({ kind: mode })}
                   >
-                    Modifier
+                    {mode === "risks"
+                      ? "Ajouter un risque"
+                      : "Ajouter un contrôle"}
                   </button>
                 )}
-              </article>
-            ))}
-          </div>
-          <div className="program-section-heading">
-            <h3>
-              Contrôles <span>({program.controls.length})</span>
-            </h3>
-            {canEdit && (
-              <button
-                className="button secondary"
-                disabled={
-                  busy ||
-                  loading ||
-                  !program.risks.length ||
-                  program.controls.length >= 100
-                }
-                onClick={() => open({ kind: "controls" })}
-              >
-                <Plus size={16} /> Ajouter un contrôle
-              </button>
-            )}
-          </div>
-          {!program.controls.length && (
-            <p className="program-empty">
-              {program.risks.length
-                ? "Aucun contrôle préparé. Définissez comment vérifier les risques identifiés."
-                : "Ajoutez un risque pour pouvoir préparer un contrôle."}
-            </p>
-          )}
-          <div className="program-items">
-            {program.controls.map((c) => (
-              <article
-                key={c.id}
-                className="program-item"
-                aria-label={c.objective}
-              >
-                <h4>{c.objective}</h4>
-                <p className="preserve">{c.procedure}</p>
-                <p className="program-rating">
-                  Risques couverts :{" "}
-                  {c.riskIds
-                    .map(
-                      (id) =>
-                        program.risks.find((r) => r.id === id)?.title ||
-                        "Risque indisponible",
-                    )
-                    .join(", ")}
-                </p>
-                <ControlResultForm
-                  mission={program.mission}
-                  controlId={c.id}
-                  result={c.result}
-                  onSaved={reload}
-                />
-                {canEdit && (
-                  <button
-                    className="button secondary"
-                    disabled={busy || loading}
-                    onClick={() => open({ kind: "controls", value: c })}
-                    aria-label={`Modifier le contrôle ${c.objective}`}
-                  >
-                    Modifier
-                  </button>
-                )}
-              </article>
-            ))}
-          </div>
-          {canEdit && editor && (
-            <form
-              className="program-editor"
-              onSubmit={save}
-              key={`${editor.kind}-${editor.value?.id || "new"}`}
-            >
-              <h3>
-                {editor.value ? "Modifier" : "Ajouter"}{" "}
-                {editor.kind === "risks" ? "un risque" : "un contrôle"}
-              </h3>
-              {editor.kind === "controls" && editor.value?.result && (
-                <p role="note">
-                  Modifier ce contrôle effacera son résultat courant. Il devra
-                  être exécuté à nouveau. Le résultat précédent restera tracé.
-                </p>
-              )}
-              <fieldset disabled={busy || loading}>
-                {editor.kind === "risks" ? (
+              </div>
+              <div className="directory-filters">
+                <label>
+                  Rechercher
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder={
+                      mode === "risks"
+                        ? "Titre du risque"
+                        : "Objectif du contrôle"
+                    }
+                  />
+                </label>
+                {mode === "risks" ? (
                   <>
-                    <label htmlFor="risk-title">Titre du risque</label>
-                    <input
-                      autoFocus
-                      id="risk-title"
-                      name="title"
-                      required
-                      maxLength={200}
-                      defaultValue={editor.value?.title}
-                      placeholder="Paiement en double"
-                    />
-                    <label htmlFor="risk-description">
-                      Description du risque
+                    <label>
+                      Probabilité
+                      <select
+                        value={probability}
+                        onChange={(e) => setProbability(e.target.value)}
+                      >
+                        <option value="">Toutes</option>
+                        {probabilities.map((p, i) => (
+                          <option key={p} value={i + 1}>
+                            {i + 1} · {p}
+                          </option>
+                        ))}
+                      </select>
                     </label>
-                    <textarea
-                      id="risk-description"
-                      name="description"
-                      required
-                      maxLength={4000}
-                      rows={3}
-                      defaultValue={editor.value?.description}
-                    />
-                    <div className="program-rating-fields">
-                      <div>
-                        <label htmlFor="risk-probability">Probabilité</label>
-                        <select
-                          id="risk-probability"
-                          name="probability"
-                          defaultValue={editor.value?.probability || 3}
-                        >
-                          {probabilities.map((label, i) => (
-                            <option key={label} value={i + 1}>
-                              {i + 1} · {label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label htmlFor="risk-impact">Impact</label>
-                        <select
-                          id="risk-impact"
-                          name="impact"
-                          defaultValue={editor.value?.impact || 3}
-                        >
-                          {impacts.map((label, i) => (
-                            <option key={label} value={i + 1}>
-                              {i + 1} · {label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
+                    <label>
+                      Impact
+                      <select
+                        value={impact}
+                        onChange={(e) => setImpact(e.target.value)}
+                      >
+                        <option value="">Tous</option>
+                        {impacts.map((p, i) => (
+                          <option key={p} value={i + 1}>
+                            {i + 1} · {p}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={uncovered}
+                        onChange={(e) => setUncovered(e.target.checked)}
+                      />
+                      Sans contrôle
+                    </label>
                   </>
                 ) : (
                   <>
-                    <label htmlFor="control-objective">
-                      Objectif du contrôle
+                    <label>
+                      Risque
+                      <select
+                        value={riskFilter}
+                        onChange={(e) => setRiskFilter(e.target.value)}
+                      >
+                        <option value="">Tous les risques</option>
+                        {program.risks.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.title}
+                          </option>
+                        ))}
+                      </select>
                     </label>
-                    <input
-                      autoFocus
-                      id="control-objective"
-                      name="objective"
-                      required
-                      maxLength={1000}
-                      defaultValue={editor.value?.objective}
-                      placeholder="Vérifier les doublons de factures"
-                    />
-                    <label htmlFor="control-procedure">
-                      Procédure de vérification
+                    <label>
+                      Résultat
+                      <select
+                        value={outcome}
+                        onChange={(e) => setOutcome(e.target.value)}
+                      >
+                        <option value="">Tous</option>
+                        <option value="TODO">À réaliser</option>
+                        <option value="CONFORMING">Conforme</option>
+                        <option value="NON_CONFORMING">Non conforme</option>
+                        <option value="NOT_APPLICABLE">Non applicable</option>
+                      </select>
                     </label>
-                    <textarea
-                      id="control-procedure"
-                      name="procedure"
-                      required
-                      maxLength={4000}
-                      rows={4}
-                      defaultValue={editor.value?.procedure}
-                    />
-                    <fieldset className="program-risk-choices">
-                      <legend>Risques couverts (au moins un)</legend>
-                      {program.risks.map((r) => (
-                        <label key={r.id}>
-                          <input
-                            type="checkbox"
-                            name="riskIds"
-                            value={r.id}
-                            defaultChecked={editor.value?.riskIds.includes(
-                              r.id,
-                            )}
-                          />
-                          {r.title}
-                        </label>
-                      ))}
-                    </fieldset>
                   </>
                 )}
-                <div className="program-editor-actions">
-                  <button className="button primary" type="submit">
-                    {busy ? "Enregistrement…" : "Enregistrer le programme"}
-                  </button>
-                  <button
-                    className="button secondary"
-                    type="button"
-                    onClick={() => setEditor(null)}
-                  >
-                    Annuler
-                  </button>
-                </div>
-              </fieldset>
-            </form>
+              </div>
+            </div>
+          )}
+          {mode === "risks" && !controlId && (
+            <div className="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Risque</th>
+                    <th>Probabilité</th>
+                    <th>Impact</th>
+                    <th>Contrôles</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {riskItems.map((r) => (
+                    <tr key={r.id}>
+                      <td>
+                        <details>
+                          <summary>
+                            <strong>{r.title}</strong>
+                          </summary>
+                          <p className="preserve">{r.description}</p>
+                        </details>
+                      </td>
+                      <td>
+                        {r.probability}/5 · {probabilities[r.probability - 1]}
+                      </td>
+                      <td>
+                        {r.impact}/5 · {impacts[r.impact - 1]}
+                      </td>
+                      <td>
+                        {
+                          program.controls.filter((c) =>
+                            c.riskIds.includes(r.id),
+                          ).length
+                        }
+                      </td>
+                      <td>
+                        {canEdit && (
+                          <div className="row-buttons">
+                            <button
+                              className="button secondary compact"
+                              onClick={() => open({ kind: "risks", value: r })}
+                              aria-label={`Modifier le risque ${r.title}`}
+                            >
+                              Modifier
+                            </button>
+                            <button
+                              className="button secondary compact"
+                              disabled={program.controls.length >= 100}
+                              onClick={() =>
+                                open({ kind: "controls", riskId: r.id })
+                              }
+                            >
+                              Ajouter un contrôle
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {program.risks.length > 0 && !riskItems.length && (
+                <p className="panel-message">
+                  Aucun risque ne correspond aux filtres.
+                </p>
+              )}
+              {!program.risks.length && (
+                <p className="panel-message">
+                  Ajoutez un premier risque pour préparer les contrôles.
+                </p>
+              )}
+            </div>
+          )}
+          {mode === "controls" && !controlId && (
+            <div className="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Objectif</th>
+                    <th>Risques couverts</th>
+                    <th>Résultat</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {controlItems.map((c) => (
+                    <tr key={c.id}>
+                      <td>
+                        <strong>{c.objective}</strong>
+                      </td>
+                      <td>
+                        {c.riskIds
+                          .map(
+                            (id) =>
+                              program.risks.find((r) => r.id === id)?.title,
+                          )
+                          .join(", ")}
+                      </td>
+                      <td>
+                        {c.result
+                          ? {
+                              CONFORMING: "Conforme",
+                              NON_CONFORMING: "Non conforme",
+                              NOT_APPLICABLE: "Non applicable",
+                            }[c.result.outcome]
+                          : "À réaliser"}
+                      </td>
+                      <td>
+                        <Link
+                          className="button secondary compact"
+                          href={`/missions/${mission.id}/controls/${c.id}?returnTo=${encodeURIComponent(returnTo)}`}
+                        >
+                          Ouvrir le contrôle
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {program.controls.length > 0 && !controlItems.length && (
+                <p className="panel-message">
+                  Aucun contrôle ne correspond aux filtres.
+                </p>
+              )}
+              {!program.controls.length && (
+                <p className="panel-message">
+                  {program.risks.length
+                    ? "Ajoutez votre premier contrôle."
+                    : "Commencez par ajouter un risque dans l’onglet Risques."}
+                </p>
+              )}
+            </div>
+          )}
+          {controlId &&
+            (() => {
+              const c = program.controls.find((c) => c.id === controlId);
+              return c ? (
+                <article className="control-detail" aria-label={c.objective}>
+                  <h2>{c.objective}</h2>
+                  <h3>Procédure de vérification</h3>
+                  <p className="preserve">{c.procedure}</p>
+                  <h3>Risques couverts</h3>
+                  <ul>
+                    {c.riskIds.map((id) => (
+                      <li key={id}>
+                        {program.risks.find((r) => r.id === id)?.title}
+                      </li>
+                    ))}
+                  </ul>
+                  {canEdit && (
+                    <button
+                      className="button secondary"
+                      onClick={() => open({ kind: "controls", value: c })}
+                    >
+                      Modifier le contrôle
+                    </button>
+                  )}
+                  <ControlResultForm
+                    mission={program.mission}
+                    controlId={c.id}
+                    result={c.result}
+                    onSaved={reload}
+                  />
+                  <ControlEvidence
+                    mission={program.mission}
+                    controlId={c.id}
+                    onSaved={reload}
+                  />
+                </article>
+              ) : (
+                <ErrorNotice message="Contrôle introuvable dans cette mission." />
+              );
+            })()}
+          {canEdit && editor && (
+            <dialog
+              ref={dialog}
+              className="editor-drawer"
+              aria-labelledby="program-editor-title"
+              onCancel={(e) => {
+                e.preventDefault();
+                closeEditor();
+              }}
+            >
+              <form
+                onChange={() => setDirty(true)}
+                className="program-editor"
+                onSubmit={save}
+                key={`${editor.kind}-${editor.value?.id || "new"}`}
+              >
+                <h3 id="program-editor-title">
+                  {editor.value ? "Modifier" : "Ajouter"}{" "}
+                  {editor.kind === "risks" ? "un risque" : "un contrôle"}
+                </h3>
+                {editor.kind === "controls" && editor.value?.result && (
+                  <p role="note">
+                    Modifier ce contrôle effacera son résultat courant. Il devra
+                    être exécuté à nouveau. Le résultat précédent restera tracé.
+                  </p>
+                )}
+                <fieldset disabled={busy || loading}>
+                  {editor.kind === "risks" ? (
+                    <>
+                      <label htmlFor="risk-title">Titre du risque</label>
+                      <input
+                        autoFocus
+                        id="risk-title"
+                        name="title"
+                        required
+                        maxLength={200}
+                        defaultValue={editor.value?.title}
+                        placeholder="Paiement en double"
+                      />
+                      <label htmlFor="risk-description">
+                        Description du risque
+                      </label>
+                      <textarea
+                        id="risk-description"
+                        name="description"
+                        required
+                        maxLength={4000}
+                        rows={3}
+                        defaultValue={editor.value?.description}
+                      />
+                      <div className="program-rating-fields">
+                        <div>
+                          <label htmlFor="risk-probability">Probabilité</label>
+                          <select
+                            id="risk-probability"
+                            name="probability"
+                            defaultValue={editor.value?.probability || 3}
+                          >
+                            {probabilities.map((label, i) => (
+                              <option key={label} value={i + 1}>
+                                {i + 1} · {label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label htmlFor="risk-impact">Impact</label>
+                          <select
+                            id="risk-impact"
+                            name="impact"
+                            defaultValue={editor.value?.impact || 3}
+                          >
+                            {impacts.map((label, i) => (
+                              <option key={label} value={i + 1}>
+                                {i + 1} · {label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <label htmlFor="control-objective">
+                        Objectif du contrôle
+                      </label>
+                      <input
+                        autoFocus
+                        id="control-objective"
+                        name="objective"
+                        required
+                        maxLength={1000}
+                        defaultValue={editor.value?.objective}
+                        placeholder="Vérifier les doublons de factures"
+                      />
+                      <label htmlFor="control-procedure">
+                        Procédure de vérification
+                      </label>
+                      <textarea
+                        id="control-procedure"
+                        name="procedure"
+                        required
+                        maxLength={4000}
+                        rows={4}
+                        defaultValue={editor.value?.procedure}
+                      />
+                      <fieldset className="program-risk-choices">
+                        <legend>Risques couverts (au moins un)</legend>
+                        {program.risks.map((r) => (
+                          <label key={r.id}>
+                            <input
+                              type="checkbox"
+                              name="riskIds"
+                              value={r.id}
+                              defaultChecked={
+                                editor.value?.riskIds.includes(r.id) ||
+                                editor.riskId === r.id
+                              }
+                            />
+                            {r.title}
+                          </label>
+                        ))}
+                      </fieldset>
+                    </>
+                  )}
+                  <div className="program-editor-actions">
+                    <button className="button primary" type="submit">
+                      {busy ? "Enregistrement…" : "Enregistrer le programme"}
+                    </button>
+                    <button
+                      className="button secondary"
+                      type="button"
+                      onClick={closeEditor}
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                </fieldset>
+              </form>
+            </dialog>
           )}
         </>
       )}

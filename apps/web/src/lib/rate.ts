@@ -13,7 +13,7 @@ function allow(key: string, limit: number) {
   }
   return ++b.count <= limit;
 }
-export function rateLimit(request: Request) {
+export function rateLimit(request: Request, maxBody = 32768) {
   const cookie = (request.headers.get("cookie") || "")
     .split(";")
     .map((x) => x.trim())
@@ -40,7 +40,7 @@ export function rateLimit(request: Request) {
     );
   }
   const len = request.headers.get("content-length");
-  if (len && Number(len) > 32768)
+  if (len && Number(len) > maxBody)
     return Response.json(
       { error: "Formulaire trop volumineux" },
       { status: 413 },

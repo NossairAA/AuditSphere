@@ -90,11 +90,13 @@ test("suppression confirmée et retrait de soumission avec motif", async ({
     .fill("Périmètre à préciser avant nouvelle revue.");
   await page.getByRole("button", { name: "Confirmer le retrait" }).click();
   await expect(page.locator(".page-heading .status")).toHaveText("En cours");
+  await page.getByRole("link", { name: "Suivi", exact: true }).click();
   await expect(
     page.getByText("Périmètre à préciser avant nouvelle revue.", {
       exact: true,
     }),
   ).toBeVisible();
+  await page.getByRole("link", { name: "Vue d’ensemble", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Retirer la soumission" }),
   ).toHaveCount(0);

@@ -117,6 +117,7 @@ test("dates, conflit de version, démarrage et clôture réservés au propriéta
     await expect(
       section.getByRole("button", { name: "Clôturer la mission", exact: true }),
     ).toHaveCount(0);
+    await page.getByRole("link", { name: "Équipe", exact: true }).click();
     const designation = page.getByRole("region", {
       name: "Validateur de la mission",
     });
@@ -129,6 +130,9 @@ test("dates, conflit de version, démarrage et clôture réservés au propriéta
     await expect(
       designation.getByText("Validateur désigné : Thomas Laurent"),
     ).toBeVisible();
+    await page
+      .getByRole("link", { name: "Vue d’ensemble", exact: true })
+      .click();
     await section
       .getByRole("button", { name: "Soumettre à validation" })
       .click();
@@ -182,11 +186,15 @@ test("dates, conflit de version, démarrage et clôture réservés au propriéta
         "En cours",
       );
       await page.reload();
+      await page.getByRole("link", { name: "Suivi", exact: true }).click();
       await expect(
         page
           .getByRole("region", { name: "Décisions et suivi" })
           .getByText("Préciser le périmètre avant clôture."),
       ).toBeVisible();
+      await page
+        .getByRole("link", { name: "Vue d’ensemble", exact: true })
+        .click();
       await section
         .getByRole("button", { name: "Soumettre à validation" })
         .click();

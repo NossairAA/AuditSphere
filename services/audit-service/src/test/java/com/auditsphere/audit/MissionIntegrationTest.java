@@ -1773,4 +1773,254 @@ class MissionIntegrationTest {
     recordControl(id, control, 3, "assigned", "AUDITOR", "CONFORMING", "Test")
         .andExpect(status().isConflict());
   }
+
+  @org.springframework.test.context.bean.override.mockito.MockitoBean EvidenceStore evidenceStore;
+
+  @Test
+  void privateEvidenceChecksPermissionsVersionAndCompensatesConflict() throws Exception {
+    String id = create(), control = programControl(id);
+    var file =
+        new org.springframework.mock.web.MockMultipartFile(
+            "file", "facture.pdf", "application/pdf", "%PDF-1.4\nsynthetic".getBytes());
+    String path = "/missions/" + id + "/controls/" + control + "/evidence";
+    mvc.perform(
+            multipart(path)
+                .file(file)
+                .param("version", "2")
+                .with(programJwt("assigned", "AUDITOR")))
+        .andExpect(status().isConflict());
+    jdbc.update(
+        "UPDATE missions SET status='IN_PROGRESS',planned_start_date=current_date,planned_end_date=current_date,started_at=now() WHERE id=?",
+        java.util.UUID.fromString(id));
+    mvc.perform(
+            multipart(path)
+                .file(file)
+                .param("version", "2")
+                .with(programJwt("owner", "AUDIT_MANAGER")))
+        .andExpect(status().isForbidden());
+    mvc.perform(
+            multipart(path)
+                .file(
+                    new org.springframework.mock.web.MockMultipartFile(
+                        "file", "fake.pdf", "application/pdf", "not a PDF".getBytes()))
+                .param("version", "2")
+                .with(programJwt("assigned", "AUDITOR")))
+        .andExpect(status().isBadRequest());
+    org.mockito.Mockito.doAnswer(
+            invocation -> {
+              org.junit.jupiter.api.Assertions.assertFalse(
+                  org.springframework.transaction.support.TransactionSynchronizationManager
+                      .isActualTransactionActive());
+              return null;
+            })
+        .when(evidenceStore)
+        .put(
+            org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString());
+    var response =
+        mvc.perform(
+                multipart(path)
+                    .file(file)
+                    .param("version", "2")
+                    .with(programJwt("assigned", "AUDITOR")))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("originalName").value("facture.pdf"))
+            .andReturn();
+    String proof = mapper.readTree(response.getResponse().getContentAsString()).get("id").asText();
+    mvc.perform(get(path).with(programJwt("owner", "AUDIT_MANAGER")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("length()").value(1));
+    mvc.perform(get(path + "/" + proof).with(programJwt("stranger", "AUDITOR")))
+        .andExpect(status().isNotFound());
+    jdbc.update(
+        "DELETE FROM mission_assignments WHERE mission_id=?", java.util.UUID.fromString(id));
+    mvc.perform(get(path + "/" + proof).with(programJwt("assigned", "AUDITOR")))
+        .andExpect(status().isNotFound());
+    org.mockito.Mockito.doAnswer(
+            invocation -> {
+              jdbc.update(
+                  "UPDATE missions SET version=version+1 WHERE id=?",
+                  java.util.UUID.fromString(id));
+              return null;
+            })
+        .when(evidenceStore)
+        .put(
+            org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString());
+    mvc.perform(
+            multipart(path)
+                .file(file)
+                .param("version", "3")
+                .with(programJwt("administrator", "SUPER_ADMIN")))
+        .andExpect(status().isConflict());
+    org.mockito.Mockito.verify(evidenceStore).delete(org.mockito.ArgumentMatchers.anyString());
+  }
+
+  @org.springframework.test.context.bean.override.mockito.MockitoBean
+  UserAdministration userAdministration;
+
+  @Test
+  void adminSummaryCountsStatusesAndIgnoresDeletedMissions() throws Exception {
+    var before =
+        mapper.readTree(
+            mvc.perform(get("/admin/summary").with(programJwt("administrator", "SUPER_ADMIN")))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+    String marker = "summary-" + java.util.UUID.randomUUID();
+    jdbc.update(
+        "INSERT INTO missions(id,version,title,description,perimeter,owner_subject,status,created_at) VALUES (?,0,?,'Test','Finance','summary-owner','DRAFT',now())",
+        java.util.UUID.randomUUID(),
+        marker + "-draft");
+    jdbc.update(
+        "INSERT INTO missions(id,version,title,description,perimeter,owner_subject,status,created_at,planned_start_date,planned_end_date,started_at) VALUES (?,0,?,'Test','Finance','summary-owner','IN_PROGRESS',now(),current_date-2,current_date-1,now())",
+        java.util.UUID.randomUUID(),
+        marker + "-overdue");
+    jdbc.update(
+        "INSERT INTO missions(id,version,title,description,perimeter,owner_subject,status,created_at,deleted_at) VALUES (?,0,?,'Test','Finance','summary-owner','DRAFT',now(),now())",
+        java.util.UUID.randomUUID(),
+        marker + "-deleted");
+
+    var after =
+        mapper.readTree(
+            mvc.perform(get("/admin/summary").with(programJwt("administrator", "SUPER_ADMIN")))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+    org.junit.jupiter.api.Assertions.assertEquals(
+        before.path("total").asLong() + 2, after.path("total").asLong());
+    org.junit.jupiter.api.Assertions.assertEquals(
+        before.path("byStatus").path("DRAFT").asLong() + 1,
+        after.path("byStatus").path("DRAFT").asLong());
+    org.junit.jupiter.api.Assertions.assertEquals(
+        before.path("byStatus").path("IN_PROGRESS").asLong() + 1,
+        after.path("byStatus").path("IN_PROGRESS").asLong());
+    org.junit.jupiter.api.Assertions.assertEquals(
+        before.path("overdue").asLong() + 1, after.path("overdue").asLong());
+  }
+
+  @Test
+  void dashboardPrioritiesAreOrderedAndBounded() throws Exception {
+    String marker = "priority-" + java.util.UUID.randomUUID();
+    for (int i = 0; i < 9; i++) {
+      jdbc.update(
+          "INSERT INTO missions(id,version,title,description,perimeter,owner_subject,status,created_at,planned_start_date,planned_end_date,started_at,closed_at,deleted_at) VALUES (?,0,?,'Test','Finance','priority-owner',?,now(),current_date-30,current_date-20+?,now(),?,?)",
+          java.util.UUID.randomUUID(), marker + "-" + i,
+          i == 7 ? "CLOSED" : "IN_PROGRESS", i,
+          i == 7 ? java.sql.Timestamp.from(java.time.Instant.now().plusSeconds(2)) : null,
+          i == 8 ? java.sql.Timestamp.from(java.time.Instant.now()) : null);
+    }
+    mvc.perform(get("/missions").param("q", marker).param("overdue", "true")
+            .param("sort", "end").param("size", "5").with(adminJwt("priority-admin")))
+        .andExpect(status().isOk()).andExpect(jsonPath("total").value(7))
+        .andExpect(jsonPath("items.length()").value(5))
+        .andExpect(jsonPath("items[0].title").value(marker + "-0"))
+        .andExpect(jsonPath("items[4].title").value(marker + "-4"));
+  }
+
+  @Test
+  void searchFiltersAcrossPagesAndPreservesVisibility() throws Exception {
+    String marker = "search-" + java.util.UUID.randomUUID();
+    for (int i = 0; i < 22; i++)
+      jdbc.update(
+          "INSERT INTO missions(id,version,title,description,perimeter,owner_subject,status,created_at,planned_start_date,planned_end_date,started_at) VALUES (?,0,?,'Test','Finance','search-owner','IN_PROGRESS',now(),current_date-2,current_date-1,now())",
+          java.util.UUID.randomUUID(),
+          marker + "-" + i);
+    mvc.perform(
+            get("/missions")
+                .param("q", marker)
+                .param("page", "1")
+                .param("size", "20")
+                .with(jwt().jwt(j -> j.subject("search-owner"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("total").value(22))
+        .andExpect(jsonPath("items.length()").value(2));
+    mvc.perform(
+            get("/missions")
+                .param("q", marker + "-21")
+                .param("status", "IN_PROGRESS")
+                .param("owner", "search-owner")
+                .param("overdue", "true")
+                .param("sort", "end")
+                .with(adminJwt("search-admin")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("total").value(1));
+    mvc.perform(
+            get("/missions").param("q", marker).with(jwt().jwt(j -> j.subject("search-outsider"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("total").value(0));
+    mvc.perform(
+            get("/missions")
+                .param("q", marker)
+                .param("status", "CLOSED")
+                .with(adminJwt("search-admin")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("total").value(0));
+    mvc.perform(get("/missions?sort=invalid").with(adminJwt("search-admin")))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void userAdministrationProtectsRolesAndRevokesTokens() throws Exception {
+    var target = java.util.UUID.randomUUID();
+    var actor = java.util.UUID.randomUUID().toString();
+    org.mockito.Mockito.when(userAdministration.token()).thenReturn("private-test-token");
+    org.mockito.Mockito.when(userAdministration.user(target.toString(), "private-test-token"))
+        .thenReturn(java.util.Map.of());
+    String body =
+        "{\"firstName\":\"Test\",\"lastName\":\"User\",\"email\":\"test@example.invalid\",\"enabled\":false,\"roles\":[\"AUDITOR\"],\"reason\":\"Test de désactivation\"}";
+    mvc.perform(get("/admin/users").with(jwt())).andExpect(status().isForbidden());
+    mvc.perform(
+            put("/admin/users/" + target).with(jwt()).contentType("application/json").content(body))
+        .andExpect(status().isForbidden());
+    mvc.perform(
+            put("/admin/users/" + actor)
+                .with(adminJwt(actor))
+                .contentType("application/json")
+                .content(body))
+        .andExpect(status().isBadRequest());
+    mvc.perform(
+            put("/admin/users/" + target)
+                .with(adminJwt(actor))
+                .contentType("application/json")
+                .content(body.replace("AUDITOR", "realm-admin")))
+        .andExpect(status().isBadRequest());
+    mvc.perform(
+            put("/admin/users/" + target)
+                .with(adminJwt(actor))
+                .contentType("application/json")
+                .content(body))
+        .andExpect(status().isOk());
+    org.mockito.Mockito.verify(userAdministration).logout(target.toString(), "private-test-token");
+    mvc.perform(
+            get("/account/security")
+                .with(
+                    jwt()
+                        .jwt(
+                            j ->
+                                j.subject(target.toString())
+                                    .issuedAt(java.time.Instant.now().minusSeconds(10)))))
+        .andExpect(status().isUnauthorized());
+    mvc.perform(get("/admin/users/" + target + "/history").with(adminJwt(actor)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("events[0].outcome").value("SUCCESS"));
+    org.mockito.Mockito.doThrow(new IllegalStateException("network failure"))
+        .when(userAdministration)
+        .reset(
+            org.mockito.ArgumentMatchers.eq(target.toString()),
+            org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.anyString());
+    mvc.perform(
+            post("/admin/users/" + target + "/reset-password")
+                .with(adminJwt(actor))
+                .contentType("application/json")
+                .content("{\"reason\":\"Test panne\"}"))
+        .andExpect(status().isServiceUnavailable());
+    mvc.perform(get("/admin/users/" + target + "/history").with(adminJwt(actor)))
+        .andExpect(jsonPath("events[0].outcome").value("UNCERTAIN"));
+  }
 }

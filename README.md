@@ -6,9 +6,11 @@ Plateforme d’audit interne et projet d’apprentissage des systèmes distribu�
 
 Backend Spring Boot avec gateway, PostgreSQL et Keycloak. Frontend Next.js, React, TypeScript et Tailwind avec connexion, liste filtrée, création et détail des missions. Un service de notifications consomme les affectations et les demandes de validation via Kafka et une outbox transactionnelle. La session web est conservée côté BFF, les jetons ne sont pas exposés au JavaScript du navigateur.
 
+Le [guide de navigation et administration](auditsphere-docs/docs/technique/24-navigation-administration.md) décrit les onglets de mission, la préparation des risques et contrôles et la gestion des comptes superadmin.
+
 ## Prochaine étape métier
 
-Risques et contrôles d’une mission, puis exécution et preuves, constats, actions correctives et audit continu. Le [plan métier](auditsphere-docs/docs/produit/04-plan-metier.md) précise les critères de la prochaine tranche, encore à implémenter.
+Le programme d’audit, les résultats de contrôle et les [preuves privées avec Garage](auditsphere-docs/docs/technique/23-preuves-controles.md) sont disponibles en local. La suite concerne les constats, puis les actions correctives et l’audit continu. Le [plan métier](auditsphere-docs/docs/produit/04-plan-metier.md) décrit cette progression.
 
 ## Démarrage local
 

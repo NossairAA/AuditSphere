@@ -1,5 +1,5 @@
 "use client";
-import { roleLabels } from "@/lib/types";
+import { isSuperAdmin, roleLabels } from "@/lib/types";
 import Link from "next/link";
 import UnreadCount from "./unread-count";
 import { usePathname } from "next/navigation";
@@ -51,11 +51,40 @@ export default function Workspace({ children }: { children: React.ReactNode }) {
         <nav>
           <Link
             href="/missions"
-            className={"nav-link" + (!notifications ? " active" : "")}
+            className={
+              "nav-link" +
+              (!notifications && !pathname.startsWith("/missions/admin")
+                ? " active"
+                : "")
+            }
           >
             <ClipboardList size={19} /> Missions d’audit{" "}
             <ArrowRight size={15} />
           </Link>
+          {isSuperAdmin(user) && (
+            <>
+              <div className="workspace-label">ADMINISTRATION</div>
+              <Link
+                href="/missions/admin"
+                className={
+                  "nav-link" + (pathname === "/missions/admin" ? " active" : "")
+                }
+              >
+                Tableau de bord
+              </Link>
+              <Link
+                href="/missions/admin/users"
+                className={
+                  "nav-link" +
+                  (pathname.startsWith("/missions/admin/users")
+                    ? " active"
+                    : "")
+                }
+              >
+                Utilisateurs
+              </Link>
+            </>
+          )}
         </nav>
         <div className="sidebar-note">
           <ShieldCheck size={21} />
@@ -89,6 +118,15 @@ export default function Workspace({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
       <div className="workspace-body">
+        <nav className="mobile-workspace-nav" aria-label="Navigation mobile">
+          <Link href="/missions">Missions</Link>
+          {isSuperAdmin(user) && (
+            <>
+              <Link href="/missions/admin">Tableau de bord</Link>
+              <Link href="/missions/admin/users">Utilisateurs</Link>
+            </>
+          )}
+        </nav>
         <header className="topbar">
           <span>
             Organisation <span className="slash">/</span>{" "}

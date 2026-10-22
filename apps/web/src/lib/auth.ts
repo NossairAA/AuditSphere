@@ -117,6 +117,24 @@ export async function session(): Promise<Session | null> {
   if (!found.rowCount) return null;
   const current = found.rows[0].data as Session;
   if (current.absoluteExpiry <= Date.now()) return null;
+  // Check administrative revocations before reusing or refreshing any web session.
+  const security = await fetch(
+    new URL(
+      "/account/security",
+      process.env.API_ORIGIN || "http://localhost:8080",
+    ),
+    {
+      headers: { Authorization: "Bearer " + current.accessToken },
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+    },
+  );
+  if (security.status === 401 && current.expiresAt > Date.now()) {
+    await pool.query("DELETE FROM web_sessions WHERE id_hash=$1", [hash(id)]);
+    return null;
+  }
+  if (!security.ok && security.status !== 401)
+    throw new Error("Vérification de session indisponible");
   if (current.expiresAt > Date.now() + 30_000) {
     await pool.query(
       "UPDATE web_sessions SET expires_at=LEAST(to_timestamp(($2::double precision)/1000),now()+interval '30 minutes') WHERE id_hash=$1 AND expires_at>now() AND expires_at<LEAST(to_timestamp(($2::double precision)/1000),now()+interval '29 minutes')",

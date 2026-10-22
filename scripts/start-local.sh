@@ -3,6 +3,9 @@ set -eu
 cd "$(dirname "$0")/.."
 python3 scripts/setup-web.py --configure-only
 python3 scripts/prepare-notifications.py
+python3 scripts/setup-garage.py --configure-only
+docker compose up -d garage
+python3 scripts/setup-garage.py
 docker compose up -d --wait audit-db web-db keycloak-db notification-db kafka temporal
 docker compose run --rm kafka-init
 python3 scripts/harden-databases.py

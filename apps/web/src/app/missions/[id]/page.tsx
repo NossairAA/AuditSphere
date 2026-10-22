@@ -2,8 +2,9 @@
 import AuditProgram from "@/components/audit-program";
 import AdminMissionActions from "@/components/admin-mission-actions";
 import { isSuperAdmin } from "@/lib/types";
-import { use, useEffect, useState } from "react";
+import { Suspense, use, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import MissionValidator from "@/components/mission-validator";
 import MissionLifecycle from "@/components/mission-lifecycle";
 import { Participants } from "@/components/assignments";
@@ -22,11 +23,18 @@ import {
   statusLabel,
   plannedDateLabel,
 } from "@/lib/types";
-export default function Detail({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+function Detail({ params }: { params: Promise<{ id: string }> }) {
+  const search = useSearchParams();
+  const requestedTab = search.get("tab") || "overview";
+  const tab = ["overview", "risks", "controls", "team", "followup"].includes(
+    requestedTab,
+  )
+    ? requestedTab
+    : "overview";
+  const requestedReturn = search.get("returnTo") || "/missions";
+  const returnTo = /^\/missions(?:\/admin)?(?:\?[^#]*)?$/.test(requestedReturn)
+    ? requestedReturn
+    : "/missions";
   const { id } = use(params),
     user = useUser(),
     [mission, setMission] = useState<Mission | null>(null),
@@ -52,8 +60,11 @@ export default function Detail({
   }, [id, retry]);
   return (
     <>
-      <Link href="/missions" className="back-link">
-        <ArrowLeft size={16} /> Toutes les missions
+      <Link href={returnTo} className="back-link">
+        <ArrowLeft size={16} />{" "}
+        {returnTo.split("?")[0] === "/missions/admin"
+          ? "Tableau de bord"
+          : "Toutes les missions"}
       </Link>
       {error ? (
         <section className="panel empty">
@@ -88,74 +99,78 @@ export default function Detail({
               <span /> {statusLabel(mission.status)}
             </span>
           </div>
-          <ol
-            className="mission-progress"
-            aria-label="Avancement de la mission"
-          >
-            {(
-              [
-                "DRAFT",
-                "IN_PROGRESS",
-                "PENDING_REVIEW",
-                "APPROVED",
-                "CLOSED",
-              ] as const
-            ).map((status, index, steps) => {
-              const current = steps.indexOf(mission.status);
-              return (
-                <li
-                  key={status}
-                  className={
-                    index < current
-                      ? "complete"
-                      : index === current
-                        ? "current"
-                        : ""
-                  }
-                  aria-current={index === current ? "step" : undefined}
-                >
-                  <span className="step-dot">
-                    {index < current ? (
-                      <Check size={15} aria-hidden="true" />
-                    ) : (
-                      index + 1
-                    )}
-                  </span>
-                  <span>{statusLabel(status)}</span>
-                </li>
-              );
-            })}
-          </ol>
-          <div className="mission-facts">
-            <div>
-              <span>Début prévu</span>
-              <strong>{plannedDateLabel(mission.plannedStartDate)}</strong>
-            </div>
-            <div>
-              <span>Fin prévue</span>
-              <strong>{plannedDateLabel(mission.plannedEndDate)}</strong>
-            </div>
-            <div>
-              <span>Équipe d’audit</span>
-              <strong>
-                {mission.assigneeSubjects.length} auditeur
-                {mission.assigneeSubjects.length !== 1 ? "s" : ""}
-              </strong>
-            </div>
-            <div>
-              <span>Votre rôle sur cette mission</span>
-              <strong>
-                {isSuperAdmin(user)
-                  ? "Superadministrateur"
-                  : mission.ownerSubject === user?.subject
-                    ? "Responsable"
-                    : mission.validatorSubject === user?.subject
-                      ? "Validateur désigné"
-                      : "Auditeur affecté"}
-              </strong>
-            </div>
-          </div>
-          {mission.adminOverrideAt && (
+          {tab === "overview" && (
+            <>
+              <ol
+                className="mission-progress"
+                aria-label="Avancement de la mission"
+              >
+                {(
+                  [
+                    "DRAFT",
+                    "IN_PROGRESS",
+                    "PENDING_REVIEW",
+                    "APPROVED",
+                    "CLOSED",
+                  ] as const
+                ).map((status, index, steps) => {
+                  const current = steps.indexOf(mission.status);
+                  return (
+                    <li
+                      key={status}
+                      className={
+                        index < current
+                          ? "complete"
+                          : index === current
+                            ? "current"
+                            : ""
+                      }
+                      aria-current={index === current ? "step" : undefined}
+                    >
+                      <span className="step-dot">
+                        {index < current ? (
+                          <Check size={15} aria-hidden="true" />
+                        ) : (
+                          index + 1
+                        )}
+                      </span>
+                      <span>{statusLabel(status)}</span>
+                    </li>
+                  );
+                })}
+              </ol>
+              <div className="mission-facts">
+                <div>
+                  <span>Début prévu</span>
+                  <strong>{plannedDateLabel(mission.plannedStartDate)}</strong>
+                </div>
+                <div>
+                  <span>Fin prévue</span>
+                  <strong>{plannedDateLabel(mission.plannedEndDate)}</strong>
+                </div>
+                <div>
+                  <span>Équipe d’audit</span>
+                  <strong>
+                    {mission.assigneeSubjects.length} auditeur
+                    {mission.assigneeSubjects.length !== 1 ? "s" : ""}
+                  </strong>
+                </div>
+                <div>
+                  <span>Votre rôle sur cette mission</span>
+                  <strong>
+                    {isSuperAdmin(user)
+                      ? "Superadministrateur"
+                      : mission.ownerSubject === user?.subject
+                        ? "Responsable"
+                        : mission.validatorSubject === user?.subject
+                          ? "Validateur désigné"
+                          : "Auditeur affecté"}
+                  </strong>
+                </div>
+              </div>
+            </>
+          )}
+          {tab === "overview" && mission.adminOverrideAt && (
             <section
               className="notice"
               aria-label="Dernière dérogation administrative"
@@ -182,171 +197,212 @@ export default function Detail({
             className="mission-section-nav"
             aria-label="Sections de la fiche"
           >
-            <a href="#mission-cadre">Vue d’ensemble</a>
-            <a href="#mission-programme">Risques et contrôles</a>
-            <a href="#mission-equipe">Équipe et validation</a>
-            <a href="#mission-suivi">Décisions et suivi</a>
-            <a href="#mission-pilotage">Actions disponibles</a>
+            {[
+              ["overview", "Vue d’ensemble"],
+              ["risks", "Risques"],
+              ["controls", "Contrôles"],
+              ["team", "Équipe"],
+              ["followup", "Suivi"],
+            ].map(([key, label]) => (
+              <Link
+                key={key}
+                aria-current={tab === key ? "page" : undefined}
+                href={`/missions/${id}?tab=${key}&returnTo=${encodeURIComponent(returnTo)}`}
+                scroll={false}
+              >
+                {label}
+              </Link>
+            ))}
           </nav>
-          <div className="mission-workspace">
+          <div
+            className={
+              "mission-workspace" +
+              (tab !== "overview" ? " mission-single-column" : "")
+            }
+          >
             <div className="mission-content">
-              <section
-                id="mission-cadre"
-                tabIndex={-1}
-                className="panel detail-main"
-                aria-label="Le cadre de la mission"
-              >
-                <div className="section-label">
-                  <ClipboardList size={20} aria-hidden="true" />
-                  <h2>Le cadre de la mission</h2>
-                </div>
-                <h3>Périmètre</h3>
-                <p className="mission-perimeter preserve">
-                  {mission.perimeter}
-                </p>
-                <h3>Objectifs et description</h3>
-                <p className="preserve">{mission.description}</p>
-              </section>
-              <AuditProgram
-                key={mission.id}
-                mission={mission}
-                onUpdated={setMission}
-              />
-              <div
-                id="mission-equipe"
-                tabIndex={-1}
-                className="mission-team-heading"
-              >
-                <Users size={20} aria-hidden="true" />
-                <h2>L’équipe et la validation</h2>
-              </div>
-              <p className="mission-section-help">
-                Qui intervient sur la mission et qui approuve sa clôture.
-              </p>
-              <Participants mission={mission} onUpdated={setMission} />
-              <MissionValidator
-                key={"validator-" + mission.version}
-                mission={mission}
-                onUpdated={setMission}
-              />
-              <section
-                id="mission-suivi"
-                tabIndex={-1}
-                className="panel mission-followup"
-                aria-label="Décisions et suivi"
-              >
-                <div className="section-label">
-                  <CalendarDays size={20} aria-hidden="true" />
-                  <h2>Décisions et suivi</h2>
-                </div>
-                <p className="mission-section-help">
-                  Les derniers repères enregistrés pour cette mission.
-                </p>
-                {mission.reviewDecision && (
+              {tab === "overview" && (
+                <section
+                  id="mission-cadre"
+                  tabIndex={-1}
+                  className="panel detail-main"
+                  aria-label="Le cadre de la mission"
+                >
+                  <div className="section-label">
+                    <ClipboardList size={20} aria-hidden="true" />
+                    <h2>Le cadre de la mission</h2>
+                  </div>
+                  <h3>Périmètre</h3>
+                  <p className="mission-perimeter preserve">
+                    {mission.perimeter}
+                  </p>
+                  <h3>Objectifs et description</h3>
+                  <p className="preserve">{mission.description}</p>
+                </section>
+              )}
+              {(tab === "risks" || tab === "controls") && (
+                <AuditProgram
+                  key={mission.id + tab}
+                  returnTo={returnTo}
+                  mode={tab as "risks" | "controls"}
+                  mission={mission}
+                  onUpdated={setMission}
+                />
+              )}
+              {tab === "team" && (
+                <>
                   <div
-                    className={`mission-decision ${mission.reviewDecision === "APPROVED" ? "approved" : "corrections"}`}
+                    id="mission-equipe"
+                    tabIndex={-1}
+                    className="mission-team-heading"
                   >
-                    <h3>
-                      {mission.reviewDecision === "APPROVED"
-                        ? "Mission approuvée"
-                        : "Corrections demandées"}
-                    </h3>
-                    {mission.reviewedAt && (
-                      <p className="decision-date">
-                        Décision du {dateLabel(mission.reviewedAt)}
-                      </p>
-                    )}
-                    <p className="preserve">{mission.reviewComment}</p>
+                    <Users size={20} aria-hidden="true" />
+                    <h2>L’équipe et la validation</h2>
                   </div>
-                )}
-                {mission.withdrawnAt && (
-                  <div className="mission-decision">
-                    <h3>Dernier retrait de soumission</h3>
-                    <p className="decision-date">
-                      Retirée le {dateLabel(mission.withdrawnAt)}
-                    </p>
-                    <p className="preserve">{mission.withdrawalReason}</p>
+                  <p className="mission-section-help">
+                    Qui intervient sur la mission et qui approuve sa clôture.
+                  </p>
+                  <Participants mission={mission} onUpdated={setMission} />
+                  <MissionValidator
+                    key={"validator-" + mission.version}
+                    mission={mission}
+                    onUpdated={setMission}
+                  />
+                </>
+              )}
+              {tab === "followup" && (
+                <section
+                  id="mission-suivi"
+                  tabIndex={-1}
+                  className="panel mission-followup"
+                  aria-label="Décisions et suivi"
+                >
+                  <div className="section-label">
+                    <CalendarDays size={20} aria-hidden="true" />
+                    <h2>Décisions et suivi</h2>
                   </div>
-                )}
-                <dl className="mission-dates">
-                  <div>
-                    <dt>Création</dt>
-                    <dd>{dateLabel(mission.createdAt)}</dd>
-                  </div>
-                  <div>
-                    <dt>Démarrage</dt>
-                    <dd>
-                      {mission.startedAt
-                        ? dateLabel(mission.startedAt)
-                        : "Pas encore démarrée"}
-                    </dd>
-                  </div>
-                  {mission.submittedAt && (
-                    <div>
-                      <dt>Dernière soumission</dt>
-                      <dd>{dateLabel(mission.submittedAt)}</dd>
+                  <p className="mission-section-help">
+                    Les derniers repères enregistrés pour cette mission.
+                  </p>
+                  {mission.reviewDecision && (
+                    <div
+                      className={`mission-decision ${mission.reviewDecision === "APPROVED" ? "approved" : "corrections"}`}
+                    >
+                      <h3>
+                        {mission.reviewDecision === "APPROVED"
+                          ? "Mission approuvée"
+                          : "Corrections demandées"}
+                      </h3>
+                      {mission.reviewedAt && (
+                        <p className="decision-date">
+                          Décision du {dateLabel(mission.reviewedAt)}
+                        </p>
+                      )}
+                      <p className="preserve">{mission.reviewComment}</p>
                     </div>
                   )}
-                  <div>
-                    <dt>Clôture</dt>
-                    <dd>
-                      {mission.closedAt
-                        ? dateLabel(mission.closedAt)
-                        : "Non clôturée"}
-                    </dd>
-                  </div>
-                </dl>
-              </section>
-            </div>
-            <aside
-              id="mission-pilotage"
-              tabIndex={-1}
-              className="mission-actions"
-              aria-label="Pilotage de la mission"
-            >
-              <div className="mission-next-step">
-                <span className="eyebrow">PROCHAINE ÉTAPE</span>
-                <h2>
-                  {mission.status === "DRAFT"
-                    ? "Préparer le démarrage"
-                    : mission.status === "IN_PROGRESS"
-                      ? "Préparer la validation"
-                      : mission.status === "PENDING_REVIEW"
-                        ? "Une décision est attendue"
-                        : mission.status === "APPROVED"
-                          ? "Prête à être clôturée"
-                          : "Mission terminée"}
-                </h2>
-                <p>
-                  {mission.status === "DRAFT"
-                    ? "Le responsable définit les dates et l’équipe, puis démarre la mission."
-                    : mission.status === "IN_PROGRESS"
-                      ? "Une fois les travaux terminés, le responsable soumet la mission au validateur désigné."
-                      : mission.status === "PENDING_REVIEW"
-                        ? mission.validatorSubject === user?.subject
-                          ? "Vous pouvez approuver la mission ou demander des corrections ci-dessous."
-                          : "Le validateur désigné doit approuver la mission ou demander des corrections."
-                        : mission.status === "APPROVED"
-                          ? "L’approbation est enregistrée. Le responsable peut maintenant clôturer la mission."
-                          : "La mission est clôturée. Vous pouvez consulter son contenu et sa décision de validation."}
-                </p>
-              </div>
-              <MissionLifecycle
-                key={mission.version}
-                mission={mission}
-                onUpdated={setMission}
-              />
-              {isSuperAdmin(user) && (
-                <AdminMissionActions mission={mission} onUpdated={setMission} />
+                  {mission.withdrawnAt && (
+                    <div className="mission-decision">
+                      <h3>Dernier retrait de soumission</h3>
+                      <p className="decision-date">
+                        Retirée le {dateLabel(mission.withdrawnAt)}
+                      </p>
+                      <p className="preserve">{mission.withdrawalReason}</p>
+                    </div>
+                  )}
+                  <dl className="mission-dates">
+                    <div>
+                      <dt>Création</dt>
+                      <dd>{dateLabel(mission.createdAt)}</dd>
+                    </div>
+                    <div>
+                      <dt>Démarrage</dt>
+                      <dd>
+                        {mission.startedAt
+                          ? dateLabel(mission.startedAt)
+                          : "Pas encore démarrée"}
+                      </dd>
+                    </div>
+                    {mission.submittedAt && (
+                      <div>
+                        <dt>Dernière soumission</dt>
+                        <dd>{dateLabel(mission.submittedAt)}</dd>
+                      </div>
+                    )}
+                    <div>
+                      <dt>Clôture</dt>
+                      <dd>
+                        {mission.closedAt
+                          ? dateLabel(mission.closedAt)
+                          : "Non clôturée"}
+                      </dd>
+                    </div>
+                  </dl>
+                </section>
               )}
-              <p className="mission-privacy">
-                <ShieldCheck size={15} aria-hidden="true" /> Accès contrôlé
-                selon votre rôle
-              </p>
-            </aside>
+            </div>
+            {tab === "overview" && (
+              <aside
+                id="mission-pilotage"
+                tabIndex={-1}
+                className="mission-actions"
+                aria-label="Pilotage de la mission"
+              >
+                <div className="mission-next-step">
+                  <span className="eyebrow">PROCHAINE ÉTAPE</span>
+                  <h2>
+                    {mission.status === "DRAFT"
+                      ? "Préparer le démarrage"
+                      : mission.status === "IN_PROGRESS"
+                        ? "Préparer la validation"
+                        : mission.status === "PENDING_REVIEW"
+                          ? "Une décision est attendue"
+                          : mission.status === "APPROVED"
+                            ? "Prête à être clôturée"
+                            : "Mission terminée"}
+                  </h2>
+                  <p>
+                    {mission.status === "DRAFT"
+                      ? "Le responsable définit les dates et l’équipe, puis démarre la mission."
+                      : mission.status === "IN_PROGRESS"
+                        ? "Une fois les travaux terminés, le responsable soumet la mission au validateur désigné."
+                        : mission.status === "PENDING_REVIEW"
+                          ? mission.validatorSubject === user?.subject
+                            ? "Vous pouvez approuver la mission ou demander des corrections ci-dessous."
+                            : "Le validateur désigné doit approuver la mission ou demander des corrections."
+                          : mission.status === "APPROVED"
+                            ? "L’approbation est enregistrée. Le responsable peut maintenant clôturer la mission."
+                            : "La mission est clôturée. Vous pouvez consulter son contenu et sa décision de validation."}
+                  </p>
+                </div>
+                <MissionLifecycle
+                  key={mission.version}
+                  mission={mission}
+                  onUpdated={setMission}
+                />
+                {isSuperAdmin(user) && (
+                  <AdminMissionActions
+                    mission={mission}
+                    onUpdated={setMission}
+                  />
+                )}
+                <p className="mission-privacy">
+                  <ShieldCheck size={15} aria-hidden="true" /> Accès contrôlé
+                  selon votre rôle
+                </p>
+              </aside>
+            )}
           </div>
         </>
       )}
     </>
+  );
+}
+
+export default function Page({ params }: { params: Promise<{ id: string }> }) {
+  return (
+    <Suspense fallback={<p>Chargement…</p>}>
+      <Detail params={params} />
+    </Suspense>
   );
 }

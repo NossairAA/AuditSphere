@@ -9,7 +9,7 @@ Administration globale des missions et dérogations tracées ajoutées et vérif
 Préalable terminé en local le 2026-10-20 : retrait de soumission et suppression contrôlée des brouillons, avec tests et nettoyage des données synthétiques.
 
 1. Risques et contrôles d’une mission, première tranche de F-003 vérifiée localement le 2026-10-20.
-2. Résultats des contrôles implémentés et vérifiés localement. Centralisation des preuves à réaliser.
+2. Résultats des contrôles implémentés et vérifiés localement. Ajout et téléchargement des preuves vérifiés localement avec Garage, cycle de conservation à compléter.
 3. Constats et recommandations.
 4. Actions correctives et vérification de leur résolution.
 5. Premier moteur d’audit continu sur une source et une règle versionnée, puis planification.
@@ -88,3 +88,7 @@ Le rôle AUDIT_VALIDATOR et son compte de démonstration sont préparés et vér
 ## Notification du validateur : 2026-10-19
 
 La soumission est reliée au service de notifications existant via Kafka. Une nouvelle soumission après refus crée une nouvelle notification. Les échéances et relances Temporal restent au backlog. La priorité actuelle est le programme de risques et contrôles d’une mission.
+
+## Refonte ergonomique du 21 octobre 2026
+
+La navigation par onglets, les filtres de missions, le détail des contrôles et l’administration des comptes sont implémentés localement. Voir le [guide de navigation](../technique/24-navigation-administration.md). La prochaine tranche métier reste les constats.

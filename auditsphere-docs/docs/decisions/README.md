@@ -31,3 +31,7 @@ Utiliser le modèle dans [`docs/templates/adr.md`](../templates/adr.md).
 - [ADR-0013 : Retrait et suppression](ADR-0013-retrait-suppression.md)
 
 - [ADR-0014 : Superadministrateur et dérogations](ADR-0014-superadmin.md)
+
+- [ADR-0015 : preuves privées dans Garage](ADR-0015-preuves-garage.md)
+
+- [ADR-0016 : administration applicative des comptes](ADR-0016-administration-comptes.md)

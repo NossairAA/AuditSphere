@@ -71,7 +71,7 @@ test("responsable : connexion, création, détail, liste, session opaque et déc
   recordMission(new URL(page.url()).pathname.split("/").pop()!);
   await page.getByRole("link", { name: "Toutes les missions" }).click();
   await expect(
-    page.getByRole("link", { name: new RegExp(title + " Créée") }),
+    page.getByRole("link", { name: "Consulter " + title, exact: true }),
   ).toBeVisible();
   await page.screenshot({ path: "test-results/dashboard.png", fullPage: true });
   expect(bearerRequests).toEqual([]);
@@ -315,6 +315,7 @@ test("affecter à la création, modifier les participants et révoquer une sessi
   ).toBeVisible();
   const id = new URL(page.url()).pathname.split("/").pop()!;
   recordMission(id);
+  await page.getByRole("link", { name: "Équipe", exact: true }).click();
   await expect(
     page.locator(".participants").getByText(auditor.name, { exact: true }),
   ).toBeVisible();

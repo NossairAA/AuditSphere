@@ -8,7 +8,7 @@ Le rôle de realm Keycloak `SUPER_ADMIN` donne accès à toutes les missions act
 
 Le rôle est vérifié côté Spring à partir du JWT signé et côté BFF à partir de la session serveur. Le nom de connexion seul n’accorde aucun privilège. Il permet la création, la lecture globale, la planification, les affectations, la désignation du validateur, la soumission, le retrait et les actions ordinaires du responsable sur toutes les missions. Le propriétaire original ne change pas lorsqu’un administrateur intervient.
 
-L’administration des utilisateurs et des rôles reste dans Keycloak. Le rôle applicatif ne donne aucun accès administrateur à Keycloak, PostgreSQL ou au serveur. Les notifications et leur état de lecture restent personnels. Aucun écran de gestion des comptes ni modification globale des notifications dans cette tranche.
+La tranche initiale gardait la gestion des comptes dans Keycloak. La [refonte de navigation et administration](24-navigation-administration.md) ajoute désormais une interface applicative contrôlée, avec un client serveur distinct. Le rôle applicatif ne donne aucun accès direct administrateur à Keycloak, PostgreSQL ou au serveur. Les notifications restent personnelles.
 
 ## Dérogations explicites
 

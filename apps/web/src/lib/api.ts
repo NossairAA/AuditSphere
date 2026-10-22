@@ -6,6 +6,7 @@ export async function missions(
   request: Request,
   id?: string,
   resource?:
+    | "owners"
     | "program"
     | "risks"
     | "controls"
@@ -37,7 +38,9 @@ export async function missions(
     )
       return json({ error: "Action réservée au superadministrateur" }, 403);
     const url = new URL(
-      resource === "auditors" || resource === "validators"
+      resource === "auditors" ||
+        resource === "validators" ||
+        resource === "owners"
         ? "/missions/" + resource
         : id
           ? "/missions/" + id + (resource ? "/" + resource : "")
@@ -142,7 +145,11 @@ export async function missions(
                       },
       );
       headers["Content-Type"] = "application/json";
-    } else if (resource === "auditors" || resource === "validators") {
+    } else if (
+      resource === "auditors" ||
+      resource === "validators" ||
+      resource === "owners"
+    ) {
       url.searchParams.set(
         "page",
         new URL(request.url).searchParams.get("page") || "0",
@@ -150,7 +157,11 @@ export async function missions(
     } else if (!id && !resource) {
       const query = new URL(request.url).searchParams;
       url.searchParams.set("page", query.get("page") || "0");
-      url.searchParams.set("size", "20");
+      url.searchParams.set("size", query.get("size") === "5" ? "5" : "20");
+      for (const key of ["q", "status", "owner", "overdue", "sort"]) {
+        const value = query.get(key);
+        if (value) url.searchParams.set(key, value);
+      }
     }
     const response = await fetch(url, {
       method: request.method,

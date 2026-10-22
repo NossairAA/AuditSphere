@@ -88,3 +88,7 @@ Le [cycle de vie manuel des missions](docs/technique/10-cycle-missions.md) ajout
 - [Programme d’audit : risques et contrôles](docs/technique/21-programme-audit.md)
 
 - [Résultats des contrôles](docs/technique/22-resultats-controles.md)
+
+- [Preuves des contrôles](docs/technique/23-preuves-controles.md)
+
+- [Navigation et administration des comptes](docs/technique/24-navigation-administration.md)

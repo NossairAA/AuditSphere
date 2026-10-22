@@ -1,12 +1,223 @@
 openapi: 3.0.3
 info:
   title: AuditSphere Mission API
-  version: 0.11.0
+  version: 0.13.0
 servers:
   - url: http://localhost:8080
 security:
   - bearerAuth: []
 paths:
+  /missions/owners:
+    get:
+      summary: Responsables des missions visibles pour alimenter le filtre
+      responses:
+        '200':
+          description: Liste des sujets et noms accessibles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    subject: {type: string}
+                    name: {type: string}
+        '401': {description: Authentification requise}
+  /account/security:
+    get:
+      summary: Vérifier que le jeton n’a pas été révoqué par une opération administrative
+      responses:
+        '200': {description: Jeton accepté}
+        '401': {description: Jeton expiré ou révoqué}
+  /admin/summary:
+    get:
+      summary: Indicateurs globaux réservés au superadmin
+      responses:
+        '200':
+          description: Toutes les missions non supprimées, en cours, en attente et en retard
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total: {type: integer}
+                  inProgress: {type: integer}
+                  pending: {type: integer}
+                  overdue: {type: integer}
+                  byStatus:
+                    type: object
+                    description: Effectifs par statut, missions supprimées exclues, compteurs à zéro inclus
+                    required: [DRAFT, IN_PROGRESS, PENDING_REVIEW, APPROVED, CLOSED]
+                    properties:
+                      DRAFT: {type: integer, minimum: 0}
+                      IN_PROGRESS: {type: integer, minimum: 0}
+                      PENDING_REVIEW: {type: integer, minimum: 0}
+                      APPROVED: {type: integer, minimum: 0}
+                      CLOSED: {type: integer, minimum: 0}
+        '403': {description: SUPER_ADMIN requis}
+  /admin/users:
+    get:
+      summary: Annuaire paginé réservé au superadmin
+      parameters:
+        - {in: query, name: page, schema: {type: integer, minimum: 0, default: 0}}
+        - {in: query, name: q, schema: {type: string, maxLength: 200}}
+        - {in: query, name: role, schema: {type: string, enum: [SUPER_ADMIN, AUDIT_MANAGER, AUDITOR, AUDIT_VALIDATOR]}}
+        - {in: query, name: enabled, schema: {type: boolean}}
+      responses:
+        '200':
+          description: Comptes humains, pagination fixe de 20, identifiant, profil, activation et rôles applicatifs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: {type: array, items: {$ref: '#/components/schemas/AdminUser'}}
+                  total: {type: integer}
+                  page: {type: integer}
+                  size: {type: integer}
+        '403': {description: SUPER_ADMIN requis}
+        '503': {description: Annuaire indisponible ou limite de lecture dépassée}
+    post:
+      summary: Créer un compte et générer un mot de passe temporaire
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AdminUserInput'}
+      responses:
+        '201':
+          description: Compte créé, mot de passe à transmettre de façon privée et à changer à la connexion
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TemporaryAccess'}
+        '400': {description: Profil ou rôle invalide}
+        '403': {description: SUPER_ADMIN requis}
+        '409': {description: Opération en cours}
+        '503': {description: Résultat incertain, vérifier le compte et le journal avant répétition}
+  /admin/users/{id}:
+    put:
+      summary: Modifier le profil, les rôles applicatifs et l’activation, puis invalider les sessions
+      parameters:
+        - {in: path, name: id, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AdminUserInput'}
+      responses:
+        '200': {description: Modification confirmée}
+        '400': {description: Champs invalides ou retrait de son propre accès superadmin}
+        '403': {description: SUPER_ADMIN requis}
+        '409': {description: Opération en cours}
+        '503': {description: Résultat incertain, consulter le journal}
+  /admin/users/{id}/reset-password:
+    post:
+      summary: Réinitialiser l’accès avec un mot de passe temporaire et fermer les sessions
+      parameters:
+        - {in: path, name: id, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: {type: string, minLength: 1, maxLength: 2000}
+      responses:
+        '200':
+          description: Nouveau mot de passe temporaire, réponse sans cache
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TemporaryAccess'}
+        '403': {description: SUPER_ADMIN requis}
+        '409': {description: Opération en cours}
+        '503': {description: Résultat incertain, consulter le journal}
+  /admin/users/{id}/history:
+    get:
+      summary: Lire les 50 dernières opérations et le nombre de missions actives liées au compte
+      parameters:
+        - {in: path, name: id, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Auteur, cible implicite, action, motif, date et résultat, sans secret
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  activeMissions: {type: integer}
+                  events:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: {type: string, format: uuid}
+                        actor_subject: {type: string}
+                        action: {type: string, enum: [CREATE, UPDATE, RESET_PASSWORD]}
+                        reason: {type: string}
+                        requested_changes: {type: string, description: Profil et rôles demandés en JSON, sans mot de passe}
+                        outcome: {type: string, enum: [PENDING, SUCCESS, UNCERTAIN]}
+                        created_at: {type: string, format: date-time}
+        '403': {description: SUPER_ADMIN requis}
+  /missions/{id}/controls/{controlId}/evidence:
+    parameters:
+      - {in: path, name: id, required: true, schema: {type: string, format: uuid}}
+      - {in: path, name: controlId, required: true, schema: {type: string, format: uuid}}
+    get:
+      summary: Lister les preuves accessibles du contrôle
+      responses:
+        '200':
+          description: Métadonnées des preuves
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/ControlEvidence'}
+        '401': {description: Authentification requise}
+        '404': {description: Contrôle introuvable ou hors périmètre}
+    post:
+      summary: Joindre une preuve privée
+      description: Auditeur affecté ou SUPER_ADMIN, mission En cours. PDF, JPEG ou PNG de 10 Mio maximum, 100 preuves par contrôle. Version globale incrémentée après dépôt.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, version]
+              properties:
+                file: {type: string, format: binary}
+                version: {type: integer, format: int64, minimum: 0}
+      responses:
+        '201':
+          description: Preuve enregistrée
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ControlEvidence'}
+        '400': {description: Nom ou format invalide}
+        '401': {description: Authentification requise}
+        '403': {description: Dépôt non autorisé}
+        '404': {description: Contrôle introuvable ou hors périmètre}
+        '409': {description: Version périmée, statut verrouillé ou quota atteint}
+        '413': {description: Taille dépassée ou fichier vide}
+        '429': {description: Limite de débit atteinte}
+        '503': {description: Stockage indisponible}
+  /missions/{id}/controls/{controlId}/evidence/{evidenceId}:
+    get:
+      summary: Télécharger une preuve après vérification des droits sur la mission
+      parameters:
+        - {in: path, name: id, required: true, schema: {type: string, format: uuid}}
+        - {in: path, name: controlId, required: true, schema: {type: string, format: uuid}}
+        - {in: path, name: evidenceId, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Fichier en pièce jointe, sans cache et avec nosniff
+          content:
+            application/octet-stream:
+              schema: {type: string, format: binary}
+        '401': {description: Authentification requise}
+        '404': {description: Preuve introuvable ou hors périmètre}
   /missions/{id}/results:
     put:
       summary: Renseigner ou corriger le résultat d’un contrôle
@@ -176,6 +387,11 @@ paths:
     get:
       summary: Lister les missions créées, affectées ou désignées pour le validateur courant
       parameters:
+        - {in: query, name: q, schema: {type: string, maxLength: 200}, description: Recherche littérale sur titre et périmètre avant pagination}
+        - {in: query, name: status, schema: {type: string, enum: [DRAFT, IN_PROGRESS, PENDING_REVIEW, APPROVED, CLOSED]}}
+        - {in: query, name: owner, schema: {type: string, maxLength: 255}}
+        - {in: query, name: overdue, schema: {type: boolean, default: false}, description: Fin prévue avant la date UTC courante et mission non clôturée}
+        - {in: query, name: sort, schema: {type: string, enum: [created, title, end], default: created}}
         - name: page
           in: query
           schema: {type: integer, minimum: 0, default: 0}
@@ -507,6 +723,43 @@ components:
   securitySchemes:
     bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
   schemas:
+    AdminUser:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        username: {type: string}
+        firstName: {type: string}
+        lastName: {type: string}
+        email: {type: string, format: email}
+        enabled: {type: boolean}
+        roles: {type: array, items: {type: string, enum: [SUPER_ADMIN, AUDIT_MANAGER, AUDITOR, AUDIT_VALIDATOR]}}
+    AdminUserInput:
+      type: object
+      required: [firstName, lastName, email, enabled, roles, reason]
+      properties:
+        username: {type: string, pattern: '^[a-zA-Z0-9._-]{3,80}$', description: Requis à la création, immuable ensuite}
+        firstName: {type: string, minLength: 1, maxLength: 100}
+        lastName: {type: string, minLength: 1, maxLength: 100}
+        email: {type: string, format: email, maxLength: 254}
+        enabled: {type: boolean}
+        roles: {type: array, uniqueItems: true, maxItems: 4, items: {type: string, enum: [SUPER_ADMIN, AUDIT_MANAGER, AUDITOR, AUDIT_VALIDATOR]}}
+        reason: {type: string, minLength: 1, maxLength: 2000}
+    TemporaryAccess:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        temporaryPassword: {type: string, description: Valeur sensible à usage temporaire, ne jamais journaliser}
+    ControlEvidence:
+      type: object
+      required: [id, originalName, mediaType, byteSize, sha256, authorName, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        originalName: {type: string, maxLength: 255}
+        mediaType: {type: string, enum: [application/pdf, image/jpeg, image/png]}
+        byteSize: {type: integer, format: int64, minimum: 1, maximum: 10485760}
+        sha256: {type: string, minLength: 64, maxLength: 64}
+        authorName: {type: string}
+        createdAt: {type: string, format: date-time}
     Risk:
       type: object
       required: [id, title, description, probability, impact]

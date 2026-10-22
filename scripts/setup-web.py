@@ -12,7 +12,7 @@ identity_origin=env.get('PROD_OIDC_ORIGIN','') if production else 'http://localh
 if production and (not app_origin.startswith('https://') or not identity_origin.startswith('https://')):
  raise SystemExit('PROD_APP_ORIGIN et PROD_OIDC_ORIGIN HTTPS sont obligatoires.')
 
-missing={k:secrets.token_urlsafe(32) for k in ['WEB_DB_PASSWORD','WEB_CLIENT_SECRET','DIRECTORY_CLIENT_SECRET'] if k not in env}
+missing={k:secrets.token_urlsafe(32) for k in ['WEB_DB_PASSWORD','WEB_CLIENT_SECRET','DIRECTORY_CLIENT_SECRET','USER_ADMIN_CLIENT_SECRET'] if k not in env}
 if missing:
  with (root/'.env').open('a') as f:
   for k,v in missing.items(): f.write(f'{k}={v}\n')
@@ -98,6 +98,17 @@ management=call(base+'/clients?clientId=realm-management',token=token)[0]['id']
 roles=[call(base+'/clients/'+management+'/roles/'+name,token=token) for name in ['view-users','view-realm']]
 call(base+'/users/'+account['id']+'/role-mappings/clients/'+management,roles,'POST',token)
 print('Annuaire Spring configuré avec les rôles view-users et view-realm, sans droit de modification.')
+
+# Dedicated administrative adapter, never reused by the read-only directory.
+admin_client={'clientId':'auditsphere-user-admin','protocol':'openid-connect','publicClient':False,'secret':env['USER_ADMIN_CLIENT_SECRET'],'standardFlowEnabled':False,'directAccessGrantsEnabled':False,'serviceAccountsEnabled':True}
+existing=call(base+'/clients?clientId=auditsphere-user-admin',token=token)
+if existing:call(base+'/clients/'+existing[0]['id'],admin_client,'PUT',token)
+else:call(base+'/clients',admin_client,'POST',token)
+client_id=call(base+'/clients?clientId=auditsphere-user-admin',token=token)[0]['id']
+account=call(base+'/clients/'+client_id+'/service-account-user',token=token)
+roles=[call(base+'/clients/'+management+'/roles/'+name,token=token) for name in ['view-users','query-users','manage-users','view-realm']]
+call(base+'/users/'+account['id']+'/role-mappings/clients/'+management,roles,'POST',token)
+print('Client serveur de gestion des utilisateurs configuré, distinct de l’annuaire.')
 
 for realm in ['auditsphere','master']:
  settings={'bruteForceProtected':True,'permanentLockout':False,'failureFactor':5,'waitIncrementSeconds':30,'minimumQuickLoginWaitSeconds':30,'maxFailureWaitSeconds':900,'maxDeltaTimeSeconds':43200,'eventsEnabled':True,'eventsExpiration':604800,'adminEventsEnabled':True,'adminEventsDetailsEnabled':False}

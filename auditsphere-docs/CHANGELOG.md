@@ -1,5 +1,38 @@
 # Journal des changements
 
+## 2026-10-22 : extension du jeu de démonstration
+
+- Générateur local de 40 missions fictives, 120 risques et 160 contrôles, sans suppression de données.
+- Scénarios de retard, échéance du jour, dates futures, revue, corrections, retrait, approbation et clôture.
+- Résultats conformes, non conformes, non applicables et contrôles restant à réaliser.
+- Reprise par manifeste privé et conservation des missions déjà générées. Aucun push.
+
+## 2026-10-22 : tableau de bord superadmin
+
+- Répertoire unique dans Missions d’audit, ancienne supervision remplacée par Tableau de bord.
+- Compteurs et répartition par statut cliquables, cinq retards prioritaires avec retour à la vue globale.
+- États de chargement, erreur et absence de retard, mise en page mobile.
+- API summary enrichie sans migration ni suppression de données. Aucun push.
+- Compilation réussie, deux tests Java ciblés et quatre tests navigateur réussis. Affichages ordinateur et mobile vérifiés.
+
+## 2026-10-21 : navigation et comptes
+
+- Recherche des missions côté serveur, filtres combinés, tri et retour à la liste conservé.
+- Fiche par onglets, listes compactes de risques et contrôles, éditeurs latéraux et détail du contrôle.
+- Supervision globale et gestion des utilisateurs par le superadmin, mots de passe temporaires et journal des opérations.
+- Révocation des jetons d’audit et des sessions web après modification de compte.
+- Client Keycloak administratif séparé de l’annuaire en lecture seule. Migrations V14 et V15 sans suppression de données.
+- Validation locale détaillée dans le guide de navigation. Aucun push de cette tranche.
+
+
+## Preuves privées des contrôles : 2026-10-21
+
+- Résultats et correctif CI publiés dans 3e0dbcb, CI verte.
+- Garage privé installé sur le homeserver et raccordé par Tailscale.
+- Dépôt PDF et images, métadonnées et téléchargement soumis aux permissions de mission.
+- 53 tests audit-service, 4 tests gateway et un parcours navigateur réussis, compilation validée.
+- Nettoyage ciblé des objets synthétiques et documentation de sauvegarde. Tranche non publiée.
+
 ## Isolation des quotas dans les tests navigateur : 2026-10-21
 
 - Diagnostic CI a1c7391 : le test de désignation reçoit 429 au lieu du conflit 409 attendu, puis une connexion échoue.
