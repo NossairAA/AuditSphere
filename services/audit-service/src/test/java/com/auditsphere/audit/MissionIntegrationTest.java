@@ -15,7 +15,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.*;
 
-@SpringBootTest(properties = "spring.flyway.enabled=true")
+@SpringBootTest(properties = {"spring.flyway.enabled=true", "EVIDENCE_MISSION_QUOTA_BYTES=10485770"})
 @AutoConfigureMockMvc
 @Testcontainers
 class MissionIntegrationTest {
@@ -2191,5 +2191,20 @@ class MissionIntegrationTest {
     var body = evidenceController.download(missionId, controlId, proofId, jwt).getBody();
     org.junit.jupiter.api.Assertions.assertThrows(java.io.IOException.class,
         () -> body.writeTo(new java.io.ByteArrayOutputStream()));
+  }
+
+  @Test
+  void missionEvidenceQuotaRejectsOverflowAndDeletesUnreferencedObject() throws Exception {
+    String id = create(), control = programControl(id);
+    java.util.UUID missionId = java.util.UUID.fromString(id);
+    java.util.UUID controlId = java.util.UUID.fromString(control);
+    jdbc.update("UPDATE missions SET status='IN_PROGRESS',planned_start_date=current_date,planned_end_date=current_date,started_at=now() WHERE id=?", missionId);
+    jdbc.update("INSERT INTO control_evidence(id,mission_id,control_id,object_key,original_name,media_type,byte_size,sha256,author_subject,author_name) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        java.util.UUID.randomUUID(), missionId, controlId, "evidence/" + java.util.UUID.randomUUID(), "existing.pdf", "application/pdf", 10485760L, "0".repeat(64), "assigned", "Annuaire assigned");
+    var file = new org.springframework.mock.web.MockMultipartFile("file", "next.pdf", "application/pdf", "%PDF-1.4\nsynthetic".getBytes());
+    mvc.perform(multipart("/missions/" + id + "/controls/" + control + "/evidence")
+            .file(file).param("version", "2").with(programJwt("assigned", "AUDITOR")))
+        .andExpect(status().isPayloadTooLarge());
+    org.mockito.Mockito.verify(evidenceStore).delete(org.mockito.ArgumentMatchers.anyString());
   }
 }

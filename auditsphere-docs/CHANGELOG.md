@@ -1,5 +1,9 @@
 # Journal des changements
 
+## 2026-10-23 : C11
+
+Quota cumulé de preuves par mission configurable, 100 Mio par défaut, contrôlé sous verrou de mission. Dépassement refusé et objet orphelin supprimé. Test de dépassement et nettoyage réussi.
+
 ## 2026-10-23 : C10
 
 Passerelle et notifications consultent le registre central avant chaque requête authentifiée. Révocation refusée et indisponibilité traitée en refus fermé. Tests dédiés réussis, délai limité à la vérification pour conserver les flux SSE.

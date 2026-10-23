@@ -4,6 +4,7 @@
 
 ## Correctifs de sécurité du 23 octobre 2026
 
+- C11 : Quota cumulé de preuves par mission configurable, 100 Mio par défaut, contrôlé sous verrou de mission. Dépassement refusé et objet orphelin supprimé. Test de dépassement et nettoyage réussi.
 - C10 : Passerelle et notifications consultent le registre central avant chaque requête authentifiée. Révocation refusée et indisponibilité traitée en refus fermé. Tests dédiés réussis, délai limité à la vérification pour conserver les flux SSE.
 - C9 : UPDATE du journal limité à outcome, completed_at, target_subject et requested_changes. Privilèges appliqués et vérifiés localement après sauvegarde, acteur non modifiable et résultat modifiable.
 - C8 : Calcul SHA-256 et contrôle de taille pendant le téléchargement, journalisation et interruption en cas de divergence. Test de contenu altéré réussi. Des octets peuvent avoir été transmis avant détection, une clé S3 de lecture distincte reste à étudier.

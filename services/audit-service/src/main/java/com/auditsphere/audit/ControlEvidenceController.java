@@ -15,6 +15,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -37,15 +38,19 @@ class ControlEvidenceController {
   private final JdbcTemplate jdbc;
   private final TransactionTemplate transactions;
   private final EvidenceStore store;
+  private final long missionQuotaBytes;
 
   ControlEvidenceController(
       JdbcTemplate jdbc,
       org.springframework.transaction.PlatformTransactionManager manager,
-      EvidenceStore store) {
+      EvidenceStore store,
+      @Value("${EVIDENCE_MISSION_QUOTA_BYTES:104857600}") long missionQuotaBytes) {
     this.jdbc = jdbc;
     this.transactions = new TransactionTemplate(manager);
     this.transactions.setTimeout(5);
     this.store = store;
+    if (missionQuotaBytes < MAX_BYTES) throw new IllegalArgumentException("Evidence mission quota too small");
+    this.missionQuotaBytes = missionQuotaBytes;
   }
 
   record Evidence(
@@ -188,6 +193,11 @@ class ControlEvidenceController {
                         controlId);
                 if (count != null && count >= 100)
                   throw new ResponseStatusException(HttpStatus.CONFLICT);
+                Long used = jdbc.queryForObject(
+                    "SELECT COALESCE(sum(byte_size),0) FROM control_evidence WHERE mission_id=?",
+                    Long.class, missionId);
+                if (used == null || used > missionQuotaBytes - bytes.length)
+                  throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE);
                 String author = jwt.getClaimAsString("name");
                 if (author == null || author.isBlank())
                   author = jwt.getClaimAsString("preferred_username");
