@@ -91,4 +91,21 @@ class RequestLimitsTest {
         .block();
     assertEquals(HttpStatus.PAYLOAD_TOO_LARGE, rejected.getResponse().getStatusCode());
   }
+  @Test
+  void concurrentUploadsAreBoundedAndCancellationReleasesSlot() {
+    var filter = new RequestLimits();
+    var path = "/missions/00000000-0000-0000-0000-000000000001/controls/00000000-0000-0000-0000-000000000002/evidence";
+    var first = filter.filter(MockServerWebExchange.from(MockServerHttpRequest.post(path).body("a")), e -> Mono.never()).subscribe();
+    var second = filter.filter(MockServerWebExchange.from(MockServerHttpRequest.post(path).body("b")), e -> Mono.never()).subscribe();
+    try {
+      var third = MockServerWebExchange.from(MockServerHttpRequest.post(path).body("c"));
+      filter.filter(third, e -> Mono.empty()).block();
+      assertEquals(HttpStatus.TOO_MANY_REQUESTS, third.getResponse().getStatusCode());
+      first.dispose();
+      var next = MockServerWebExchange.from(MockServerHttpRequest.post(path).body("d"));
+      filter.filter(next, e -> Mono.empty()).block();
+      assertNull(next.getResponse().getStatusCode());
+    } finally { first.dispose(); second.dispose(); }
+  }
+
 }

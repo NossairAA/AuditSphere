@@ -14,6 +14,21 @@ import reactor.core.publisher.*;
 
 @Component
 class RequestLimits implements GlobalFilter, Ordered {
+  private final java.util.Map<String, Integer> uploads = new java.util.HashMap<>();
+  private int activeUploads;
+
+  private synchronized boolean acquireUpload(String subject) {
+    if (activeUploads >= 8 || uploads.getOrDefault(subject, 0) >= 2) return false;
+    activeUploads++;
+    uploads.merge(subject, 1, Integer::sum);
+    return true;
+  }
+
+  private synchronized void releaseUpload(String subject) {
+    activeUploads--;
+    uploads.computeIfPresent(subject, (key, count) -> count == 1 ? null : count - 1);
+  }
+
   record Bucket(AtomicInteger count, long until) {}
 
   private final ConcurrentHashMap<String, Bucket> buckets = new ConcurrentHashMap<>();
@@ -75,6 +90,8 @@ class RequestLimits implements GlobalFilter, Ordered {
                   && exchange.getRequest().getMethod() != HttpMethod.PUT
                   && exchange.getRequest().getMethod() != HttpMethod.DELETE)
                 return chain.filter(exchange);
+              if (evidenceUpload && !acquireUpload(subject))
+                return reject(exchange, HttpStatus.TOO_MANY_REQUESTS);
               return DataBufferUtils.join(exchange.getRequest().getBody(), maxBody)
                   .timeout(Duration.ofSeconds(5))
                   .map(
@@ -104,7 +121,8 @@ class RequestLimits implements GlobalFilter, Ordered {
                       e -> reject(exchange, HttpStatus.PAYLOAD_TOO_LARGE))
                   .onErrorResume(
                       java.util.concurrent.TimeoutException.class,
-                      e -> reject(exchange, HttpStatus.REQUEST_TIMEOUT));
+                      e -> reject(exchange, HttpStatus.REQUEST_TIMEOUT))
+                  .doFinally(signal -> { if (evidenceUpload) releaseUpload(subject); });
             });
   }
 }

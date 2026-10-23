@@ -1,5 +1,9 @@
 # Journal des changements
 
+## 2026-10-23 : C3
+
+Dépôts bornés à deux par utilisateur et huit par instance au BFF et à la passerelle, lecture BFF limitée à trente secondes et onze Mio. Tests de concurrence, annulation et lecture lente réussis.
+
 ## 2026-10-23 : C6
 
 Séparation validateur et auditeur en API et en base, transactions concurrentes vérifiées. Dérogation APPROVE refusée au propriétaire, au validateur et aux affectés. Migration V16 appliquée localement après sauvegarde.

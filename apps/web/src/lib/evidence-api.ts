@@ -1,40 +1,11 @@
 import "server-only";
 import { json, session, validMutation } from "./auth";
+import { acquireUpload, boundedBody } from "./upload-limits";
 import { rateLimit } from "./rate";
 
 const maxFile = 10 * 1024 * 1024;
 const maxBody = 11 * 1024 * 1024;
 const uuid = /^[0-9a-f-]{36}$/i;
-
-async function boundedBody(request: Request): Promise<Uint8Array> {
-  if (Number(request.headers.get("content-length")) > maxBody)
-    throw new Error("size");
-  const reader = request.body?.getReader();
-  if (!reader) throw new Error("invalid");
-  const chunks: Uint8Array[] = [];
-  let length = 0;
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      length += value.byteLength;
-      if (length > maxBody) {
-        await reader.cancel();
-        throw new Error("size");
-      }
-      chunks.push(value);
-    }
-  } finally {
-    reader.releaseLock();
-  }
-  const result = new Uint8Array(length);
-  let offset = 0;
-  for (const chunk of chunks) {
-    result.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return result;
-}
 
 export async function evidence(
   request: Request,
@@ -53,6 +24,7 @@ export async function evidence(
       .every((id) => uuid.test(id!))
   )
     return json({ error: "Preuve introuvable" }, 404);
+  let releaseUpload: (() => void) | null = null;
   try {
     const data = await session();
     if (!data)
@@ -71,6 +43,13 @@ export async function evidence(
       )
         return json({ error: "Formulaire invalide" }, 400);
     }
+    if (upload) {
+      releaseUpload = acquireUpload(data.subject);
+      if (!releaseUpload)
+        return Response.json({ error: "Trop de dépôts simultanés" }, {
+          status: 429, headers: { "Retry-After": "5", "Cache-Control": "no-store" },
+        });
+    }
     const url = new URL(
       `/missions/${missionId}/controls/${controlId}/evidence${evidenceId ? "/" + evidenceId : ""}`,
       process.env.API_ORIGIN || "http://localhost:8080",
@@ -82,8 +61,8 @@ export async function evidence(
         bytes = await boundedBody(request);
       } catch (error) {
         return json(
-          { error: "Fichier trop volumineux" },
-          error instanceof Error && error.message === "size" ? 413 : 400,
+          { error: error instanceof Error && error.message === "timeout" ? "Délai de dépôt dépassé" : "Fichier invalide ou trop volumineux" },
+          error instanceof Error && error.message === "size" ? 413 : error instanceof Error && error.message === "timeout" ? 408 : 400,
         );
       }
       const parsed = await new Request("http://localhost/", {
@@ -148,5 +127,7 @@ export async function evidence(
       { error: "Service temporairement indisponible. Réessayez." },
       503,
     );
+  } finally {
+    releaseUpload?.();
   }
 }
