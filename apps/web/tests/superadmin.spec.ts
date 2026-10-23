@@ -18,7 +18,7 @@ async function login(page: Page, name: string) {
     page.getByRole("heading", { name: "Répertoire des missions" }),
   ).toBeVisible();
 }
-test("superadmin : accès global et dérogations explicites sur sa propre mission", async ({
+test("superadmin : refus de sa propre approbation et dérogations sur une autre mission", async ({
   page,
   browser,
 }) => {
@@ -82,7 +82,7 @@ test("superadmin : accès global et dérogations explicites sur sa propre missio
       },
     });
     expect(own.status()).toBe(201);
-    const mission = await own.json();
+    let mission = await own.json();
     recordMission(mission.id);
     expect(
       (await page.request.get(`/api/missions/${mission.id}`)).status(),
@@ -90,6 +90,16 @@ test("superadmin : accès global et dérogations explicites sur sa propre missio
     await admin.goto(`/missions/${mission.id}`);
     await admin.getByRole("button", { name: "Démarrer la mission" }).click();
     await expect(admin.locator(".page-heading .status")).toHaveText("En cours");
+    expect((await admin.request.put(`/api/missions/${mission.id}/override`, {
+      headers, data: { version: 1, action: "APPROVE", reason: "Autoapprobation refusée" },
+    })).status()).toBe(409);
+    await expect(admin.locator('option[value="APPROVE"]')).toBeDisabled();
+    mission = other;
+    expect((await page.request.put(`/api/missions/${mission.id}/status`, {
+      headers: managerHeaders, data: { version: 0, status: "IN_PROGRESS" },
+    })).status()).toBe(200);
+    await admin.goto(`/missions/${mission.id}`);
+
     await admin
       .getByText("Dérogations du superadministrateur", { exact: true })
       .click();

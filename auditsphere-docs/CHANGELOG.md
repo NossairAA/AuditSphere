@@ -1,5 +1,9 @@
 # Journal des changements
 
+## 2026-10-23 : C6
+
+Séparation validateur et auditeur en API et en base, transactions concurrentes vérifiées. Dérogation APPROVE refusée au propriétaire, au validateur et aux affectés. Migration V16 appliquée localement après sauvegarde.
+
 ## 2026-10-23 : C2
 
 Création et réinitialisation par action email Keycloak, aucun mot de passe retourné. Adresse email existante immuable pour empêcher le détournement de la réinitialisation. Tests API et client Keycloak réussis, SMTP de production non vérifié.

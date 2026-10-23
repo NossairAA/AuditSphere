@@ -8,6 +8,8 @@ Introduire un rôle applicatif SUPER_ADMIN donnant accès à toutes les missions
 
 Maintenir les règles ordinaires sur leurs endpoints. Conserver les contraintes structurelles de dates. Autoriser une approbation personnelle ou une clôture exceptionnelle seulement via une dérogation tracée. Utiliser une suppression logique pour conserver les cycles et les traces des missions déjà traitées.
 
+La partie autorisant une approbation personnelle est remplacée par [ADR-0018](ADR-0018-separation-validateur-auditeur.md). Une dérogation APPROVE exige désormais un superadministrateur distinct de tous les participants.
+
 ## Conséquences
 
 Le journal et la décision Temporal sont transactionnels avec la mission. Le compte SQL applicatif ne peut pas effacer le journal. Le rôle n’accorde aucun privilège d’infrastructure ni de gestion des identités. La restauration après suppression et une console globale du journal restent hors périmètre.

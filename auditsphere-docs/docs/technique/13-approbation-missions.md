@@ -11,6 +11,8 @@ Le responsable désigne un validateur distinct et démarre la mission. Le bouton
 
 Les rôles cumulés ne permettent pas au responsable d’approuver sa propre mission. Un autre validateur ne peut pas prendre la décision. La règle est imposée côté API et ne dépend pas de l’affichage des boutons.
 
+Le validateur ne peut pas non plus figurer parmi les auditeurs affectés. La création, l'affectation et la désignation refusent un chevauchement avec 400. Une mission historique incohérente refuse sa soumission et sa revue avec 409. La migration V16 impose la séparation en base et exige la correction explicite des conflits existants avant installation. Voir [ADR-0018](../decisions/ADR-0018-separation-validateur-auditeur.md).
+
 ## API et protections
 
 PUT /missions/{id}/submission reçoit version. La mission doit être en cours, avoir un validateur actif et un propriétaire distinct. PUT /missions/{id}/review reçoit version, decision parmi APPROVED et REJECTED, et comment non vide de 2000 caractères au maximum. La décision exige le rôle AUDIT_VALIDATOR et le sujet désigné. Les conflits de version, répétitions et transitions incompatibles sont refusés avec 409.

@@ -16,12 +16,14 @@ L’utilisateur a demandé de permettre des dérogations aux règles métier, y 
 
 | Action | Statuts autorisés | Effet |
 | --- | --- | --- |
-| APPROVE | En cours, en attente de validation | Approbation par le superadmin, même propriétaire ou non désigné |
+| APPROVE | En cours, en attente de validation | Approbation par un superadmin distinct du propriétaire, du validateur et des auditeurs affectés |
 | CLOSE | En cours, en attente de validation, approuvée | Clôture même sans approbation préalable |
 | REOPEN | En attente de validation, approuvée, clôturée | Retour en cours, ancienne décision effacée de l’état courant mais conservée dans les traces existantes |
 | DELETE | Tous les statuts actifs | Suppression logique, mission masquée pour tous les utilisateurs |
 
 Un brouillon doit être planifié et démarré avant une approbation ou une clôture. Les dérogations ne fabriquent pas de dates de travail. La réouverture d’une mission supprimée n’est pas proposée. Les API ordinaires continuent à refuser l’autoapprobation et la clôture sans approbation, même pour un superadmin. Il doit utiliser l’action de dérogation explicite.
+
+Depuis [ADR-0018](../decisions/ADR-0018-separation-validateur-auditeur.md), la dérogation APPROVE refuse aussi une approbation personnelle avec 409. Les superadministrateurs propriétaires, validateurs ou auditeurs affectés doivent demander à un autre superadministrateur d'effectuer cette action.
 
 ## Trace et cohérence
 
@@ -39,7 +41,7 @@ Pour une mission en attente, APPROVE émet la décision APPROVED. CLOSE, REOPEN 
 
 ## Vérifications
 
-- 59 tests Java réussis, avec accès global, isolation des utilisateurs ordinaires, refus sans rôle, motif et version, autoapprobation explicite, journal et rollback transactionnel.
+- La tranche initiale avait vérifié 59 tests Java. Les tests actuels vérifient le refus de l'autoapprobation administrative et l'approbation par un autre superadministrateur.
 - 11 tests navigateur réussis pour les parcours affectés, dont connexion superadmin, création, accès global, confirmation, CSRF, dérogations et consultation du journal.
 - `scripts/test-superadmin.py` vérifie avec de vrais jetons Keycloak les résultats Temporal APPROVED et WITHDRAWN après approbation, clôture et suppression administratives.
 - Compilation frontend réussie et nettoyage automatique des données synthétiques vérifié.

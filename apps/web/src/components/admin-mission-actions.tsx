@@ -34,11 +34,12 @@ export default function AdminMissionActions({
     [error, setError] = useState("");
   const [entries, setEntries] = useState<Entry[] | null>(null);
   if (!user?.roles.includes("SUPER_ADMIN")) return null;
+  const involved = mission.ownerSubject === user.subject || mission.validatorSubject === user.subject || mission.assigneeSubjects.includes(user.subject);
   const allowed = (value: string) =>
     value === "DELETE" ||
     (mission.status !== "DRAFT" &&
       (value === "APPROVE"
-        ? !["APPROVED", "CLOSED"].includes(mission.status)
+        ? !involved && !["APPROVED", "CLOSED"].includes(mission.status)
         : value === "CLOSE"
           ? mission.status !== "CLOSED"
           : mission.status !== "IN_PROGRESS"));
@@ -96,8 +97,9 @@ export default function AdminMissionActions({
       <details>
         <summary>Dérogations du superadministrateur</summary>
         <p>
-          Ces actions peuvent contourner la validation, y compris pour votre
-          propre mission. Chaque intervention est journalisée.
+          Chaque intervention est journalisée. L’approbation par dérogation est
+          réservée à un administrateur qui n’est ni responsable, ni validateur,
+          ni auditeur affecté à cette mission.
         </p>
         {error && (
           <>
@@ -144,7 +146,7 @@ export default function AdminMissionActions({
                   : action === "REOPEN"
                     ? "La mission repassera en cours et nécessitera une nouvelle validation."
                     : action === "APPROVE"
-                      ? "Votre décision remplacera celle du validateur désigné, même si vous êtes propriétaire de la mission."
+                      ? "Votre décision remplacera celle du validateur désigné."
                       : "La mission sera clôturée, même sans approbation préalable."}
               </p>
               <label>

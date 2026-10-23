@@ -51,6 +51,7 @@ class MissionIntegrationTest {
 
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper mapper;
+  @Autowired javax.sql.DataSource dataSource;
   static final com.nimbusds.jose.jwk.RSAKey signingKey;
   static final com.sun.net.httpserver.HttpServer jwks;
 
@@ -1265,9 +1266,14 @@ class MissionIntegrationTest {
 
   org.springframework.test.web.servlet.ResultActions overrideMission(
       String id, long version, String action, String reason) throws Exception {
+    return overrideMission(id, version, action, reason, "owner");
+  }
+
+  org.springframework.test.web.servlet.ResultActions overrideMission(
+      String id, long version, String action, String reason, String subject) throws Exception {
     return mvc.perform(
         put("/missions/" + id + "/override")
-            .with(adminJwt("owner"))
+            .with(adminJwt(subject))
             .contentType("application/json")
             .content(
                 mapper.writeValueAsString(
@@ -1343,9 +1349,9 @@ class MissionIntegrationTest {
     overrideMission(id, 5, "REOPEN", "Travaux complémentaires")
         .andExpect(status().isOk())
         .andExpect(jsonPath("status").value("IN_PROGRESS"));
-    overrideMission(id, 6, "APPROVE", "Approbation personnelle explicitement autorisée")
+    overrideMission(id, 6, "APPROVE", "Approbation exceptionnelle par un administrateur distinct", "administrator")
         .andExpect(status().isOk())
-        .andExpect(jsonPath("reviewedBy").value("owner"))
+        .andExpect(jsonPath("reviewedBy").value("administrator"))
         .andExpect(jsonPath("status").value("APPROVED"));
     overrideMission(id, 7, "DELETE", "Mission à retirer").andExpect(status().isNoContent());
     mvc.perform(get("/missions/" + id).with(adminJwt("owner"))).andExpect(status().isNotFound());
@@ -1380,7 +1386,10 @@ class MissionIntegrationTest {
                 .contentType("application/json")
                 .content("{\"version\":4,\"status\":\"CLOSED\"}"))
         .andExpect(status().isConflict());
-    overrideMission(id, 4, "APPROVE", "Dérogation motivée").andExpect(status().isOk());
+    overrideMission(id, 4, "APPROVE", "Dérogation motivée").andExpect(status().isConflict());
+    overrideMission(id, 4, "APPROVE", "Dérogation motivée", "reviewer").andExpect(status().isConflict());
+    overrideMission(id, 4, "APPROVE", "Dérogation motivée", "assigned").andExpect(status().isConflict());
+    overrideMission(id, 4, "APPROVE", "Dérogation par tiers", "administrator").andExpect(status().isOk());
     org.junit.jupiter.api.Assertions.assertEquals(
         "APPROVED",
         jdbc.queryForObject(
@@ -1420,7 +1429,7 @@ class MissionIntegrationTest {
             org.mockito.ArgumentMatchers.eq("APPROVED"));
     org.junit.jupiter.api.Assertions.assertThrows(
         jakarta.servlet.ServletException.class,
-        () -> overrideMission(id, 4, "APPROVE", "Test atomique"));
+        () -> overrideMission(id, 4, "APPROVE", "Test atomique", "administrator"));
     org.junit.jupiter.api.Assertions.assertEquals(
         0,
         jdbc.queryForObject(
@@ -2101,5 +2110,67 @@ class MissionIntegrationTest {
         .andExpect(status().isServiceUnavailable());
     mvc.perform(get("/admin/users/" + target + "/history").with(adminJwt(actor)))
         .andExpect(jsonPath("events[0].outcome").value("UNCERTAIN"));
+  }
+  @Test
+  void validatorAndAssigneeMustRemainSeparateAcrossApiAndDatabase() throws Exception {
+    org.mockito.Mockito.doNothing().when(directory).validateValidator("assigned");
+    mvc.perform(post("/missions")
+            .with(jwt().jwt(j -> j.subject("owner")).authorities(new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER")))
+            .contentType("application/json")
+            .content("{\"title\":\"Séparation\",\"description\":\"Test\",\"perimeter\":\"Achats\",\"assigneeSubjects\":[\"assigned\"],\"validatorSubject\":\"assigned\"}"))
+        .andExpect(status().isBadRequest());
+    String id = create();
+    lifecycle(id, "validator", "{\"version\":0,\"validatorSubject\":\"assigned\"}")
+        .andExpect(status().isBadRequest());
+    jdbc.update("DELETE FROM mission_assignments WHERE mission_id=?", java.util.UUID.fromString(id));
+    lifecycle(id, "validator", "{\"version\":0,\"validatorSubject\":\"assigned\"}")
+        .andExpect(status().isOk());
+    lifecycle(id, "assignments", "{\"version\":1,\"assigneeSubjects\":[\"assigned\"]}")
+        .andExpect(status().isBadRequest());
+    org.junit.jupiter.api.Assertions.assertThrows(org.springframework.dao.DataIntegrityViolationException.class,
+        () -> jdbc.update("INSERT INTO mission_assignments(mission_id,subject) VALUES (?,?)", java.util.UUID.fromString(id), "assigned"));
+    jdbc.update("UPDATE missions SET validator_subject=NULL WHERE id=?", java.util.UUID.fromString(id));
+    jdbc.update("INSERT INTO mission_assignments(mission_id,subject) VALUES (?,?)", java.util.UUID.fromString(id), "assigned");
+    org.junit.jupiter.api.Assertions.assertThrows(org.springframework.dao.DataIntegrityViolationException.class,
+        () -> jdbc.update("UPDATE missions SET validator_subject='assigned' WHERE id=?", java.util.UUID.fromString(id)));
+  }
+
+  @Test
+  void databaseSerializesConcurrentValidatorAndAssignmentChanges() throws Exception {
+    var workers = java.util.concurrent.Executors.newSingleThreadExecutor();
+    try {
+      for (boolean validatorFirst : new boolean[] {true, false}) {
+        java.util.UUID mission = java.util.UUID.fromString(create());
+        jdbc.update("DELETE FROM mission_assignments WHERE mission_id=?", mission);
+        try (var first = dataSource.getConnection()) {
+          first.setAutoCommit(false);
+          try (var statement = first.prepareStatement(validatorFirst
+              ? "UPDATE missions SET validator_subject='assigned' WHERE id=?"
+              : "INSERT INTO mission_assignments(mission_id,subject) VALUES (?,'assigned')")) {
+            statement.setObject(1, mission);
+            statement.executeUpdate();
+          }
+          var second = workers.submit(() -> {
+            try (var connection = dataSource.getConnection();
+                var statement = connection.prepareStatement(validatorFirst
+                    ? "INSERT INTO mission_assignments(mission_id,subject) VALUES (?,'assigned')"
+                    : "UPDATE missions SET validator_subject='assigned' WHERE id=?")) {
+              statement.setObject(1, mission);
+              statement.executeUpdate();
+              return false;
+            } catch (java.sql.SQLException conflict) {
+              return "23514".equals(conflict.getSQLState());
+            }
+          });
+          Thread.sleep(150);
+          org.junit.jupiter.api.Assertions.assertFalse(second.isDone(), "Concurrent write must wait on mission lock");
+          first.commit();
+          org.junit.jupiter.api.Assertions.assertTrue(second.get(5, java.util.concurrent.TimeUnit.SECONDS),
+              "The second write must reject the new conflict");
+        }
+      }
+    } finally {
+      workers.shutdownNow();
+    }
   }
 }

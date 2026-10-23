@@ -109,7 +109,8 @@ class MissionController {
     validateDates(body.plannedStartDate(), body.plannedEndDate(), false);
     directory.validate(body.assigneeSubjects());
     if (body.validatorSubject() != null) {
-      if (jwt.getSubject().equals(body.validatorSubject()))
+      if (jwt.getSubject().equals(body.validatorSubject())
+          || body.assigneeSubjects().contains(body.validatorSubject()))
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
       directory.validateValidator(body.validatorSubject());
     }
@@ -264,6 +265,8 @@ class MissionController {
           checkOwner(m, jwt, body.version());
           if (Set.of("PENDING_REVIEW", "APPROVED").contains(m.status))
             throw new ResponseStatusException(HttpStatus.CONFLICT);
+          if (m.validatorSubject != null && body.assigneeSubjects().contains(m.validatorSubject))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
           var added = new HashSet<>(body.assigneeSubjects());
           added.removeAll(m.assigneeSubjects);
           m.assigneeSubjects.clear();
@@ -443,7 +446,8 @@ class MissionController {
     checkOwner(m, jwt, version);
     if (!m.status.equals("IN_PROGRESS")
         || m.validatorSubject == null
-        || m.ownerSubject.equals(m.validatorSubject))
+        || m.ownerSubject.equals(m.validatorSubject)
+        || m.assigneeSubjects.contains(m.validatorSubject))
       throw new ResponseStatusException(HttpStatus.CONFLICT);
   }
 
@@ -501,6 +505,8 @@ class MissionController {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
           if (m.version != body.version() || !m.status.equals("PENDING_REVIEW"))
             throw new ResponseStatusException(HttpStatus.CONFLICT);
+          if (m.assigneeSubjects.contains(m.validatorSubject))
+            throw new ResponseStatusException(HttpStatus.CONFLICT);
           m.reviewDecision = body.decision();
           m.reviewComment = body.comment().strip();
           m.reviewedBy = jwt.getSubject();
@@ -555,6 +561,11 @@ class MissionController {
           if (!body.action().equals("DELETE") && (before.equals("DRAFT") || before.equals(after)))
             throw new ResponseStatusException(HttpStatus.CONFLICT);
           if (body.action().equals("APPROVE") && before.equals("CLOSED"))
+            throw new ResponseStatusException(HttpStatus.CONFLICT);
+          if (body.action().equals("APPROVE")
+              && (jwt.getSubject().equals(m.ownerSubject)
+                  || jwt.getSubject().equals(m.validatorSubject)
+                  || m.assigneeSubjects.contains(jwt.getSubject())))
             throw new ResponseStatusException(HttpStatus.CONFLICT);
           m.adminOverrideId =
               actionLog.admin(
@@ -633,7 +644,8 @@ class MissionController {
     checkOwner(m, jwt, body.version());
     if (!Set.of("DRAFT", "IN_PROGRESS").contains(m.status))
       throw new ResponseStatusException(HttpStatus.CONFLICT);
-    if (m.ownerSubject.equals(body.validatorSubject()))
+    if (m.ownerSubject.equals(body.validatorSubject())
+        || m.assigneeSubjects.contains(body.validatorSubject()))
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
   }
 

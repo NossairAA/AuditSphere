@@ -235,13 +235,13 @@ test("callback falsifié et visiteurs anonymes refusés, affichage mobile", asyn
   ).toBeVisible();
 });
 
-test("échec de renouvellement, durée absolue et indisponibilité affichée", async ({
+test("session chiffrée altérée, durée absolue et indisponibilité affichée", async ({
   page,
 }) => {
   await login(page, "manager");
   let id = hashed(await sessionId(page));
   await db.query(
-    `UPDATE web_sessions SET data=jsonb_set(jsonb_set(data,'{expiresAt}','0'),'{refreshToken}','"invalid-refresh"') WHERE id_hash=$1`,
+    `UPDATE web_sessions SET data=jsonb_set(data,'{tokens,tag}','"invalid"') WHERE id_hash=$1`,
     [id],
   );
   expect((await page.request.get("/api/session")).status()).toBe(401);
