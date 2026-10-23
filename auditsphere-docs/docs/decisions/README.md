@@ -35,3 +35,9 @@ Utiliser le modèle dans [`docs/templates/adr.md`](../templates/adr.md).
 - [ADR-0015 : preuves privées dans Garage](ADR-0015-preuves-garage.md)
 
 - [ADR-0016 : administration applicative des comptes](ADR-0016-administration-comptes.md)
+
+- [ADR-0017 : identité et authentification de production](ADR-0017-identite-production.md)
+
+- [ADR-0018 : séparation validateur et auditeur](ADR-0018-separation-validateur-auditeur.md).
+- [ADR-0019 : sessions et accès web](ADR-0019-sessions-et-acces-web.md).
+- [ADR-0020 : déploiement interne sécurisé](ADR-0020-deploiement-interne-securise.md), proposé.

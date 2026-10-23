@@ -1,5 +1,9 @@
 # Journal des changements
 
+## 2026-10-23 : C7
+
+ADR proposé pour Kafka SASL_SSL et ACL, Temporal avec mTLS, TLS Garage et chiffrement des preuves. Aucun déploiement de production ni modification de secrets. Validations locales détaillées dans le guide des correctifs.
+
 ## 2026-10-23 : C18
 
 Images externes épinglées par digest SHA-256 et actions GitHub par SHA. Références vérifiées auprès des registres et dépôts, test de non-régression réussi. Images PostgreSQL Testcontainers exécutées avec succès.
