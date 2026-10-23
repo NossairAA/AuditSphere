@@ -29,6 +29,9 @@ class RequestLimits implements GlobalFilter, Ordered {
     uploads.computeIfPresent(subject, (key, count) -> count == 1 ? null : count - 1);
   }
 
+  @org.springframework.beans.factory.annotation.Value("${gateway.rate.ip-limit:600}")
+  private int ipLimit = 600;
+
   record Bucket(AtomicInteger count, long until) {}
 
   private final ConcurrentHashMap<String, Bucket> buckets = new ConcurrentHashMap<>();
@@ -74,7 +77,7 @@ class RequestLimits implements GlobalFilter, Ordered {
             exchange.getRequest().getRemoteAddress() == null
                 ? "unknown"
                 : exchange.getRequest().getRemoteAddress().getAddress());
-    if (!allow("global", 1200) || !allow("ip:" + address, 600))
+    if (!allow("global", 1200) || !allow("ip:" + address, ipLimit))
       return reject(exchange, HttpStatus.TOO_MANY_REQUESTS);
     return exchange
         .getPrincipal()

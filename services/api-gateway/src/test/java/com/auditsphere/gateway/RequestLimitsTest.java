@@ -108,4 +108,16 @@ class RequestLimitsTest {
     } finally { first.dispose(); second.dispose(); }
   }
 
+  @Test
+  void configuredBffIpLimitKeepsDifferentUsersIndependent() {
+    var filter = new RequestLimits();
+    org.springframework.test.util.ReflectionTestUtils.setField(filter, "ipLimit", 1200);
+    for (int i = 0; i < 601; i++) {
+      final String subject = "user-" + i;
+      var exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/missions"))
+          .mutate().principal(Mono.just((java.security.Principal) () -> subject)).build();
+      filter.filter(exchange, e -> Mono.empty()).block();
+      assertNull(exchange.getResponse().getStatusCode());
+    }
+  }
 }

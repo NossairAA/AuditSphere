@@ -1,5 +1,5 @@
 import "server-only";
-import { rateLimit } from "./rate";
+import { rateLimit, rateLimitAnonymous, rateLimitSession } from "./rate";
 import { limitedText, BodyError } from "./body";
 import { json, session, validMutation } from "./auth";
 export async function missions(
@@ -28,8 +28,13 @@ export async function missions(
   if (rejection) return rejection;
   try {
     const data = await session();
-    if (!data)
+    if (!data) {
+      const anonymousLimit = rateLimitAnonymous(request);
+      if (anonymousLimit) return anonymousLimit;
       return json({ error: "Votre session a expiré. Reconnectez-vous." }, 401);
+    }
+    const limitedSession = rateLimitSession(data);
+    if (limitedSession) return limitedSession;
     if (id && !/^[0-9a-f-]{36}$/i.test(id))
       return json({ error: "Mission introuvable" }, 404);
     if (

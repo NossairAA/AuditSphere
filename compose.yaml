@@ -207,6 +207,7 @@ services:
       args: {SERVICE: api-gateway}
     ports: ["127.0.0.1:8080:8080"]
     environment:
+      GATEWAY_RATE_IP_LIMIT: ${GATEWAY_RATE_IP_LIMIT:-1200}
       AUDIT_URL: http://audit-service:8081
       NOTIFICATION_URL: http://notification-service:8082
       OIDC_ISSUER: http://localhost:8180/realms/auditsphere

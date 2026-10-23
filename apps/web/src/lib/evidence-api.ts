@@ -1,7 +1,7 @@
 import "server-only";
 import { json, session, validMutation } from "./auth";
 import { acquireUpload, boundedBody } from "./upload-limits";
-import { rateLimit } from "./rate";
+import { rateLimit, rateLimitSession, rateLimitAnonymous } from "./rate";
 
 const maxFile = 10 * 1024 * 1024;
 const maxBody = 11 * 1024 * 1024;
@@ -27,8 +27,13 @@ export async function evidence(
   let releaseUpload: (() => void) | null = null;
   try {
     const data = await session();
-    if (!data)
+    if (!data) {
+      const limitedAnonymous = rateLimitAnonymous(request);
+      if (limitedAnonymous) return limitedAnonymous;
       return json({ error: "Votre session a expiré. Reconnectez-vous." }, 401);
+    }
+    const limitedSession = rateLimitSession(data);
+    if (limitedSession) return limitedSession;
     const upload = request.method === "POST";
     if (upload) {
       if (!validMutation(request, data, request.headers.get("x-csrf-token")))

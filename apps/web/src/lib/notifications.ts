@@ -1,6 +1,6 @@
 import "server-only";
 import { json, session, validMutation } from "@/lib/auth";
-import { rateLimit } from "@/lib/rate";
+import { rateLimit, rateLimitAnonymous, rateLimitSession } from "@/lib/rate";
 export async function notificationRequest(
   request: Request,
   resource?: "unread-count" | "read",
@@ -10,8 +10,13 @@ export async function notificationRequest(
   if (rejection) return rejection;
   try {
     const data = await session();
-    if (!data)
+    if (!data) {
+      const anonymousLimit = rateLimitAnonymous(request);
+      if (anonymousLimit) return anonymousLimit;
       return json({ error: "Votre session a expiré. Reconnectez-vous." }, 401);
+    }
+    const limitedSession = rateLimitSession(data);
+    if (limitedSession) return limitedSession;
     if (resource === "read") {
       if (!validMutation(request, data, request.headers.get("x-csrf-token")))
         return json({ error: "Requête refusée" }, 403);

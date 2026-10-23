@@ -1,5 +1,5 @@
 import { session, json } from "@/lib/auth";
-import { rateLimit } from "@/lib/rate";
+import { rateLimit, rateLimitAnonymous, rateLimitSession } from "@/lib/rate";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export async function GET(request: Request) {
@@ -7,7 +7,13 @@ export async function GET(request: Request) {
   if (rejected) return rejected;
   try {
     const user = await session();
-    if (!user) return json({ error: "Session expirée" }, 401);
+    if (!user) {
+      const anonymousLimit = rateLimitAnonymous(request);
+      if (anonymousLimit) return anonymousLimit;
+      return json({ error: "Session expirée" }, 401);
+    }
+    const limitedSession = rateLimitSession(user);
+    if (limitedSession) return limitedSession;
     const upstream = await fetch(
       new URL(
         "/notifications/stream",

@@ -1,4 +1,4 @@
-import { rateLimit } from "@/lib/rate";
+import { rateLimit, rateLimitAnonymous, rateLimitSession } from "@/lib/rate";
 import { limitedText, BodyError } from "@/lib/body";
 import { NextRequest, NextResponse } from "next/server";
 import * as oidc from "openid-client";
@@ -18,7 +18,13 @@ export async function POST(request: NextRequest) {
   if (rejection) return rejection;
   try {
     const data = await session();
-    if (!data) return json({ error: "Session expirée" }, 401);
+    if (!data) {
+      const anonymousLimit = rateLimitAnonymous(request);
+      if (anonymousLimit) return anonymousLimit;
+      return json({ error: "Session expirée" }, 401);
+    }
+    const limitedSession = rateLimitSession(data);
+    if (limitedSession) return limitedSession;
     const form = new URLSearchParams(await limitedText(request, 4096));
     if (!validMutation(request, data, String(form.get("csrf") || "")))
       return json({ error: "Requête refusée" }, 403);

@@ -1,5 +1,9 @@
 # Journal des changements
 
+## 2026-10-23 : C4
+
+Limites de connexion par IP de proxy explicitement fiable, refus HTTPS si cette configuration manque. Session réelle résolue avant son compteur. Plafond IP de la passerelle configurable. Tests de séparation des IP réussis. Le mode HTTP local conserve une limite anonyme partagée car Next.js ne fournit pas la socket.
+
 ## 2026-10-23 : C3
 
 Dépôts bornés à deux par utilisateur et huit par instance au BFF et à la passerelle, lecture BFF limitée à trente secondes et onze Mio. Tests de concurrence, annulation et lecture lente réussis.

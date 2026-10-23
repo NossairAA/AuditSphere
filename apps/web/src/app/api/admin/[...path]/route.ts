@@ -1,5 +1,5 @@
 import { json, session, validMutation } from "@/lib/auth";
-import { rateLimit } from "@/lib/rate";
+import { rateLimit, rateLimitAnonymous, rateLimitSession } from "@/lib/rate";
 import { limitedText, BodyError } from "@/lib/body";
 async function handle(
   request: Request,
@@ -9,7 +9,13 @@ async function handle(
   if (limited) return limited;
   try {
     const user = await session();
-    if (!user) return json({ error: "Reconnectez-vous." }, 401);
+    if (!user) {
+      const anonymousLimit = rateLimitAnonymous(request);
+      if (anonymousLimit) return anonymousLimit;
+      return json({ error: "Reconnectez-vous." }, 401);
+    }
+    const limitedSession = rateLimitSession(user);
+    if (limitedSession) return limitedSession;
     if (!user.roles.includes("SUPER_ADMIN"))
       return json({ error: "Accès réservé au superadministrateur." }, 403);
     const { path } = await params;
