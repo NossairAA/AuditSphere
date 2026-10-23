@@ -4,7 +4,7 @@ import subprocess
 import unittest
 from pathlib import Path
 
-from keycloak_production import reject_demo_users
+from keycloak_production import MFA_FLOW, PASSWORD_POLICY, configure_mfa, disable_direct_grants, reject_demo_users
 
 
 class ProductionRealmTest(unittest.TestCase):
@@ -53,5 +53,74 @@ class ProductionRealmTest(unittest.TestCase):
         self.assertNotIn(".local/realm.json", result.stdout)
 
 
-if __name__ == '__main__':
+class ProductionMfaTest(unittest.TestCase):
+    def test_password_grant_is_disabled_for_built_in_and_custom_clients(self):
+        clients = [
+            {"id": "1", "clientId": "admin-cli", "directAccessGrantsEnabled": True},
+            {"id": "2", "clientId": "auditsphere-web", "directAccessGrantsEnabled": False},
+            {"id": "3", "clientId": "legacy", "directAccessGrantsEnabled": True},
+        ]
+
+        def call(path, data=None, method=None, token=None):
+            self.assertEqual(token, "test-token")
+            if path.endswith("?first=0&max=100"):
+                return clients
+            if method == "PUT":
+                next(client for client in clients if client["id"] == path.rsplit("/", 1)[1]).update(data)
+                return None
+            raise AssertionError(path)
+
+        disable_direct_grants(call, "test-token")
+        self.assertTrue(all(not client["directAccessGrantsEnabled"] for client in clients))
+
+    def test_browser_flow_requires_otp_and_password_policy(self):
+        base = "/admin/realms/auditsphere"
+        flow = base + "/authentication/flows/" + MFA_FLOW
+        forms = base + "/authentication/flows/auditsphere-browser-mfa%20forms/executions"
+        state = {
+            "flows": [],
+            "realm": {},
+            "form_executions": [
+                {"id": "conditional", "displayName": "Conditional 2FA", "authenticationFlow": True,
+                 "requirement": "CONDITIONAL"}
+            ],
+        }
+
+        def call(path, data=None, method=None, token=None):
+            self.assertEqual(token, "test-token")
+            if path == base + "/authentication/flows":
+                return state["flows"]
+            if path.endswith("/browser/copy"):
+                state["flows"].append({"alias": MFA_FLOW})
+                return None
+            if path == flow + "/executions":
+                return [{"id": "forms", "displayName": MFA_FLOW + " forms", "authenticationFlow": True}]
+            if path == forms:
+                if method == "PUT":
+                    for index, item in enumerate(state["form_executions"]):
+                        if item["id"] == data["id"]:
+                            state["form_executions"][index] = data
+                    return None
+                return state["form_executions"]
+            if path == forms + "/execution":
+                state["form_executions"].append(
+                    {"id": "otp", "providerId": "auth-otp-form", "requirement": "DISABLED"}
+                )
+                return None
+            if path == base:
+                if method == "PUT":
+                    state["realm"].update(data)
+                    return None
+                return state["realm"]
+            raise AssertionError(path)
+
+        configure_mfa(call, "test-token")
+        self.assertEqual(state["realm"], {"browserFlow": MFA_FLOW, "passwordPolicy": PASSWORD_POLICY})
+        self.assertEqual(next(x for x in state["form_executions"] if x["id"] == "otp")["requirement"], "REQUIRED")
+        self.assertEqual(next(x for x in state["form_executions"] if x["id"] == "conditional")["requirement"], "DISABLED")
+        configure_mfa(call, "test-token")
+        self.assertEqual(len([x for x in state["form_executions"] if x["id"] == "otp"]), 1)
+
+
+if __name__ == "__main__":
     unittest.main()

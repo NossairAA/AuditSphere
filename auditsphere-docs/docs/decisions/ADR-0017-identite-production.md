@@ -17,6 +17,8 @@ Le profil Compose de production héritait du fichier d'import local de Keycloak.
 
 Le profil de production utilise un projet Compose distinct nommé `auditsphere-production` et importe `deploy/keycloak/production-realm.json`, sans utilisateur ni client de démonstration. Les volumes locaux ne sont ainsi pas repris par défaut. `setup-web.py --production` recherche les cinq noms de démonstration et échoue avant de modifier le royaume si l'un existe. Il ne supprime aucun compte automatiquement.
 
+Le mode production applique une politique de mot de passe de 14 caractères minimum, avec majuscule, minuscule, chiffre, caractère spécial et historique des cinq derniers mots de passe. Il copie le flux navigateur Keycloak et rend l'OTP obligatoire pour tous les utilisateurs du royaume. Cette règle couvre les rôles `SUPER_ADMIN` et `AUDIT_VALIDATOR`, y compris lorsqu'un utilisateur cumule plusieurs rôles. Il désactive aussi le grant mot de passe de tous les clients du royaume, dont le client intégré `admin-cli`, car ce grant ne passe pas par le flux navigateur. Le mode local conserve son flux de démonstration.
+
 Le premier superadministrateur applicatif est créé par un administrateur Keycloak depuis la console d'administration, avec une adresse personnelle vérifiée. L'administrateur attribue `SUPER_ADMIN` et envoie les actions `UPDATE_PASSWORD` et `CONFIGURE_TOTP` par courriel. Aucun mot de passe de ce compte n'est mis dans `.env`. Le compte bootstrap de Keycloak relève d'une gestion distincte et doit être retiré ou encadré après cette opération.
 
 ## Conséquences et vérification

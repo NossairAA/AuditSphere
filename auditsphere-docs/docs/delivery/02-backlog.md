@@ -4,6 +4,7 @@
 
 ## Correctifs de sécurité du 23 octobre 2026
 
+- C17 : Politique de mot de passe de 14 caractères et OTP requis pour tous les utilisateurs de production, grants mot de passe désactivés pour tous les clients. Tests unitaires et configuration idempotente sur Keycloak jetable réussis. Parcours privilégié réel de production restant à valider.
 - C16 : Trois flux SSE par utilisateur, plafond global configurable de 200 par instance. Tests de saturation et libération des places réussis.
 - C15 : Jetons chiffrés par AES-256-GCM avec hachage de session authentifié. Anciennes sessions locales supprimées après sauvegarde. Tests de retour, altération et échange de ligne réussis. Clé dédiée obligatoire en production, dérivation locale transitoire documentée.
 - C14 : Nom des auteurs de résultats et preuves résolu depuis le sujet authentifié dans l’annuaire. Test avec nom trompeur dans le jeton réussi.

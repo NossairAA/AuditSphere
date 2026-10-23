@@ -2,7 +2,7 @@
 """Prepare BFF secrets, then idempotently configure the local OIDC web client."""
 from pathlib import Path
 import base64, json, os, secrets, sys, time, urllib.request, urllib.parse, urllib.error
-from keycloak_production import reject_demo_users
+from keycloak_production import configure_mfa, disable_direct_grants, reject_demo_users
 root=Path(__file__).resolve().parents[1]
 os.umask(0o077)
 if not (root/'.env').exists(): raise SystemExit('Exécuter scripts/init-local.py avant ce script.')
@@ -47,7 +47,9 @@ for i in range(90):
 else:raise SystemExit('Keycloak indisponible ou authentification administrateur refusée.')
 token=auth['access_token']
 if production:
- try:reject_demo_users(call,token)
+ try:
+  reject_demo_users(call,token)
+  disable_direct_grants(call,token)
  except RuntimeError as error:raise SystemExit(str(error)) from error
 # Provision the role in every environment, but demo accounts only in local mode.
 base='/admin/realms/auditsphere'
@@ -130,4 +132,6 @@ print('Protection des connexions et rotation des refresh tokens activées.')
 if production:
  demo=call('/admin/realms/auditsphere/clients?clientId=auditsphere-demo',token=token)
  if demo:call('/admin/realms/auditsphere/clients/'+demo[0]['id'],{'enabled':False,'directAccessGrantsEnabled':False},'PUT',token)
- print('Profil production : HTTPS obligatoire et client de démonstration désactivé.')
+ try:configure_mfa(call,token)
+ except RuntimeError as error:raise SystemExit(str(error)) from error
+ print('Profil production : HTTPS, politique de mot de passe et OTP obligatoires. Aucun compte de démonstration.')
