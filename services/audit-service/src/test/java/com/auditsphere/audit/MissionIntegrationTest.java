@@ -2029,8 +2029,10 @@ class MissionIntegrationTest {
     var target = java.util.UUID.randomUUID();
     var actor = java.util.UUID.randomUUID().toString();
     org.mockito.Mockito.when(userAdministration.token()).thenReturn("private-test-token");
-    org.mockito.Mockito.when(userAdministration.user(target.toString(), "private-test-token"))
-        .thenReturn(java.util.Map.of());
+    org.mockito.Mockito.when(userAdministration.sendPasswordAction(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString()))
+        .thenReturn("EMAIL_SENT");
+    org.mockito.Mockito.doReturn(java.util.Map.of("email", "test@example.invalid"))
+        .when(userAdministration).user(target.toString(), "private-test-token");
     String body =
         "{\"firstName\":\"Test\",\"lastName\":\"User\",\"email\":\"test@example.invalid\",\"enabled\":false,\"roles\":[\"AUDITOR\"],\"reason\":\"Test de désactivation\"}";
     mvc.perform(get("/admin/users").with(jwt())).andExpect(status().isForbidden());
@@ -2053,6 +2055,16 @@ class MissionIntegrationTest {
             put("/admin/users/" + target)
                 .with(adminJwt(actor))
                 .contentType("application/json")
+                .content(body.replace("test@example.invalid", "redirect@example.invalid")))
+        .andExpect(status().isBadRequest());
+    org.mockito.Mockito.verify(userAdministration, org.mockito.Mockito.never())
+        .logout(target.toString(), "private-test-token");
+    org.junit.jupiter.api.Assertions.assertEquals(0,
+        jdbc.queryForObject("SELECT count(*) FROM account_revocations WHERE subject=?", Integer.class, target.toString()));
+    mvc.perform(
+            put("/admin/users/" + target)
+                .with(adminJwt(actor))
+                .contentType("application/json")
                 .content(body))
         .andExpect(status().isOk());
     org.mockito.Mockito.verify(userAdministration).logout(target.toString(), "private-test-token");
@@ -2068,11 +2080,18 @@ class MissionIntegrationTest {
     mvc.perform(get("/admin/users/" + target + "/history").with(adminJwt(actor)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("events[0].outcome").value("SUCCESS"));
+    mvc.perform(
+            post("/admin/users/" + target + "/reset-password")
+                .with(adminJwt(actor))
+                .contentType("application/json")
+                .content("{\"reason\":\"Test de courrier\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("status").value("EMAIL_SENT"))
+        .andExpect(jsonPath("temporaryPassword").doesNotExist());
     org.mockito.Mockito.doThrow(new IllegalStateException("network failure"))
         .when(userAdministration)
-        .reset(
+        .sendPasswordAction(
             org.mockito.ArgumentMatchers.eq(target.toString()),
-            org.mockito.ArgumentMatchers.anyString(),
             org.mockito.ArgumentMatchers.anyString());
     mvc.perform(
             post("/admin/users/" + target + "/reset-password")

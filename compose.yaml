@@ -178,6 +178,7 @@ services:
       context: .
       args: {SERVICE: audit-service}
     environment:
+      USER_ADMIN_LOCAL_EMAIL_FALLBACK: "true"
       DB_URL: jdbc:postgresql://audit-db:5432/audit
       DB_USER: audit_runtime
       DB_PASSWORD: ${AUDIT_RUNTIME_PASSWORD:-not-provisioned}

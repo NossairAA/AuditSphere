@@ -18,9 +18,8 @@ async function login(
   await page.locator("#password").fill(password);
   await page.locator("#kc-login").click();
 }
-test("administration des comptes, premier accès et révocation", async ({
+test("administration des comptes, action email et révocation", async ({
   page,
-  browser,
 }) => {
   test.setTimeout(90000);
   await login(page, "superadmin");
@@ -60,56 +59,21 @@ test("administration des comptes, premier accès et révocation", async ({
   entries.push({ id: body.id, username });
   writeFileSync(manifest, JSON.stringify(entries), { mode: 0o600 });
   expect(response.status()).toBe(201);
-  const context = await browser.newContext();
+  expect(body.id).toEqual(expect.any(String));
+  expect(["EMAIL_SENT", "LOCAL_ACTION_REQUIRED"]).toContain(body.status);
   try {
-    await expect(
-      dialog.getByRole("heading", { name: "Mot de passe temporaire" }),
-    ).toBeVisible();
-    await dialog
-      .getByRole("button", { name: "J’ai conservé le mot de passe" })
-      .click();
-    await expect(page.locator("code")).toHaveCount(0);
-    const newcomer = await context.newPage();
-    await login(newcomer, username, body.temporaryPassword);
-    await expect(newcomer.locator("#password-new")).toBeVisible();
-    const replacement = body.temporaryPassword + "x";
-    await newcomer.locator("#password-new").fill(replacement);
-    await newcomer.locator("#password-confirm").fill(replacement);
-    await newcomer
-      .locator("input[type=submit],button[type=submit]")
-      .first()
-      .click();
-    await expect(newcomer).toHaveURL(/\/missions$/);
-    expect((await newcomer.request.get("/api/admin/users")).status()).toBe(403);
-    const firstSession = await (await newcomer.request.get("/api/session")).json();
-    expect(firstSession.roles).toContain("AUDITOR");
+    await expect(page.getByRole("status").filter({ hasText: body.status === "EMAIL_SENT" ? "Un email" : "Email indisponible" })).toBeVisible();
+    await expect(dialog).toHaveCount(0);
     const adminSession = await (await page.request.get("/api/session")).json();
     const changedRoles = await page.request.put(`/api/admin/users/${body.id}`, {
       headers: {Origin:"http://localhost:3000", "x-csrf-token":adminSession.csrf},
       data: {username,firstName:"Camille",lastName:"Test",email:username+"@example.invalid",enabled:true,roles:["AUDIT_VALIDATOR"],reason:"Changement de rôle synthétique"},
     });
     expect(changedRoles.status()).toBe(200);
-    expect((await newcomer.request.get("/api/session")).status()).toBe(401);
-    // JWT iat has second precision. Cross the revocation second before a fresh login.
-    const revokedAt = Math.floor(Date.now()/1000);
-    await expect.poll(() => Math.floor(Date.now()/1000)).toBeGreaterThan(revokedAt);
-    await login(newcomer,username,replacement);
-    await expect(newcomer).toHaveURL(/\/missions$/);
-    const changedSession = await (await newcomer.request.get("/api/session")).json();
-    expect(changedSession.roles).toContain("AUDIT_VALIDATOR");
-    expect(changedSession.roles).not.toContain("AUDITOR");
 
     await page.getByLabel("Rechercher", { exact: true }).fill(username);
     await page.getByRole("button", { name: "Rechercher", exact: true }).click();
     const row = page.getByRole("row").filter({ hasText: username });
-    await row.getByRole("button", { name: "Gérer" }).click();
-    await dialog.getByRole("checkbox", { name: "Compte actif" }).uncheck();
-    await dialog.getByLabel("Motif").fill("Désactivation de test");
-    await dialog
-      .getByRole("button", { name: "Enregistrer", exact: true })
-      .click();
-    await expect(dialog).toHaveCount(0);
-    expect((await newcomer.request.get("/api/session")).status()).toBe(401);
     const session = await (await page.request.get("/api/session")).json();
     const headers = {
       Origin: "http://localhost:3000",
@@ -120,6 +84,9 @@ test("administration des comptes, premier accès et révocation", async ({
       { headers, data: { reason: "Réinitialisation de test" } },
     );
     expect(reset.status()).toBe(200);
+    const resetBody = await reset.json();
+    expect(resetBody.id).toBe(body.id);
+    expect(["EMAIL_SENT", "LOCAL_ACTION_REQUIRED"]).toContain(resetBody.status);
     const history = await (
       await page.request.get(`/api/admin/users/${body.id}/history`)
     ).json();
@@ -129,6 +96,13 @@ test("administration des comptes, premier accès et révocation", async ({
           e.action === "RESET_PASSWORD" && e.outcome === "SUCCESS",
       ),
     ).toBe(true);
+    await row.getByRole("button", { name: "Gérer" }).click();
+    await dialog.getByRole("checkbox", { name: "Compte actif" }).uncheck();
+    await dialog.getByLabel("Motif").fill("Désactivation de test");
+    await dialog
+      .getByRole("button", { name: "Enregistrer", exact: true })
+      .click();
+    await expect(dialog).toHaveCount(0);
     await page.setViewportSize({ width: 390, height: 844 });
     expect(
       await page.evaluate(
@@ -136,7 +110,6 @@ test("administration des comptes, premier accès et révocation", async ({
       ),
     ).toBe(true);
   } finally {
-    await context.close();
     execFileSync("python3", ["scripts/cleanup-test-users.py"], {
       cwd: "../..",
       stdio: "pipe",

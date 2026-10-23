@@ -28,7 +28,7 @@ Les formulaires de programme s’ouvrent dans un panneau latéral avec dialogue 
 
 Administration puis Utilisateurs permet de rechercher les comptes, filtrer par rôle et activation, créer un utilisateur et modifier son profil. L’identifiant est immuable. Les comptes techniques sont exclus. Seuls Responsable, Auditeur, Validateur et Superadmin sont gérés, aucun rôle d’administration Keycloak n’est exposé.
 
-La création et la réinitialisation génèrent un mot de passe temporaire côté serveur, affiché une fois et à changer lors de la prochaine connexion. Le mot de passe n’est ni journalisé ni envoyé dans une URL. Le superadmin doit le transmettre par un canal privé.
+La création et la réinitialisation demandent à Keycloak l’envoi de l’action `UPDATE_PASSWORD` à l’adresse du compte. Aucun mot de passe n’est renvoyé à l’interface ou inscrit dans le journal. L’adresse email d’un compte existant ne peut pas être changée ici. Si SMTP est indisponible dans le profil local, l’action reste requise dans Keycloak et un opérateur doit provisionner l’accès initial depuis la console locale. En production, un échec d’envoi rend l’opération incertaine à réconcilier.
 
 Toutes les mutations demandent un motif. L’interface demande confirmation et indique le nombre de missions actives liées au compte. Les affectations et historiques sont conservés après désactivation. La désactivation de son propre compte et le retrait de son propre rôle superadmin sont refusés côté serveur. Aucun effacement définitif n’est proposé.
 

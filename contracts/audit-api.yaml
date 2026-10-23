@@ -89,14 +89,14 @@ paths:
           description: Compte créé, mot de passe à transmettre de façon privée et à changer à la connexion
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/TemporaryAccess'}
+              schema: {$ref: '#/components/schemas/AdminActionResult'}
         '400': {description: Profil ou rôle invalide}
         '403': {description: SUPER_ADMIN requis}
         '409': {description: Opération en cours}
         '503': {description: Résultat incertain, vérifier le compte et le journal avant répétition}
   /admin/users/{id}:
     put:
-      summary: Modifier le profil, les rôles applicatifs et l’activation, puis invalider les sessions
+      summary: Modifier le profil et les rôles applicatifs sans changer l'email, puis invalider les sessions
       parameters:
         - {in: path, name: id, required: true, schema: {type: string, format: uuid}}
       requestBody:
@@ -112,7 +112,7 @@ paths:
         '503': {description: Résultat incertain, consulter le journal}
   /admin/users/{id}/reset-password:
     post:
-      summary: Réinitialiser l’accès avec un mot de passe temporaire et fermer les sessions
+      summary: Envoyer une action de définition du mot de passe par email et fermer les sessions
       parameters:
         - {in: path, name: id, required: true, schema: {type: string, format: uuid}}
       requestBody:
@@ -126,10 +126,10 @@ paths:
                 reason: {type: string, minLength: 1, maxLength: 2000}
       responses:
         '200':
-          description: Nouveau mot de passe temporaire, réponse sans cache
+          description: Action envoyée par email, réponse sans cache
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/TemporaryAccess'}
+              schema: {$ref: '#/components/schemas/AdminActionResult'}
         '403': {description: SUPER_ADMIN requis}
         '409': {description: Opération en cours}
         '503': {description: Résultat incertain, consulter le journal}
@@ -740,15 +740,16 @@ components:
         username: {type: string, pattern: '^[a-zA-Z0-9._-]{3,80}$', description: Requis à la création, immuable ensuite}
         firstName: {type: string, minLength: 1, maxLength: 100}
         lastName: {type: string, minLength: 1, maxLength: 100}
-        email: {type: string, format: email, maxLength: 254}
+        email: {type: string, format: email, maxLength: 254, description: Requis à la création, immuable ensuite}
         enabled: {type: boolean}
         roles: {type: array, uniqueItems: true, maxItems: 4, items: {type: string, enum: [SUPER_ADMIN, AUDIT_MANAGER, AUDITOR, AUDIT_VALIDATOR]}}
         reason: {type: string, minLength: 1, maxLength: 2000}
-    TemporaryAccess:
+    AdminActionResult:
       type: object
+      required: [id, status]
       properties:
         id: {type: string, format: uuid}
-        temporaryPassword: {type: string, description: Valeur sensible à usage temporaire, ne jamais journaliser}
+        status: {type: string, enum: [EMAIL_SENT, LOCAL_ACTION_REQUIRED]}
     ControlEvidence:
       type: object
       required: [id, originalName, mediaType, byteSize, sha256, authorName, createdAt]

@@ -2,7 +2,6 @@ package com.auditsphere.audit;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
-import java.security.SecureRandom;
 import java.util.*;
 import org.springframework.http.*;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -119,18 +118,17 @@ class UserAdminController {
     String id = null;
     try {
       recordChanges(operation, input);
-      String token = directory.token(), password = password();
+      String token = directory.token();
       var body = new HashMap<String, Object>(profile(input));
       body.put("username", input.username());
-      body.put(
-          "credentials", List.of(Map.of("type", "password", "value", password, "temporary", true)));
       id = directory.create(body, token);
       jdbc.update("UPDATE user_admin_log SET target_subject=? WHERE id=?", id, operation);
       directory.setRoles(id, input.roles(), token);
+      String status = directory.sendPasswordAction(id, token);
       finish(operation, "SUCCESS");
       return ResponseEntity.status(201)
           .cacheControl(CacheControl.noStore())
-          .body(Map.of("id", id, "temporaryPassword", password));
+          .body(Map.of("id", id, "status", status));
     } catch (RuntimeException e) {
       finish(operation, "UNCERTAIN");
       throw new ResponseStatusException(
@@ -151,13 +149,22 @@ class UserAdminController {
     try {
       recordChanges(operation, input);
       String token = directory.token();
-      directory.user(id.toString(), token);
+      var current = directory.user(id.toString(), token);
+      // An administrator must not redirect a password action to an address they control.
+      if (!Objects.toString(current.get("email"), "").equalsIgnoreCase(input.email().strip())) {
+        finish(operation, "REJECTED");
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "L'adresse email ne peut pas être modifiée ici");
+      }
       revoke(id);
       directory.logout(id.toString(), token);
-      directory.update(id.toString(), profile(input), token);
+      var unchangedEmail = new HashMap<String, Object>(profile(input));
+      unchangedEmail.put("emailVerified", Boolean.TRUE.equals(current.get("emailVerified")));
+      directory.update(id.toString(), unchangedEmail, token);
       directory.setRoles(id.toString(), input.roles(), token);
       finish(operation, "SUCCESS");
       return Map.of("id", id, "status", "SUCCESS");
+    } catch (ResponseStatusException e) {
+      throw e;
     } catch (RuntimeException e) {
       finish(operation, "UNCERTAIN");
       throw new ResponseStatusException(
@@ -171,13 +178,13 @@ class UserAdminController {
       @PathVariable UUID id, @Valid @RequestBody Reason input, @AuthenticationPrincipal Jwt jwt) {
     UUID operation = begin(jwt, id.toString(), "RESET_PASSWORD", input.reason());
     try {
-      String token = directory.token(), password = password();
+      String token = directory.token();
       directory.user(id.toString(), token);
       revoke(id);
       directory.logout(id.toString(), token);
-      directory.reset(id.toString(), password, token);
+      String status = directory.sendPasswordAction(id.toString(), token);
       finish(operation, "SUCCESS");
-      return Map.of("id", id, "temporaryPassword", password);
+      return Map.of("id", id, "status", status);
     } catch (RuntimeException e) {
       finish(operation, "UNCERTAIN");
       throw new ResponseStatusException(
@@ -242,9 +249,4 @@ class UserAdminController {
     jdbc.update("UPDATE user_admin_log SET outcome=?,completed_at=now() WHERE id=?", outcome, id);
   }
 
-  private String password() {
-    byte[] bytes = new byte[24];
-    new SecureRandom().nextBytes(bytes);
-    return "Aa1!" + Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-  }
 }

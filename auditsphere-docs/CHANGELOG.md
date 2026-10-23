@@ -1,5 +1,9 @@
 # Journal des changements
 
+## 2026-10-23 : C2
+
+Création et réinitialisation par action email Keycloak, aucun mot de passe retourné. Adresse email existante immuable pour empêcher le détournement de la réinitialisation. Tests API et client Keycloak réussis, SMTP de production non vérifié.
+
 ## 2026-10-23 : C1
 
 Royaume sans utilisateurs de démonstration, projet Compose et volumes distincts, refus du provisionnement si un compte démo subsiste. Tests de configuration et Keycloak jetable vérifiés, aucun déploiement de production.

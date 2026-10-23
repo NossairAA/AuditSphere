@@ -47,7 +47,7 @@ function Users() {
     [history, setHistory] = useState<History | null>(null),
     [busy, setBusy] = useState(false),
     [dirty, setDirty] = useState(false),
-    [secret, setSecret] = useState("");
+    [notice, setNotice] = useState("");
   const [formError, setFormError] = useState("");
   const dialog = useRef<HTMLDialogElement>(null);
   useUnsavedGuard(dirty);
@@ -79,7 +79,7 @@ function Users() {
     else dialog.current?.close();
     setHistory(null);
     setFormError("");
-    setSecret("");
+    if (editor) setNotice("");
     if (editor && editor !== "new") {
       const abort = new AbortController();
       fetch(`/api/admin/users/${editor.id}/history`, { signal: abort.signal })
@@ -98,7 +98,7 @@ function Users() {
     if (busy) return;
     if (!dirty || confirm("Quitter sans enregistrer ?")) {
       setDirty(false);
-      setSecret("");
+      setNotice("");
       setEditor(null);
     }
   }
@@ -123,7 +123,7 @@ function Users() {
       return;
     setBusy(true);
     setFormError("");
-    setSecret("");
+    setNotice("");
     try {
       const path =
         editor === "new"
@@ -153,8 +153,10 @@ function Users() {
       if (!r.ok) throw Error(result.error);
       setDirty(false);
       setRetry((n) => n + 1);
-      if (result.temporaryPassword) setSecret(result.temporaryPassword);
-      else setEditor(null);
+      setNotice(result.status === "LOCAL_ACTION_REQUIRED"
+        ? "Email indisponible en local. Un opérateur doit fournir l’accès initial dans Keycloak."
+        : "Un email de définition du mot de passe a été envoyé à l’utilisateur.");
+      setEditor(null);
     } catch (e) {
       setFormError(e instanceof Error ? e.message : "Opération impossible.");
     } finally {
@@ -176,6 +178,7 @@ function Users() {
         </button>
       </div>
       <section className="panel">
+        {notice && <p role="status">{notice}</p>}
         <form
           className="directory-filters"
           key={query}
@@ -312,23 +315,7 @@ function Users() {
               : `Gérer ${editor.username}`}
           </h2>
           {formError && <ErrorNotice message={formError} />}
-          {secret ? (
-            <div className="admin-secret">
-              <h3>Mot de passe temporaire</h3>
-              <p>
-                Transmettez-le à l’utilisateur par un canal privé. Il devra le
-                remplacer à la prochaine connexion. Il ne sera plus affiché
-                après fermeture.
-              </p>
-              <code>{secret}</code>
-              <p>
-                <button className="button primary" onClick={close}>
-                  J’ai conservé le mot de passe
-                </button>
-              </p>
-            </div>
-          ) : (
-            <form
+          <form
               className="admin-user-form"
               onChange={() => setDirty(true)}
               onSubmit={(e) => {
@@ -376,6 +363,7 @@ function Users() {
                     type="email"
                     maxLength={254}
                     required
+                    readOnly={editor !== "new"}
                     defaultValue={editor === "new" ? "" : editor.email}
                   />
                 </label>
@@ -439,7 +427,6 @@ function Users() {
                 </div>
               </fieldset>
             </form>
-          )}
           {history && (
             <details>
               <summary>Historique des opérations</summary>

@@ -16,15 +16,18 @@ class UserAdministration {
       Set.of("SUPER_ADMIN", "AUDIT_MANAGER", "AUDITOR", "AUDIT_VALIDATOR");
   private final RestClient client;
   private final String secret;
+  private final boolean localEmailFallback;
 
   UserAdministration(
       @Value("${DIRECTORY_URL:http://localhost:8180}") String origin,
-      @Value("${USER_ADMIN_CLIENT_SECRET:}") String secret) {
+      @Value("${USER_ADMIN_CLIENT_SECRET:}") String secret,
+      @Value("${USER_ADMIN_LOCAL_EMAIL_FALLBACK:false}") boolean localEmailFallback) {
     var factory = new SimpleClientHttpRequestFactory();
     factory.setConnectTimeout(2000);
     factory.setReadTimeout(3000);
     this.client = RestClient.builder().baseUrl(origin).requestFactory(factory).build();
     this.secret = secret;
+    this.localEmailFallback = localEmailFallback && origin.startsWith("http://");
   }
 
   String token() {
@@ -148,12 +151,17 @@ class UserAdministration {
     send(HttpMethod.PUT, "/users/" + id, body, token);
   }
 
-  void reset(String id, String password, String token) {
-    send(
-        HttpMethod.PUT,
-        "/users/" + id + "/reset-password",
-        Map.of("type", "password", "value", password, "temporary", true),
-        token);
+  String sendPasswordAction(String id, String token) {
+    try {
+      send(HttpMethod.PUT, "/users/" + id + "/execute-actions-email", List.of("UPDATE_PASSWORD"), token);
+      return "EMAIL_SENT";
+    } catch (org.springframework.web.client.HttpServerErrorException e) {
+      if (!localEmailFallback) throw e;
+      // Local Keycloak may have no SMTP. Only the account owner can complete this action
+      // after an operator provisions initial access through the local Keycloak console.
+      update(id, Map.of("requiredActions", List.of("UPDATE_PASSWORD")), token);
+      return "LOCAL_ACTION_REQUIRED";
+    }
   }
 
   void logout(String id, String token) {
