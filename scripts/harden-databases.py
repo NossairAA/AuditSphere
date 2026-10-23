@@ -36,7 +36,7 @@ for db in ['audit','web','notification']:
   sql(service,admin,db,f"ALTER ROLE {owner} LOGIN PASSWORD '{migrationpass}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;\n")
  sql(service,admin,db,f"SELECT format('ALTER TABLE public.%I OWNER TO {owner}',tablename) FROM pg_tables WHERE schemaname='public'\\gexec\n\nALTER DATABASE {db} OWNER TO {owner};\nALTER SCHEMA public OWNER TO {owner};\nREVOKE CREATE ON SCHEMA public FROM PUBLIC;\nREVOKE ALL ON DATABASE {db} FROM PUBLIC;\nGRANT CONNECT ON DATABASE {db} TO {runtime};\nALTER ROLE {runtime} PASSWORD '{runtimepass}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;\nGRANT USAGE ON SCHEMA public TO {runtime};\nALTER ROLE {runtime} SET statement_timeout='5s';\nALTER ROLE {runtime} SET lock_timeout='2s';\nREVOKE ALL ON ALL TABLES IN SCHEMA public FROM {runtime};\n")
  if db=='web':
-  schema=(root/'apps/web/db/001-sessions.sql').read_text()
+  schema=(root/'apps/web/db/001-sessions.sql').read_text()+'\n'+(root/'apps/web/db/002-encrypted-sessions.sql').read_text()
   sql(service,admin,db,'SET ROLE web_owner;\n'+schema+'\nRESET ROLE;\nGRANT SELECT,INSERT,UPDATE,DELETE ON web_sessions TO web_runtime;\n')
  elif db=='audit':
   sql(service,admin,db,"SELECT 'GRANT SELECT,INSERT,UPDATE(outcome,completed_at,target_subject,requested_changes) ON user_admin_log TO audit_runtime' WHERE EXISTS(SELECT FROM pg_tables WHERE schemaname='public' AND tablename='user_admin_log')\\gexec\nSELECT 'GRANT SELECT,INSERT,UPDATE ON account_revocations TO audit_runtime' WHERE EXISTS(SELECT FROM pg_tables WHERE schemaname='public' AND tablename='account_revocations')\\gexec\n")

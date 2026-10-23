@@ -4,6 +4,7 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { Pool } from "pg";
 import * as oidc from "openid-client";
 import { createRemoteJWKSet, jwtVerify } from "jose";
+import { decryptSession, encryptSession, type StoredSession } from "./session-crypto";
 
 export const origin = process.env.APP_ORIGIN || "http://localhost:3000";
 const issuer =
@@ -101,7 +102,7 @@ export async function saveSession(
   };
   await pool.query(
     "INSERT INTO web_sessions(id_hash,kind,data,expires_at) VALUES($1,'session',$2,now()+interval '30 minutes')",
-    [hash(id), data],
+    [hash(id), encryptSession(data, hash(id))],
   );
   return id;
 }
@@ -115,7 +116,13 @@ export async function session(): Promise<Session | null> {
     [hash(id)],
   );
   if (!found.rowCount) return null;
-  const current = found.rows[0].data as Session;
+  let current: Session;
+  try {
+    current = decryptSession<Session>(found.rows[0].data as StoredSession<Session>, hash(id));
+  } catch {
+    await pool.query("DELETE FROM web_sessions WHERE id_hash=$1", [hash(id)]);
+    return null;
+  }
   if (current.absoluteExpiry <= Date.now()) return null;
   // Check administrative revocations before reusing or refreshing any web session.
   const security = await fetch(
@@ -154,7 +161,14 @@ export async function session(): Promise<Session | null> {
       await db.query("COMMIT");
       return null;
     }
-    let data = row.rows[0].data as Session;
+    let data: Session;
+    try {
+      data = decryptSession<Session>(row.rows[0].data as StoredSession<Session>, hash(id));
+    } catch {
+      await db.query("DELETE FROM web_sessions WHERE id_hash=$1", [hash(id)]);
+      await db.query("COMMIT");
+      return null;
+    }
     if (
       new Date(row.rows[0].expires_at).getTime() <= Date.now() ||
       data.absoluteExpiry <= Date.now()
@@ -186,7 +200,7 @@ export async function session(): Promise<Session | null> {
       "UPDATE web_sessions SET data=$2, expires_at=$3 WHERE id_hash=$1",
       [
         hash(id),
-        data,
+        encryptSession(data, hash(id)),
         new Date(Math.min(data.absoluteExpiry, Date.now() + 30 * 60_000)),
       ],
     );

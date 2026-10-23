@@ -1,5 +1,9 @@
 # Journal des changements
 
+## 2026-10-23 : C15
+
+Jetons chiffrés par AES-256-GCM avec hachage de session authentifié. Anciennes sessions locales supprimées après sauvegarde. Tests de retour, altération et échange de ligne réussis. Clé dédiée obligatoire en production, dérivation locale transitoire documentée.
+
 ## 2026-10-23 : C14
 
 Nom des auteurs de résultats et preuves résolu depuis le sujet authentifié dans l’annuaire. Test avec nom trompeur dans le jeton réussi.

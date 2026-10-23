@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Prepare BFF secrets, then idempotently configure the local OIDC web client."""
 from pathlib import Path
+import base64, json, os, secrets, sys, time, urllib.request, urllib.parse, urllib.error
 from keycloak_production import reject_demo_users
-import json, os, secrets, sys, time, urllib.request, urllib.parse, urllib.error
 root=Path(__file__).resolve().parents[1]
 os.umask(0o077)
 if not (root/'.env').exists(): raise SystemExit('Exécuter scripts/init-local.py avant ce script.')
@@ -14,13 +14,19 @@ if production and (not app_origin.startswith('https://') or not identity_origin.
  raise SystemExit('PROD_APP_ORIGIN et PROD_OIDC_ORIGIN HTTPS sont obligatoires.')
 
 missing={k:secrets.token_urlsafe(32) for k in ['WEB_DB_PASSWORD','WEB_CLIENT_SECRET','DIRECTORY_CLIENT_SECRET','USER_ADMIN_CLIENT_SECRET'] if k not in env}
+if 'SESSION_ENCRYPTION_KEY' not in env:
+ missing['SESSION_ENCRYPTION_KEY']=base64.b64encode(secrets.token_bytes(32)).decode()
 if missing:
  with (root/'.env').open('a') as f:
   for k,v in missing.items(): f.write(f'{k}={v}\n')
  env.update(missing)
 web=root/'apps/web/.env.local'
 if not web.exists():
- web.write_text('\n'.join(['APP_ORIGIN=http://localhost:3000','OIDC_ISSUER=http://localhost:8180/realms/auditsphere','OIDC_CLIENT_ID=auditsphere-web','OIDC_CLIENT_SECRET='+env['WEB_CLIENT_SECRET'],'SESSION_DATABASE_URL=postgresql://web:'+env['WEB_DB_PASSWORD']+'@localhost:5544/web','API_ORIGIN=http://localhost:8080','ALLOW_INSECURE_LOCAL=true','']) )
+ web.write_text('\n'.join(['APP_ORIGIN=http://localhost:3000','OIDC_ISSUER=http://localhost:8180/realms/auditsphere','OIDC_CLIENT_ID=auditsphere-web','OIDC_CLIENT_SECRET='+env['WEB_CLIENT_SECRET'],'SESSION_ENCRYPTION_KEY='+env['SESSION_ENCRYPTION_KEY'],'SESSION_DATABASE_URL=postgresql://web:'+env['WEB_DB_PASSWORD']+'@localhost:5544/web','API_ORIGIN=http://localhost:8080','ALLOW_INSECURE_LOCAL=true','']) )
+else:
+ settings=dict(l.split('=',1) for l in web.read_text().splitlines() if '=' in l)
+ if 'SESSION_ENCRYPTION_KEY' not in settings:
+  with web.open('a') as file: file.write('SESSION_ENCRYPTION_KEY='+env['SESSION_ENCRYPTION_KEY']+'\n')
 if production:
  settings=dict(l.split('=',1) for l in web.read_text().splitlines() if '=' in l)
  settings.update({'APP_ORIGIN':app_origin,'OIDC_ISSUER':identity_origin+'/realms/auditsphere','ALLOW_INSECURE_LOCAL':'false'})

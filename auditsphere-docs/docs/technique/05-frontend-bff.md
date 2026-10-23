@@ -20,7 +20,7 @@ Le client confidentiel `auditsphere-web` autorise uniquement la redirection loca
 
 ## Sessions, renouvellement et déconnexion
 
-La base `web` appartient au BFF. Une migration SQL versionnée est appliquée à son premier démarrage. Les identifiants aléatoires de session sont hachés SHA-256 en base. Les jetons eux-mêmes sont conservés en JSONB côté serveur, sans chiffrement applicatif dans cet environnement de développement.
+La base `web` appartient au BFF. Une migration SQL versionnée est appliquée à son premier démarrage. Les identifiants aléatoires de session sont hachés SHA-256 en base. Les jetons sont chiffrés en AES-256-GCM avant leur écriture JSONB avec une clé dédiée du BFF. Les sessions anciennes en clair sont invalidées à la lecture. Une rotation de clé demande une reconnexion.
 
 - Session inactive : expiration après 30 minutes.
 - Durée absolue maximale : 8 heures, même avec activité.
@@ -51,7 +51,7 @@ La session expose au navigateur le nom, le sub, les rôles et un jeton CSRF, uni
 
 ## Limites
 
-Pas de déploiement de production. Restent à traiter : TLS de bout en bout, politique CSP complète, limitation de débit, sauvegarde et chiffrement du stockage de session, supervision, gestion des affectations dans l’interface et modèle de révocation en exploitation. L’expiration du jeton et la session BFF sont deux durées distinctes. Le client web local n’altère pas la politique globale du realm.
+Pas de déploiement de production. Restent à traiter : TLS de bout en bout, sauvegarde du stockage de session, supervision et vérification du modèle de révocation en exploitation. L’expiration du jeton et la session BFF sont deux durées distinctes. La CSP à nonce impose un rendu dynamique. La limite de connexion distingue les IP seulement avec un proxy de confiance configuré. Sans ce proxy, elle partage une clé `direct` car Next.js ne fournit pas l’adresse de socket aux routes.
 
 ## Démarrage
 

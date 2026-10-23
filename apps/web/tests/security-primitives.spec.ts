@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
+import { randomBytes } from "node:crypto";
 import { rateLimit } from "../src/lib/rate";
+import { encryptSession, decryptSession } from "../src/lib/session-crypto";
 import { NextRequest } from "next/server";
 import { proxy } from "../src/proxy";
 
@@ -30,6 +32,23 @@ test("HTTPS login fails closed without a trusted proxy address", () => {
     else process.env.APP_ORIGIN = previousOrigin;
     if (previousHeader === undefined) delete process.env.TRUSTED_PROXY_IP_HEADER;
     else process.env.TRUSTED_PROXY_IP_HEADER = previousHeader;
+  }
+});
+
+test("session tokens are authenticated and absent from stored JSON", () => {
+  const previous = process.env.SESSION_ENCRYPTION_KEY;
+  process.env.SESSION_ENCRYPTION_KEY = randomBytes(32).toString("base64");
+  try {
+    const original = { subject: "user-1", accessToken: "access-secret", refreshToken: "refresh-secret" };
+    const stored = encryptSession(original, "session-hash");
+    expect(JSON.stringify(stored)).not.toContain("access-secret");
+    expect(JSON.stringify(stored)).not.toContain("refresh-secret");
+    expect(decryptSession<typeof original>(stored, "session-hash")).toEqual(original);
+    expect(() => decryptSession<typeof original>(stored, "another-hash")).toThrow();
+    expect(() => decryptSession<typeof original>({ ...stored, tokens: { ...stored.tokens, tag: randomBytes(16).toString("base64") } }, "session-hash")).toThrow();
+  } finally {
+    if (previous === undefined) delete process.env.SESSION_ENCRYPTION_KEY;
+    else process.env.SESSION_ENCRYPTION_KEY = previous;
   }
 });
 

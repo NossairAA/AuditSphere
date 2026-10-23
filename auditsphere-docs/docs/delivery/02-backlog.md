@@ -4,6 +4,7 @@
 
 ## Correctifs de sécurité du 23 octobre 2026
 
+- C15 : Jetons chiffrés par AES-256-GCM avec hachage de session authentifié. Anciennes sessions locales supprimées après sauvegarde. Tests de retour, altération et échange de ligne réussis. Clé dédiée obligatoire en production, dérivation locale transitoire documentée.
 - C14 : Nom des auteurs de résultats et preuves résolu depuis le sujet authentifié dans l’annuaire. Test avec nom trompeur dans le jeton réussi.
 - C13 : Affectations autorisées uniquement en brouillon et en cours. Test de refus sur mission clôturée réussi.
 - C12 : CSP avec nonce par requête, interdiction des cadres et objets, rendu dynamique Next.js. HSTS réservé à HTTPS. Test des directives, unicité du nonce et HSTS réussi, build web validé.
