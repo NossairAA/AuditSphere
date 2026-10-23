@@ -79,14 +79,16 @@ test("responsable : connexion, création, détail, liste, session opaque et déc
   expect(identity.accessToken).toBeUndefined();
   expect(identity.refreshToken).toBeUndefined();
   await page.getByRole("button", { name: "Se déconnecter" }).click();
-  await page.waitForURL((url) => url.port === "8180" || url.pathname === "/");
-  if (new URL(page.url()).port === "8180")
-    await page.locator("#kc-logout").click();
+  await expect(page).toHaveURL(/localhost:8180\/realms\/auditsphere\/protocol\/openid-connect\/logout/);
+  await expect(page.locator("#kc-logout")).toBeVisible();
+  await page.locator("#kc-logout").click();
   await expect(page).toHaveURL("http://localhost:3000/");
   const replay = await page.request.get("/api/session", {
     headers: { Cookie: "auditsphere-session=" + cookie.value },
   });
   expect(replay.status()).toBe(401);
+  await page.getByRole("link", { name: "Se connecter", exact: true }).click();
+  await expect(page.locator("#username")).toBeVisible();
 });
 
 test("auditeur : missions affectées seulement, création interdite et formulaire protégé", async ({
