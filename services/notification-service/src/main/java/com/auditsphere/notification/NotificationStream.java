@@ -10,6 +10,9 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @Component
 class NotificationStream {
+  @org.springframework.beans.factory.annotation.Value("${notifications.stream.max-connections:200}")
+  private int maxConnections = 200;
+
   private final Map<String, Set<SseEmitter>> subscribers = new HashMap<>();
   private final Set<String> pending = ConcurrentHashMap.newKeySet();
   private final ThreadPoolExecutor sender =
@@ -28,8 +31,8 @@ class NotificationStream {
   synchronized SseEmitter subscribe(String subject, Instant expiry) {
     long timeout = Math.min(25000, expiry.toEpochMilli() - System.currentTimeMillis());
     if (timeout <= 0) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
-    if (subscribers.values().stream().mapToInt(Set::size).sum() >= 200
-        || subscribers.getOrDefault(subject, Set.of()).size() >= 8)
+    if (subscribers.values().stream().mapToInt(Set::size).sum() >= maxConnections
+        || subscribers.getOrDefault(subject, Set.of()).size() >= 3)
       throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS);
     var emitter = new SseEmitter(timeout);
     subscribers.computeIfAbsent(subject, key -> new HashSet<>()).add(emitter);

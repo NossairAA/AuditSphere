@@ -1,5 +1,9 @@
 # Journal des changements
 
+## 2026-10-23 : C16
+
+Trois flux SSE par utilisateur, plafond global configurable de 200 par instance. Tests de saturation et libération des places réussis.
+
 ## 2026-10-23 : C15
 
 Jetons chiffrés par AES-256-GCM avec hachage de session authentifié. Anciennes sessions locales supprimées après sauvegarde. Tests de retour, altération et échange de ligne réussis. Clé dédiée obligatoire en production, dérivation locale transitoire documentée.
