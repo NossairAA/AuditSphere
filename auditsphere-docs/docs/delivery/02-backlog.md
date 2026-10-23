@@ -8,6 +8,8 @@ Correctif CI de quotas partagés entre tests navigateur vérifié localement : 1
 
 Le [superadministrateur](../technique/20-superadmin.md) et les dérogations explicites sont vérifiés localement, avant la reprise du programme métier.
 
+La sélection facultative du validateur dès la création d’une mission est implémentée et vérifiée localement le 2026-10-22. Test Java ciblé, compilation frontend et scénario navigateur réussis. Voir le [guide de désignation](../technique/12-designation-validateur.md).
+
 La [fiche de mission](../technique/19-fiche-mission.md) est réorganisée et vérifiée localement avant la reprise des fonctionnalités métier. La navigation entre sections, les formulaires à la demande et le suivi séparé sont également validés sur ordinateur et mobile.
 
 Le retrait des soumissions et la suppression des brouillons sont implémentés et vérifiés en local le 2026-10-20. Voir le [guide](../technique/18-retrait-suppression.md).

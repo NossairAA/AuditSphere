@@ -2,6 +2,7 @@
 import { canManage } from "@/lib/types";
 import Link from "next/link";
 import { AuditorPicker } from "@/components/assignments";
+import { ValidatorPicker } from "@/components/validator-picker";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, ShieldCheck, Check } from "lucide-react";
@@ -11,7 +12,8 @@ export default function NewMission() {
     router = useRouter(),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
-    [selected, setSelected] = useState<string[]>([]);
+    [selected, setSelected] = useState<string[]>([]),
+    [validator, setValidator] = useState("");
   if (!canManage(user))
     return (
       <div className="panel empty">
@@ -37,6 +39,7 @@ export default function NewMission() {
         },
         body: JSON.stringify({
           assigneeSubjects: selected,
+          validatorSubject: validator || null,
           title: form.get("title"),
           perimeter: form.get("perimeter"),
           description: form.get("description"),
@@ -125,6 +128,11 @@ export default function NewMission() {
           <AuditorPicker
             selected={selected}
             onChange={setSelected}
+            disabled={busy}
+          />
+          <ValidatorPicker
+            selected={validator}
+            onChange={setValidator}
             disabled={busy}
           />
           <div className="form-actions">

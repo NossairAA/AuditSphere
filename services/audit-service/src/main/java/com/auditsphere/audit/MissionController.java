@@ -46,7 +46,8 @@ class MissionController {
       @NotBlank @Size(max = 2000) String perimeter,
       @NotNull @Size(max = 100) Set<@NotBlank @Size(max = 255) String> assigneeSubjects,
       LocalDate plannedStartDate,
-      LocalDate plannedEndDate) {}
+      LocalDate plannedEndDate,
+      @Size(min = 1, max = 255) String validatorSubject) {}
 
   record MissionView(
       UUID id,
@@ -107,6 +108,11 @@ class MissionController {
       @Valid @RequestBody CreateMission body, @AuthenticationPrincipal Jwt jwt) {
     validateDates(body.plannedStartDate(), body.plannedEndDate(), false);
     directory.validate(body.assigneeSubjects());
+    if (body.validatorSubject() != null) {
+      if (jwt.getSubject().equals(body.validatorSubject()))
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+      directory.validateValidator(body.validatorSubject());
+    }
     return tx.execute(
         status -> {
           Mission m = new Mission();
@@ -115,6 +121,7 @@ class MissionController {
           m.description = body.description().strip();
           m.perimeter = body.perimeter().strip();
           m.ownerSubject = jwt.getSubject();
+          m.validatorSubject = body.validatorSubject();
           m.createdAt = Instant.now();
           m.status = "DRAFT";
           m.plannedStartDate = body.plannedStartDate();

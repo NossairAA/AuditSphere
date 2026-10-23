@@ -18,6 +18,34 @@ async function login(page: Page, name: string) {
     page.getByRole("heading", { name: "Répertoire des missions" }),
   ).toBeVisible();
 }
+test("choix facultatif du validateur à la création", async ({ page }) => {
+  await login(page, "manager");
+  await page
+    .getByRole("link", { name: "Nouvelle mission", exact: true })
+    .click();
+  const selector = page.getByLabel("Choisir un validateur");
+  await expect(selector).toBeVisible();
+  await expect(selector).toHaveValue("");
+  await expect(
+    selector.locator("option", { hasText: "Thomas Laurent" }),
+  ).toBeAttached();
+  await selector.selectOption({ label: "Thomas Laurent" });
+  const title = "Validateur dès création " + Date.now();
+  await page.getByLabel("Titre de la mission").fill(title);
+  await page.getByLabel("Périmètre", { exact: true }).fill("Achats");
+  await page
+    .getByLabel("Objectifs et description")
+    .fill("Vérifier le parcours.");
+  await page.getByRole("button", { name: "Créer la mission" }).click();
+  await expect(
+    page.getByRole("heading", { name: title, exact: true }),
+  ).toBeVisible();
+  recordMission(new URL(page.url()).pathname.split("/").pop()!);
+  await page.getByRole("link", { name: "Équipe" }).click();
+  await expect(
+    page.getByText("Validateur désigné : Thomas Laurent"),
+  ).toBeVisible();
+});
 test("désignation, accès limité et retrait du validateur", async ({
   page,
   browser,

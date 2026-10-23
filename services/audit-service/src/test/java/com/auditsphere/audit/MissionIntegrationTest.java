@@ -193,6 +193,66 @@ class MissionIntegrationTest {
   }
 
   @Test
+  void creationDesignatesEligibleValidatorAtomically() throws Exception {
+    org.mockito.Mockito.doAnswer(
+            invocation -> {
+              org.junit.jupiter.api.Assertions.assertFalse(
+                  org.springframework.transaction.support.TransactionSynchronizationManager
+                      .isActualTransactionActive());
+              if (!"reviewer".equals(invocation.getArgument(0)))
+                throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST);
+              return null;
+            })
+        .when(directory)
+        .validateValidator(org.mockito.ArgumentMatchers.anyString());
+    String data =
+        "{\"title\":\"Création avec validateur\",\"description\":\"Test\",\"perimeter\":\"Achats\",\"assigneeSubjects\":[],\"validatorSubject\":\"reviewer\"}";
+    var response =
+        mvc.perform(
+                post("/missions")
+                    .with(
+                        jwt()
+                            .jwt(j -> j.subject("owner"))
+                            .authorities(new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER")))
+                    .contentType("application/json")
+                    .content(data))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("validatorSubject").value("reviewer"))
+            .andReturn();
+    String id = mapper.readTree(response.getResponse().getContentAsString()).get("id").asText();
+    mvc.perform(
+            get("/missions/" + id)
+                .with(
+                    jwt()
+                        .jwt(
+                            j ->
+                                j.subject("reviewer")
+                                    .claim(
+                                        "realm_access",
+                                        java.util.Map.of(
+                                            "roles", java.util.List.of("AUDIT_VALIDATOR"))))
+                        .authorities(new SimpleGrantedAuthority("ROLE_AUDIT_VALIDATOR"))))
+        .andExpect(status().isOk());
+
+    for (String invalid : new String[] {"owner", "unknown"})
+      mvc.perform(
+              post("/missions")
+                  .with(
+                      jwt()
+                          .jwt(j -> j.subject("owner"))
+                          .authorities(new SimpleGrantedAuthority("ROLE_AUDIT_MANAGER")))
+                  .contentType("application/json")
+                  .content(data.replace("reviewer", invalid)))
+          .andExpect(status().isBadRequest());
+    org.junit.jupiter.api.Assertions.assertEquals(
+        1,
+        jdbc.queryForObject(
+            "SELECT count(*) FROM missions WHERE title='Création avec validateur'",
+            Integer.class));
+  }
+
+  @Test
   void ownerAndAssignedCanReadPersistedMission() throws Exception {
     String id = create();
     for (String subject : new String[] {"owner", "assigned"})

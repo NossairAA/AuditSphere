@@ -431,10 +431,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Mission'
-        '400': {description: Entrée invalide}
+        '400': {description: Entrée invalide, validateur inéligible ou identique au propriétaire}
         '401': {description: Authentification absente ou jeton invalide}
         '403': {description: Rôle de création absent}
-        '503': {description: Annuaire indisponible pour valider les affectations}
+        '503': {description: Annuaire indisponible pour valider les affectations ou le validateur}
   /missions/{id}:
     get:
       summary: Consulter une mission créée ou affectée à l’utilisateur
@@ -874,6 +874,7 @@ components:
         perimeter: {type: string, minLength: 1, maxLength: 2000}
         plannedStartDate: {type: string, format: date, nullable: true, description: Avec plannedEndDate ou toutes deux absentes}
         plannedEndDate: {type: string, format: date, nullable: true, description: Égale ou postérieure au début}
+        validatorSubject: {type: string, nullable: true, minLength: 1, maxLength: 255, description: Validateur actif facultatif, distinct du propriétaire}
         assigneeSubjects:
           type: array
           uniqueItems: true

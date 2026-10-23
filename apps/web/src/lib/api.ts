@@ -140,6 +140,7 @@ export async function missions(
                         description: input.description,
                         perimeter: input.perimeter,
                         assigneeSubjects: input.assigneeSubjects ?? [],
+                        validatorSubject: input.validatorSubject ?? null,
                         plannedStartDate: input.plannedStartDate ?? null,
                         plannedEndDate: input.plannedEndDate ?? null,
                       },

@@ -1,5 +1,11 @@
 # Journal des changements
 
+## 2026-10-22 : validateur choisi à la création
+
+- Sélection facultative d’un validateur dans le formulaire de nouvelle mission.
+- Éligibilité contrôlée avant la transaction et désignation enregistrée avec la mission.
+- Contrat API et tests ciblés actualisés. Test Java ciblé, typecheck, build frontend et parcours navigateur réussis localement.
+
 ## 2026-10-22 : extension du jeu de démonstration
 
 - Générateur local de 40 missions fictives, 120 risques et 160 contrôles, sans suppression de données.
