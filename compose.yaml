@@ -98,6 +98,7 @@ services:
       context: .
       args: {SERVICE: notification-service}
     environment:
+      AUDIT_URL: http://audit-service:8081
       DB_URL: jdbc:postgresql://notification-db:5432/notification
       DB_USER: notification_runtime
       DB_PASSWORD: ${NOTIFICATION_RUNTIME_PASSWORD:-not-provisioned}

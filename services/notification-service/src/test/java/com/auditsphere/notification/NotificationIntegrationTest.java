@@ -23,6 +23,31 @@ import org.testcontainers.junit.jupiter.*;
 @AutoConfigureMockMvc
 @Testcontainers
 class NotificationIntegrationTest {
+  static final com.sun.net.httpserver.HttpServer auditSecurity;
+
+  static {
+    try {
+      auditSecurity = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+      auditSecurity.createContext("/account/security", exchange -> {
+        exchange.sendResponseHeaders(200, -1);
+        exchange.close();
+      });
+      auditSecurity.start();
+    } catch (java.io.IOException e) {
+      throw new ExceptionInInitializerError(e);
+    }
+  }
+
+  @org.springframework.test.context.DynamicPropertySource
+  static void auditSecurityUrl(org.springframework.test.context.DynamicPropertyRegistry properties) {
+    properties.add("AUDIT_URL", () -> "http://127.0.0.1:" + auditSecurity.getAddress().getPort());
+  }
+
+  @org.junit.jupiter.api.AfterAll
+  static void stopAuditSecurity() {
+    auditSecurity.stop(0);
+  }
+
   @Container @ServiceConnection
   static PostgreSQLContainer<?> db = new PostgreSQLContainer<>("postgres:17.9");
 
