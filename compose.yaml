@@ -1,7 +1,7 @@
 name: auditsphere
 services:
   garage:
-    image: dxflrs/garage:v2.4.1
+    image: dxflrs/garage:v2.4.1@sha256:9c96caa2612d3411acc5b0e6701fb238dbfba33e533a6d7d3d811a4b12d0d020
     command: [/garage, server, --single-node]
     ports: ["127.0.0.1:3900:3900"]
     volumes:
@@ -10,14 +10,14 @@ services:
       - garage-data:/var/lib/garage/data
     restart: unless-stopped
   temporal-storage:
-    image: temporalio/temporal:1.9.1
+    image: temporalio/temporal:1.9.1@sha256:ad4c82c97bd12b417d1ea942610dbcd511afb250c4d5ed26c694009533df447e
     user: "0:0"
     entrypoint: [sh, -ec]
     command: ["chown 1000:1000 /data && chmod 700 /data"]
     volumes: [temporal-data:/data]
     restart: "no"
   temporal:
-    image: temporalio/temporal:1.9.1
+    image: temporalio/temporal:1.9.1@sha256:ad4c82c97bd12b417d1ea942610dbcd511afb250c4d5ed26c694009533df447e
     command: [server, start-dev, --ip, 0.0.0.0, --db-filename, /data/temporal.db]
     ports: ["127.0.0.1:8233:8233"]
     volumes: [temporal-data:/data]
@@ -37,14 +37,14 @@ services:
       temporal: {condition: service_healthy}
     restart: unless-stopped
   kafka-storage:
-    image: apache/kafka:4.0.2
+    image: apache/kafka:4.0.2@sha256:836cafdad9f4825880d7cf1d5a21202915ae2527bd0ef1c3600c526ed7814d1f
     user: "0:0"
     entrypoint: [sh, -ec]
     command: ["chown 1000:1000 /data && chmod 700 /data"]
     volumes: [kafka-data:/data]
     restart: "no"
   kafka:
-    image: apache/kafka:4.0.2
+    image: apache/kafka:4.0.2@sha256:836cafdad9f4825880d7cf1d5a21202915ae2527bd0ef1c3600c526ed7814d1f
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -70,7 +70,7 @@ services:
       timeout: 10s
       retries: 15
   kafka-init:
-    image: apache/kafka:4.0.2
+    image: apache/kafka:4.0.2@sha256:836cafdad9f4825880d7cf1d5a21202915ae2527bd0ef1c3600c526ed7814d1f
     entrypoint: [sh, -ec]
     command:
       - |
@@ -82,7 +82,7 @@ services:
       kafka: {condition: service_healthy}
     restart: "no"
   notification-db:
-    image: postgres:17.9
+    image: postgres:17.9@sha256:2a0d0fe14825b0939f78a8cad5cd4e6aa68bf94d0e5dd96e24b6d23af4315545
     environment:
       POSTGRES_DB: notification
       POSTGRES_USER: notification
@@ -110,7 +110,7 @@ services:
       kafka-init: {condition: service_completed_successfully}
       keycloak: {condition: service_started}
   web-db:
-    image: postgres:17.9
+    image: postgres:17.9@sha256:2a0d0fe14825b0939f78a8cad5cd4e6aa68bf94d0e5dd96e24b6d23af4315545
     environment:
       POSTGRES_DB: web
       POSTGRES_USER: web
@@ -124,7 +124,7 @@ services:
       interval: 5s
       retries: 20
   audit-db:
-    image: postgres:17.9
+    image: postgres:17.9@sha256:2a0d0fe14825b0939f78a8cad5cd4e6aa68bf94d0e5dd96e24b6d23af4315545
     environment:
       POSTGRES_DB: audit
       POSTGRES_USER: audit
@@ -136,7 +136,7 @@ services:
       interval: 5s
       retries: 20
   keycloak-db:
-    image: postgres:17.9
+    image: postgres:17.9@sha256:2a0d0fe14825b0939f78a8cad5cd4e6aa68bf94d0e5dd96e24b6d23af4315545
     environment:
       POSTGRES_DB: keycloak
       POSTGRES_USER: keycloak
@@ -148,7 +148,7 @@ services:
       interval: 5s
       retries: 20
   keycloak-import:
-    image: postgres:17.9
+    image: postgres:17.9@sha256:2a0d0fe14825b0939f78a8cad5cd4e6aa68bf94d0e5dd96e24b6d23af4315545
     user: "0:0"
     entrypoint: ["sh", "-ec"]
     command:
@@ -158,7 +158,7 @@ services:
       - realm-import:/target
     restart: "no"
   keycloak:
-    image: quay.io/keycloak/keycloak:26.8.0
+    image: quay.io/keycloak/keycloak:26.8.0@sha256:27b3230fbabb8c9ff3c66c864cf09dcd8a41aca82e5100679d109ef0eeb05741
     command: [start-dev, --import-realm]
     ports: ["127.0.0.1:8180:8080"]
     environment:
@@ -179,7 +179,6 @@ services:
       context: .
       args: {SERVICE: audit-service}
     environment:
-      USER_ADMIN_LOCAL_EMAIL_FALLBACK: "true"
       DB_URL: jdbc:postgresql://audit-db:5432/audit
       DB_USER: audit_runtime
       DB_PASSWORD: ${AUDIT_RUNTIME_PASSWORD:-not-provisioned}
@@ -190,6 +189,7 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       DIRECTORY_URL: http://keycloak:8080
       USER_ADMIN_CLIENT_SECRET: ${USER_ADMIN_CLIENT_SECRET:-not-provisioned}
+      USER_ADMIN_LOCAL_EMAIL_FALLBACK: "true"
       DIRECTORY_CLIENT_SECRET: ${DIRECTORY_CLIENT_SECRET:?Run setup-web.py --configure-only}
       OIDC_ISSUER: http://localhost:8180/realms/auditsphere
       OIDC_JWKS: http://keycloak:8080/realms/auditsphere/protocol/openid-connect/certs
