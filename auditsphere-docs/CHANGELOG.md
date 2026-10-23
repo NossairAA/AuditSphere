@@ -1,5 +1,9 @@
 # Journal des changements
 
+## 2026-10-23 : C9
+
+UPDATE du journal limité à outcome, completed_at, target_subject et requested_changes. Privilèges appliqués et vérifiés localement après sauvegarde, acteur non modifiable et résultat modifiable.
+
 ## 2026-10-23 : C8
 
 Calcul SHA-256 et contrôle de taille pendant le téléchargement, journalisation et interruption en cas de divergence. Test de contenu altéré réussi. Des octets peuvent avoir été transmis avant détection, une clé S3 de lecture distincte reste à étudier.

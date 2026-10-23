@@ -4,6 +4,7 @@
 
 ## Correctifs de sécurité du 23 octobre 2026
 
+- C9 : UPDATE du journal limité à outcome, completed_at, target_subject et requested_changes. Privilèges appliqués et vérifiés localement après sauvegarde, acteur non modifiable et résultat modifiable.
 - C8 : Calcul SHA-256 et contrôle de taille pendant le téléchargement, journalisation et interruption en cas de divergence. Test de contenu altéré réussi. Des octets peuvent avoir été transmis avant détection, une clé S3 de lecture distincte reste à étudier.
 - C5 : Messages invalides transférés en DLT avec acquittement, reprise infinie conservée pour les pannes de base. Tests unitaires et scénario Kafka avec message invalide suivi du valide sur la même clé réussis, y compris les pannes Kafka, base et service.
 - C4 : Limites de connexion par IP de proxy explicitement fiable, refus HTTPS si cette configuration manque. Session réelle résolue avant son compteur. Plafond IP de la passerelle configurable. Tests de séparation des IP réussis. Le mode HTTP local conserve une limite anonyme partagée car Next.js ne fournit pas la socket.

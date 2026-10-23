@@ -39,7 +39,7 @@ for db in ['audit','web','notification']:
   schema=(root/'apps/web/db/001-sessions.sql').read_text()
   sql(service,admin,db,'SET ROLE web_owner;\n'+schema+'\nRESET ROLE;\nGRANT SELECT,INSERT,UPDATE,DELETE ON web_sessions TO web_runtime;\n')
  elif db=='audit':
-  sql(service,admin,db,"SELECT 'GRANT SELECT,INSERT,UPDATE ON user_admin_log,account_revocations TO audit_runtime' WHERE EXISTS(SELECT FROM pg_tables WHERE schemaname='public' AND tablename='user_admin_log')\\gexec\n")
+  sql(service,admin,db,"SELECT 'GRANT SELECT,INSERT,UPDATE(outcome,completed_at,target_subject,requested_changes) ON user_admin_log TO audit_runtime' WHERE EXISTS(SELECT FROM pg_tables WHERE schemaname='public' AND tablename='user_admin_log')\\gexec\nSELECT 'GRANT SELECT,INSERT,UPDATE ON account_revocations TO audit_runtime' WHERE EXISTS(SELECT FROM pg_tables WHERE schemaname='public' AND tablename='account_revocations')\\gexec\n")
   sql(service,admin,db,"SELECT 'GRANT SELECT,INSERT ON control_evidence TO audit_runtime' WHERE EXISTS(SELECT FROM pg_tables WHERE schemaname='public' AND tablename='control_evidence')\\gexec\n")
   sql(service,admin,db,"SELECT 'GRANT SELECT,INSERT ON mission_action_log TO audit_runtime' WHERE EXISTS(SELECT FROM pg_tables WHERE schemaname='public' AND tablename='mission_action_log')\\gexec\n")
   sql(service,admin,db,"SELECT 'GRANT SELECT,INSERT ON program_change_log TO audit_runtime' WHERE EXISTS(SELECT FROM pg_tables WHERE schemaname='public' AND tablename='program_change_log')\\gexec\n")
