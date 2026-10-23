@@ -11,7 +11,7 @@ Le responsable est le créateur de la mission avec le rôle AUDIT_MANAGER. Le r�
 
 Une installation neuve crée le rôle et le compte validator avec scripts/init-local.py. Une installation existante utilise python3 scripts/setup-web.py. Le script crée le rôle manquant et ajoute le compte de démonstration en mode local uniquement. Son mot de passe aléatoire se trouve dans VALIDATOR_PASSWORD dans le fichier privé .env. Une seconde exécution ne réinitialise pas ce mot de passe. Un compte validator existant avec une autre adresse que celle de la démonstration provoque un refus de modification de ses droits.
 
-Le mode --production prépare le rôle mais ne crée ni compte de démonstration ni son mot de passe. Il ne supprime pas les comptes qui existaient déjà. Le rôle ne possède pas de rôles composites donnant des droits de responsable ou d’auditeur.
+Le mode --production prépare le rôle mais ne crée ni compte de démonstration ni son mot de passe. Il refuse le provisionnement si un des noms de démonstration existe déjà dans le royaume. Il ne supprime pas les comptes existants. Le rôle ne possède pas de rôles composites donnant des droits de responsable ou d’auditeur. L'OTP est obligatoire pour tous les utilisateurs du royaume en production, donc pour chaque validateur.
 
 ## Permissions actuelles
 

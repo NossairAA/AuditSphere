@@ -263,7 +263,7 @@ class MissionController {
                   .findForUpdate(id)
                   .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
           checkOwner(m, jwt, body.version());
-          if (Set.of("PENDING_REVIEW", "APPROVED").contains(m.status))
+          if (!Set.of("DRAFT", "IN_PROGRESS").contains(m.status))
             throw new ResponseStatusException(HttpStatus.CONFLICT);
           if (m.validatorSubject != null && body.assigneeSubjects().contains(m.validatorSubject))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST);

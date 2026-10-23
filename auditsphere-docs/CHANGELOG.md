@@ -1,5 +1,9 @@
 # Journal des changements
 
+## 2026-10-23 : C13
+
+Affectations autorisées uniquement en brouillon et en cours. Test de refus sur mission clôturée réussi.
+
 ## 2026-10-23 : C12
 
 CSP avec nonce par requête, interdiction des cadres et objets, rendu dynamique Next.js. HSTS réservé à HTTPS. Test des directives, unicité du nonce et HSTS réussi, build web validé.

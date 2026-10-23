@@ -21,7 +21,7 @@ Les auditeurs affectés consultent les dates et le statut sans pouvoir les modif
 - Une version périmée ou une opération incompatible avec l’état renvoie 409. La fiche propose un rechargement, sans réessayer automatiquement avec une nouvelle version.
 - La propriété est contrôlée dans la transaction verrouillée. Un autre responsable reçoit 404, un auditeur reçoit 403.
 
-Les affectations restent administrables après clôture pour conserver la gestion des accès. Cette tranche ne gèle pas toutes les fonctions de la mission et ne constitue pas une validation finale de ses preuves ou constats.
+Les affectations sont désormais modifiables seulement en brouillon et en cours. Une mission en revue, approuvée ou clôturée refuse le changement avec 409. La règle plus récente prévaut sur le parcours initial de cette page.
 
 ## Données et installation
 

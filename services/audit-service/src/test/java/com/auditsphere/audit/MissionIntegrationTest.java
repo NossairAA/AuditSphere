@@ -2176,6 +2176,18 @@ class MissionIntegrationTest {
   }
 
   @Test
+  void closedMissionAssignmentsAreFrozen() throws Exception {
+    String id = create();
+    lifecycle(id, "schedule", "{\"version\":0,\"plannedStartDate\":\"2026-11-01\",\"plannedEndDate\":\"2026-11-02\"}")
+        .andExpect(status().isOk());
+    lifecycle(id, "status", "{\"version\":1,\"status\":\"IN_PROGRESS\"}").andExpect(status().isOk());
+    approveMission(id, 2);
+    lifecycle(id, "status", "{\"version\":5,\"status\":\"CLOSED\"}").andExpect(status().isOk());
+    lifecycle(id, "assignments", "{\"version\":6,\"assigneeSubjects\":[]}")
+        .andExpect(status().isConflict());
+  }
+
+  @Test
   void evidenceDownloadDetectsTamperingWhileStreaming() throws Exception {
     String id = create(), control = programControl(id);
     java.util.UUID missionId = java.util.UUID.fromString(id);
