@@ -6,7 +6,11 @@ Ouvrir le Programme d’audit puis Preuves du contrôle. Un auditeur affecté ou
 
 La liste conserve nom original, auteur, date, taille et empreinte SHA-256. Le nom du fichier est borné et les séparateurs de chemin et caractères de contrôle sont refusés. Le serveur détermine l’auteur et la date. Aucun secret de stockage n’est transmis au navigateur.
 
+Le nom d'auteur vient de l'annuaire, résolu depuis le sujet authentifié. Le dépôt refuse le dépassement du quota cumulé par mission, fixé par EVIDENCE_MISSION_QUOTA_BYTES et valant 100 Mio par défaut. La somme est contrôlée après verrouillage de la mission, pour que deux dépôts simultanés ne dépassent pas le quota. L'objet déjà transmis au stockage est supprimé si la transaction est refusée.
+
 Le responsable, les auditeurs affectés, le validateur désigné et le superadministrateur peuvent télécharger selon leurs droits sur la mission. Chaque demande recontrôle ces droits. Un retrait d’affectation ou une suppression de mission empêche les téléchargements suivants. Les ajouts sont refusés en brouillon, pendant la revue, après approbation et après clôture. Un ancien formulaire retourne 409.
+
+Le téléchargement recalcule SHA-256 pendant le flux et journalise toute divergence de taille ou d'empreinte. Une divergence interrompt le flux, mais des octets ont pu être envoyés avant sa détection. Le lecteur doit traiter un téléchargement interrompu comme invalide. Une clé S3 limitée à la lecture reste à étudier pour réduire les droits du service qui sert les fichiers.
 
 ## API
 

@@ -26,6 +26,11 @@ class MissionIntegrationTest {
 
   @org.junit.jupiter.api.BeforeEach
   void directoryFixture() {
+    org.mockito.Mockito.when(directory.participants(org.mockito.ArgumentMatchers.anySet()))
+        .thenAnswer(invocation -> {
+          java.util.Set<String> subjects = invocation.getArgument(0);
+          return subjects.stream().map(subject -> new AuditorDirectory.Person(subject, "Annuaire " + subject)).toList();
+        });
     org.mockito.Mockito.when(directory.auditors(0))
         .thenReturn(
             java.util.List.of(
@@ -1451,6 +1456,7 @@ class MissionIntegrationTest {
         .jwt(
             j ->
                 j.subject(subject)
+                    .claim("name", "Nom choisi dans le jeton")
                     .claim("realm_access", java.util.Map.of("roles", java.util.List.of(role))))
         .authorities(new SimpleGrantedAuthority("ROLE_" + role));
   }
@@ -1752,6 +1758,7 @@ class MissionIntegrationTest {
             id, control, 2, "assigned", "AUDITOR", "NON_CONFORMING", "Deux factures identiques")
         .andExpect(status().isOk())
         .andExpect(jsonPath("controls[0].result.authorSubject").value("assigned"))
+        .andExpect(jsonPath("controls[0].result.authorName").value("Annuaire assigned"))
         .andExpect(jsonPath("controls[0].result.recordedAt").exists());
     recordControl(id, control, 2, "assigned", "AUDITOR", "CONFORMING", "Version périmée")
         .andExpect(status().isConflict());
@@ -1896,6 +1903,7 @@ class MissionIntegrationTest {
                     .with(programJwt("assigned", "AUDITOR")))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("originalName").value("facture.pdf"))
+            .andExpect(jsonPath("authorName").value("Annuaire assigned"))
             .andReturn();
     String proof = mapper.readTree(response.getResponse().getContentAsString()).get("id").asText();
     mvc.perform(get(path).with(programJwt("owner", "AUDIT_MANAGER")))

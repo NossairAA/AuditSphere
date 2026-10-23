@@ -1,5 +1,9 @@
 # Journal des changements
 
+## 2026-10-23 : C14
+
+Nom des auteurs de résultats et preuves résolu depuis le sujet authentifié dans l’annuaire. Test avec nom trompeur dans le jeton réussi.
+
 ## 2026-10-23 : C13
 
 Affectations autorisées uniquement en brouillon et en cours. Test de refus sur mission clôturée réussi.

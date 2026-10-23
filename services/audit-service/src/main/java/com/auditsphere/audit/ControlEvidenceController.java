@@ -39,16 +39,19 @@ class ControlEvidenceController {
   private final TransactionTemplate transactions;
   private final EvidenceStore store;
   private final long missionQuotaBytes;
+  private final AuditorDirectory directory;
 
   ControlEvidenceController(
       JdbcTemplate jdbc,
       org.springframework.transaction.PlatformTransactionManager manager,
       EvidenceStore store,
+      AuditorDirectory directory,
       @Value("${EVIDENCE_MISSION_QUOTA_BYTES:104857600}") long missionQuotaBytes) {
     this.jdbc = jdbc;
     this.transactions = new TransactionTemplate(manager);
     this.transactions.setTimeout(5);
     this.store = store;
+    this.directory = directory;
     if (missionQuotaBytes < MAX_BYTES) throw new IllegalArgumentException("Evidence mission quota too small");
     this.missionQuotaBytes = missionQuotaBytes;
   }
@@ -164,6 +167,8 @@ class ControlEvidenceController {
       @AuthenticationPrincipal Jwt jwt)
       throws Exception {
     access(missionId, controlId, jwt, true, version, false);
+    String resolvedAuthor = directory.participants(java.util.Set.of(jwt.getSubject())).getFirst().name();
+    final String author = resolvedAuthor.length() > 255 ? resolvedAuthor.substring(0, 255) : resolvedAuthor;
     if (file.getSize() < 1 || file.getSize() > MAX_BYTES)
       throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE);
     String name = validName(file.getOriginalFilename());
@@ -198,11 +203,6 @@ class ControlEvidenceController {
                     Long.class, missionId);
                 if (used == null || used > missionQuotaBytes - bytes.length)
                   throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE);
-                String author = jwt.getClaimAsString("name");
-                if (author == null || author.isBlank())
-                  author = jwt.getClaimAsString("preferred_username");
-                if (author == null || author.isBlank()) author = jwt.getSubject();
-                author = author.length() > 255 ? author.substring(0, 255) : author;
                 jdbc.update(
                     "INSERT INTO control_evidence(id,mission_id,control_id,object_key,original_name,"
                         + "media_type,byte_size,sha256,author_subject,author_name) VALUES (?,?,?,?,?,?,?,?,?,?)",

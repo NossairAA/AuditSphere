@@ -19,11 +19,13 @@ class AuditProgramController {
   private final MissionRepository missions;
   private final JdbcTemplate jdbc;
   private final ObjectMapper json;
+  private final AuditorDirectory directory;
 
-  AuditProgramController(MissionRepository missions, JdbcTemplate jdbc, ObjectMapper json) {
+  AuditProgramController(MissionRepository missions, JdbcTemplate jdbc, ObjectMapper json, AuditorDirectory directory) {
     this.missions = missions;
     this.jdbc = jdbc;
     this.json = json;
+    this.directory = directory;
   }
 
   record Risk(UUID id, String title, String description, int probability, int impact) {}
@@ -285,9 +287,7 @@ class AuditProgramController {
             .filter(c -> c.id().equals(input.controlId()))
             .findFirst()
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-    String name = jwt.getClaimAsString("name");
-    if (name == null || name.isBlank()) name = jwt.getClaimAsString("preferred_username");
-    if (name == null || name.isBlank()) name = jwt.getSubject();
+    String name = directory.participants(Set.of(jwt.getSubject())).getFirst().name();
     Result after =
         new Result(
             input.outcome(),
