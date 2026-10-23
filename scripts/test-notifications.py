@@ -84,6 +84,32 @@ assert count(mission) == 2
 print('PASS : événement rejoué sans doublon, nouvelle affectation distincte conservée.', flush=True)
 
 if args.faults:
+    # Same key routes both records to the same partition. A valid barrier must pass
+    # only after the poison record has been acknowledged in its DLT.
+    poison_mission = str(uuid.uuid4())
+    poison_event = str(uuid.uuid4())
+    poison_key = 'security-test-' + poison_mission
+    barrier = {'eventId': poison_event, 'eventType': 'audit.mission.assigned.v1',
+               'eventVersion': 1, 'missionId': poison_mission,
+               'recipientSubject': recipient, 'aggregateVersion': 0,
+               'occurredAt': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}
+    records = poison_key + ':invalid-json\n' + poison_key + ':' + json.dumps(barrier) + '\n'
+    subprocess.run(['docker', 'compose', 'exec', '-T', 'kafka',
+                    '/opt/kafka/bin/kafka-console-producer.sh', '--bootstrap-server', 'kafka:9092',
+                    '--topic', 'audit.mission.assigned.v1', '--property', 'parse.key=true',
+                    '--property', 'key.separator=:'], input=records, text=True,
+                   cwd=root, check=True, stdout=subprocess.DEVNULL, timeout=30)
+    try:
+        wait(lambda: count(poison_mission) == 1, 'valid record after poison record')
+        quarantined = subprocess.run(['docker', 'compose', 'exec', '-T', 'kafka',
+                        '/opt/kafka/bin/kafka-console-consumer.sh', '--bootstrap-server', 'kafka:9092',
+                        '--topic', 'audit.mission.assigned.v1.DLT', '--from-beginning',
+                        '--timeout-ms', '10000', '--property', 'print.key=true'],
+                       cwd=root, text=True, capture_output=True, timeout=20)
+        assert poison_key + '\tinvalid-json' in quarantined.stdout, 'Poison record not confirmed in DLT'
+        print('PASS : message invalide en DLT, message suivant livré.', flush=True)
+    finally:
+        sql('notification', "DELETE FROM notifications WHERE event_id='" + poison_event + "'")
     for service in ['notification-service', 'kafka', 'notification-db']:
         try:
             compose('stop', service)

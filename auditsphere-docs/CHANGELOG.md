@@ -1,5 +1,9 @@
 # Journal des changements
 
+## 2026-10-23 : C5
+
+Messages invalides transférés en DLT avec acquittement, reprise infinie conservée pour les pannes de base. Tests unitaires et scénario Kafka avec message invalide suivi du valide sur la même clé réussis, y compris les pannes Kafka, base et service.
+
 ## 2026-10-23 : C4
 
 Limites de connexion par IP de proxy explicitement fiable, refus HTTPS si cette configuration manque. Session réelle résolue avant son compteur. Plafond IP de la passerelle configurable. Tests de séparation des IP réussis. Le mode HTTP local conserve une limite anonyme partagée car Next.js ne fournit pas la socket.

@@ -24,8 +24,9 @@ class AssignmentConsumer {
       topics = {"audit.mission.assigned.v1", "audit.mission.review-requested.v1"},
       groupId = "notification-service-v1")
   public void receive(String payload) throws Exception {
-    if (payload.length() > 32768) throw new IllegalArgumentException("Event too large");
+    if (payload == null || payload.length() > 32768) throw new IllegalArgumentException("Event too large");
     var event = mapper.readValue(payload, AssignmentEvent.class);
+    if (event == null) throw new IllegalArgumentException("Null assignment event");
     event.validate();
     int inserted =
         jdbc.update(
