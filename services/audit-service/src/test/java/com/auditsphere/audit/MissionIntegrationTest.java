@@ -51,6 +51,7 @@ class MissionIntegrationTest {
 
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper mapper;
+  @Autowired ControlEvidenceController evidenceController;
   @Autowired javax.sql.DataSource dataSource;
   static final com.nimbusds.jose.jwk.RSAKey signingKey;
   static final com.sun.net.httpserver.HttpServer jwks;
@@ -2172,5 +2173,23 @@ class MissionIntegrationTest {
     } finally {
       workers.shutdownNow();
     }
+  }
+
+  @Test
+  void evidenceDownloadDetectsTamperingWhileStreaming() throws Exception {
+    String id = create(), control = programControl(id);
+    java.util.UUID missionId = java.util.UUID.fromString(id);
+    java.util.UUID controlId = java.util.UUID.fromString(control);
+    java.util.UUID proofId = java.util.UUID.randomUUID();
+    String key = "evidence/" + proofId;
+    byte[] expected = "%PDF-1.4\noriginal".getBytes();
+    String hash = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(expected));
+    jdbc.update("INSERT INTO control_evidence(id,mission_id,control_id,object_key,original_name,media_type,byte_size,sha256,author_subject,author_name) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        proofId, missionId, controlId, key, "existing.pdf", "application/pdf", expected.length, hash, "assigned", "Annuaire assigned");
+    org.mockito.Mockito.when(evidenceStore.get(key)).thenReturn(new java.io.ByteArrayInputStream("%PDF-1.4\ntampered".getBytes()));
+    var jwt = org.springframework.security.oauth2.jwt.Jwt.withTokenValue("test").header("alg", "none").subject("owner").build();
+    var body = evidenceController.download(missionId, controlId, proofId, jwt).getBody();
+    org.junit.jupiter.api.Assertions.assertThrows(java.io.IOException.class,
+        () -> body.writeTo(new java.io.ByteArrayOutputStream()));
   }
 }

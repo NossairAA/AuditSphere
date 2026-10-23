@@ -1,6 +1,7 @@
 package com.auditsphere.audit;
 
 import java.io.InputStream;
+import java.io.IOException;
 import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.HexFormat;
@@ -235,7 +236,7 @@ class ControlEvidenceController {
     access(missionId, controlId, jwt, false, null, false);
     var rows =
         jdbc.queryForList(
-            "SELECT object_key,original_name,media_type,byte_size"
+            "SELECT object_key,original_name,media_type,byte_size,sha256"
                 + " FROM control_evidence WHERE id=? AND mission_id=? AND control_id=?",
             evidenceId,
             missionId,
@@ -243,10 +244,29 @@ class ControlEvidenceController {
     if (rows.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
     var row = rows.getFirst();
     String key = (String) row.get("object_key");
+    String expectedHash = (String) row.get("sha256");
+    long expectedSize = ((Number) row.get("byte_size")).longValue();
     StreamingResponseBody body =
         output -> {
           try (InputStream in = store.get(key)) {
-            in.transferTo(output);
+            MessageDigest digest;
+            try {
+              digest = MessageDigest.getInstance("SHA-256");
+            } catch (java.security.NoSuchAlgorithmException e) {
+              throw new IllegalStateException(e);
+            }
+            long total = 0;
+            byte[] buffer = new byte[8192];
+            int n;
+            while ((n = in.read(buffer)) != -1) {
+              digest.update(buffer, 0, n);
+              total += n;
+              output.write(buffer, 0, n);
+            }
+            if (total != expectedSize || !HexFormat.of().formatHex(digest.digest()).equals(expectedHash)) {
+              log.error("Evidence integrity mismatch for object {}", key);
+              throw new IOException("Evidence integrity mismatch");
+            }
           }
         };
     return ResponseEntity.ok()
