@@ -2,6 +2,9 @@
 
 **Statut :** priorités métier révisées le 2026-10-19.
 
+## Correctifs de sécurité du 23 octobre 2026
+
+- C1 : Royaume sans utilisateurs de démonstration, projet Compose et volumes distincts, refus du provisionnement si un compte démo subsiste. Tests de configuration et Keycloak jetable vérifiés, aucun déploiement de production.
 ## Priorité active
 
 Correctif CI de quotas partagés entre tests navigateur vérifié localement : 16 tests réussis avec le lanceur isolé. Validation distante nécessaire après publication.

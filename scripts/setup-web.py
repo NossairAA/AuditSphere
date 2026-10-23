@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Prepare BFF secrets, then idempotently configure the local OIDC web client."""
 from pathlib import Path
+from keycloak_production import reject_demo_users
 import json, os, secrets, sys, time, urllib.request, urllib.parse, urllib.error
 root=Path(__file__).resolve().parents[1]
 os.umask(0o077)
@@ -39,6 +40,9 @@ for i in range(90):
  except (OSError,ValueError):time.sleep(2)
 else:raise SystemExit('Keycloak indisponible ou authentification administrateur refusée.')
 token=auth['access_token']
+if production:
+ try:reject_demo_users(call,token)
+ except RuntimeError as error:raise SystemExit(str(error)) from error
 # Provision the role in every environment, but demo accounts only in local mode.
 base='/admin/realms/auditsphere'
 try:

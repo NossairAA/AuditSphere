@@ -1,0 +1,15 @@
+{
+  "realm": "auditsphere",
+  "enabled": true,
+  "sslRequired": "all",
+  "roles": {
+    "realm": [
+      {"name": "AUDIT_MANAGER"},
+      {"name": "AUDITOR"},
+      {"name": "AUDIT_VALIDATOR"},
+      {"name": "SUPER_ADMIN"}
+    ]
+  },
+  "clients": [],
+  "users": []
+}

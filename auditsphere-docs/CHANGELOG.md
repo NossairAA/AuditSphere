@@ -1,5 +1,9 @@
 # Journal des changements
 
+## 2026-10-23 : C1
+
+Royaume sans utilisateurs de démonstration, projet Compose et volumes distincts, refus du provisionnement si un compte démo subsiste. Tests de configuration et Keycloak jetable vérifiés, aucun déploiement de production.
+
 ## 2026-10-22 : validateur choisi à la création
 
 - Sélection facultative d’un validateur dans le formulaire de nouvelle mission.
