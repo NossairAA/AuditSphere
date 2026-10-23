@@ -23,7 +23,7 @@ class AccountRevocationFilter implements GlobalFilter, Ordered {
   }
 
   @Override
-  public int getOrder() { return -110; }
+  public int getOrder() { return -90; }
 
   @Override
   public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {

@@ -63,6 +63,47 @@ class AccountRevocationFilterTest {
     }
   }
 
+  @Test
+  void rateLimitsProtectRevocationLedgerForValidAndRevokedTokens() throws Exception {
+    for (int ledgerStatus : new int[] {200, 401}) {
+      var calls = new java.util.concurrent.atomic.AtomicInteger();
+      HttpServer audit = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+      audit.createContext("/account/security", request -> {
+        calls.incrementAndGet();
+        request.sendResponseHeaders(ledgerStatus, -1);
+        request.close();
+      });
+      audit.start();
+      try {
+        var revocations = new AccountRevocationFilter("http://127.0.0.1:" + audit.getAddress().getPort());
+        var limits = new RequestLimits();
+        var filters = new java.util.ArrayList<org.springframework.cloud.gateway.filter.GlobalFilter>(
+            java.util.List.of(revocations, limits));
+        filters.sort(java.util.Comparator.comparingInt(filter -> ((org.springframework.core.Ordered) filter).getOrder()));
+        var forwarded = new java.util.concurrent.atomic.AtomicInteger();
+        org.springframework.cloud.gateway.filter.GatewayFilterChain chain = downstream -> {
+          forwarded.incrementAndGet();
+          return Mono.empty();
+        };
+        for (int index = filters.size() - 1; index >= 0; index--) {
+          var next = chain;
+          var filter = filters.get(index);
+          chain = exchange -> filter.filter(exchange, next);
+        }
+        for (int request = 0; request < 245; request++) {
+          var exchange = authenticatedExchange();
+          chain.filter(exchange).block(Duration.ofSeconds(4));
+          assertEquals(request >= 240 ? HttpStatus.TOO_MANY_REQUESTS
+              : ledgerStatus == 401 ? HttpStatus.UNAUTHORIZED : null, exchange.getResponse().getStatusCode());
+        }
+        assertEquals(240, calls.get());
+        assertEquals(ledgerStatus == 200 ? 240 : 0, forwarded.get());
+      } finally {
+        audit.stop(0);
+      }
+    }
+  }
+
   private ServerWebExchangeDecorator authenticatedExchange() {
     var jwt = Jwt.withTokenValue("token").header("alg", "none").subject("user")
         .claim("realm_access", Map.of("roles", java.util.List.of("AUDITOR"))).build();

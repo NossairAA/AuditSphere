@@ -1,5 +1,9 @@
 # Journal des changements
 
+## 2026-10-23 : C10, vérification complémentaire
+
+Le filtre de limites précède la consultation du registre de révocation. Test composé avec 245 requêtes valides puis révoquées : au-delà de 240 requêtes, aucun appel supplémentaire au registre. Trois tests gateway réussis.
+
 ## 2026-10-23 : C7
 
 ADR proposé pour Kafka SASL_SSL et ACL, Temporal avec mTLS, TLS Garage et chiffrement des preuves. Aucun déploiement de production ni modification de secrets. Validations locales détaillées dans le guide des correctifs.

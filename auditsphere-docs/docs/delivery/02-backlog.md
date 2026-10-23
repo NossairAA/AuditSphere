@@ -4,6 +4,7 @@
 
 ## Correctifs de sécurité du 23 octobre 2026
 
+- C10, vérification complémentaire : Le filtre de limites précède la consultation du registre de révocation. Test composé avec 245 requêtes valides puis révoquées : au-delà de 240 requêtes, aucun appel supplémentaire au registre. Trois tests gateway réussis.
 - C7 : ADR proposé pour Kafka SASL_SSL et ACL, Temporal avec mTLS, TLS Garage et chiffrement des preuves. Aucun déploiement de production ni modification de secrets. Validations locales détaillées dans le guide des correctifs.
 - C18 : Images externes épinglées par digest SHA-256 et actions GitHub par SHA. Références vérifiées auprès des registres et dépôts, test de non-régression réussi. Images PostgreSQL Testcontainers exécutées avec succès.
 - C17 : Politique de mot de passe de 14 caractères et OTP requis pour tous les utilisateurs de production, grants mot de passe désactivés pour tous les clients. Tests unitaires et configuration idempotente sur Keycloak jetable réussis. Parcours privilégié réel de production restant à valider.
