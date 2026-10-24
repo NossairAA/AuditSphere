@@ -1,9 +1,9 @@
 # Constats : implémentation
 
-**Statut :** lots 1 et 2 implémentés et vérifiés par les tests Java le 2026-10-24. Lots 3 à 5 proposés, non implémentés.
+**Statut :** lots 1 et 2 vérifiés par les tests Java, lot 3 vérifié par tests unitaires, TypeScript et build le 2026-10-24. Lots 4 et 5 proposés, non implémentés.
 **Tranche :** F-005, US-005. Règles métier dans le [plan métier](../produit/04-plan-metier.md). Choix du service dans [ADR-0021](../decisions/ADR-0021-constats-audit-service.md).
 
-Ce document décrit le découpage technique. Les lots 1 et 2 sont livrés sur la branche `feat/findings-lot1`, non publiée. Chaque lot est marqué implémenté puis vérifié avec ses preuves de test.
+Ce document décrit le découpage technique. Les lots 1 à 3 sont livrés sur la branche `feat/findings-lot1`, non publiée. Chaque lot est marqué implémenté puis vérifié avec ses preuves de test.
 
 ## Emplacement
 
@@ -65,11 +65,15 @@ Les dérogations APPROVE et CLOSE du superadministrateur appliquent le même com
 
 ## BFF et interface
 
-- Routes Next.js sous `apps/web/src/app/api/missions/[id]/findings`, avec session, origine, CSRF, limitation de débit et corps borné à 32 Kio, comme les routes du programme.
+- Routes Next.js sous `apps/web/src/app/api/missions/[id]/findings` : liste et création, modification et suppression, `transition` et `history`. Elles passent par `src/lib/findings-api.ts`, avec session, origine, CSRF, limitation de débit et corps borné à 32 Kio, comme les routes du programme. La gateway route déjà `/missions/**` et n’a pas changé.
+- Les règles pures sont isolées dans `src/lib/findings-rules.ts` : identifiants au format UUID, liste blanche des champs transmis, rôle attendu, chemin amont et messages d’erreur. Un champ forgé comme `createdBy` ou `status` n’atteint pas l’API.
+- Le BFF exige AUDITOR pour écrire, soumettre et retirer, AUDIT_MANAGER pour valider, renvoyer, rejeter et rouvrir, ou SUPER_ADMIN. audit-service reste l’autorité, notamment pour l’affectation et l’auto-décision.
+- La suppression reçoit la version dans un corps JSON, comme les autres suppressions de l’application. Le BFF la valide comme entier positif et la transmet en paramètre `version`.
+- Les messages d’erreur sont rédigés par le BFF, aucun message amont n’est relayé. Pour la soumission et les dérogations de mission, `src/lib/api.ts` relaie seulement un corps 409 conforme à `{"code":"FINDINGS_PENDING","pending":n}`, avec un message en français. Tout autre corps 409 garde le message générique.
 - Composant `mission-findings.tsx` dans la fiche de mission : liste filtrable par statut et gravité, formulaire à la demande, sélection des contrôles de la mission, avertissement sur un contrôle incohérent.
 - Dialogue de décision avec commentaire obligatoire pour renvoyer, rejeter et rouvrir. Historique en lecture sur la fiche du constat.
 - Message explicite quand la soumission de mission est bloquée par des constats en attente, avec lien vers la section Constats.
-- Contrat `contracts/audit-api.yaml` mis à jour avec les nouveaux chemins.
+- Contrat `contracts/audit-api.yaml` en version 0.14.0 : quatre chemins de constats, schémas `Finding`, `FindingInput`, `FindingControl`, `FindingHistoryEntry` et `FindingsPending`, réponses 409 de la soumission et de la dérogation complétées.
 
 ## Vérifications du lot 1
 
@@ -85,13 +89,20 @@ Les dérogations APPROVE et CLOSE du superadministrateur appliquent le même com
 - Suite audit-service complète : 69 tests réussis avec JDK 25 et PostgreSQL Testcontainers.
 - Non vérifié : transmission du corps par le BFF, message dans l’interface, CI distante.
 
+## Vérifications du lot 3
+
+- `apps/web/tests/unit/findings-rules.test.mjs` : six tests sur les identifiants, la liste blanche des champs, les rôles, les chemins, les messages et le relais strict de FINDINGS_PENDING. Dix tests unitaires Node réussis au total avec Node 24.
+- TypeScript et build Next.js réussis, les quatre routes de constats apparaissent dans le build.
+- Contrat analysé comme YAML valide, toutes les références de schémas résolues.
+- Non vérifié : appel réel à travers BFF, gateway et audit-service, car la pile locale ne contient pas l’image audit-service avec V17. Le lot 4 le couvrira avec Playwright. La CI n’exécute pas encore les tests unitaires Node, seulement TypeScript et build.
+
 ## Lots et vérifications prévues
 
 | Lot | Contenu | Vérification attendue |
 | --- | --- | --- |
 | 1, vérifié | Migration V17, contrôleur, journal, droits SQL | Test d’intégration Java : matrice des permissions, statuts, contrôle d’une autre mission, version périmée, refus de l’auto-décision, journal sans UPDATE ni DELETE |
 | 2, vérifié | Blocage de la soumission de mission et des dérogations APPROVE et CLOSE | Test Java : refus avec un brouillon et un soumis, acceptation après validation et rejet, scénario concurrent |
-| 3 | BFF et contrat | Tests des primitives existantes sur les nouvelles routes, TypeScript |
+| 3, vérifié hors parcours réel | BFF et contrat | Tests des primitives existantes sur les nouvelles routes, TypeScript |
 | 4 | Interface | Playwright `findings.spec.ts` : création, soumission, renvoi, correction, validation, soumission de mission, utilisateur extérieur refusé. Nettoyage des données de test par identifiants exacts |
 | 5 | Documentation | Ce guide passé à implémenté puis vérifié, backlog, changelog, migration appliquée localement après sauvegarde |
 

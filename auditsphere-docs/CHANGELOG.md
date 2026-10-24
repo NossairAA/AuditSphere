@@ -1,5 +1,12 @@
 # Journal des changements
 
+## 2026-10-24 : constats, lot 3
+
+- Routes BFF des constats : liste, création, modification, suppression, transitions et historique, avec session, CSRF, limitation de débit, liste blanche des champs et messages propres au BFF.
+- Relais strict du refus FINDINGS_PENDING pour la soumission et les dérogations de mission, avec le nombre de constats en attente.
+- Contrat audit-api 0.14.0 complété avec les chemins et schémas des constats.
+- Six tests unitaires Node ajoutés, dix réussis au total. TypeScript et build Next.js réussis. Parcours réel non vérifié, prévu au lot 4. Aucun push.
+
 ## 2026-10-24 : constats, lot 2
 
 - Soumission de mission refusée en 409 tant qu’un constat est Brouillon ou Soumis. Corps `{"code":"FINDINGS_PENDING","pending":n}` pour l’interface, messages internes toujours masqués.

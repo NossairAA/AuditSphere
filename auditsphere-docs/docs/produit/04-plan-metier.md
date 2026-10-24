@@ -15,7 +15,7 @@ Le socle local comprend les missions, leurs permissions, la validation humaine s
 | --- | --- | --- | --- |
 | 1 | Risques et contrôles d’une mission | Le responsable prépare un programme consultable par les auditeurs affectés | Vérifié localement |
 | 2 | Exécution et preuves | L’auditeur consigne un résultat et ses justificatifs, avec accès contrôlé et versions conservées | Résultats et ajout de preuves vérifiés localement, conservation à compléter |
-| 3 | Constats | Une anomalie documentée devient un constat avec gravité, cause et recommandation | API et blocage de soumission vérifiés par tests Java, BFF et interface à réaliser |
+| 3 | Constats | Une anomalie documentée devient un constat avec gravité, cause et recommandation | API, blocage de soumission et BFF livrés, interface à réaliser |
 | 4 | Actions correctives | Un responsable suit une action et son échéance, puis un acteur habilité vérifie la correction | À réaliser |
 | 5 | Audit continu | Une règle versionnée s’exécute sur une source autorisée et produit des anomalies reproductibles | À réaliser après le parcours manuel |
 
@@ -72,7 +72,7 @@ Les échelles ordinales de 1 à 5 sont implémentées, leurs libellés restent �
 
 ## Troisième tranche : constats
 
-**ID :** F-005, US-005 · **Priorité :** P0 · **Statut :** cadré le 2026-10-24, API et blocage de la soumission de mission vérifiés par tests Java, interface à réaliser
+**ID :** F-005, US-005 · **Priorité :** P0 · **Statut :** cadré le 2026-10-24, API et blocage de la soumission de mission vérifiés par tests Java, BFF et contrat livrés, interface à réaliser
 **Responsable produit :** à définir
 
 ### Problème utilisateur et résultat attendu

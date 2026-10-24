@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: AuditSphere Mission API
-  version: 0.13.0
+  version: 0.14.0
 servers:
   - url: http://localhost:8080
 security:
@@ -304,10 +304,128 @@ paths:
         '403': {description: Écriture non autorisée}
         '404': {description: Mission ou élément introuvable}
         '409': {description: Version périmée, programme verrouillé ou limite de 100 éléments}
+  /missions/{id}/findings:
+    parameters:
+      - {in: path, name: id, required: true, schema: {type: string, format: uuid}}
+    get:
+      summary: Lister les constats de la mission
+      description: Responsable propriétaire, auditeurs affectés, validateur désigné ou SUPER_ADMIN. Tri par référence.
+      responses:
+        '200':
+          description: Constats visibles, au maximum 100
+          content:
+            application/json:
+              schema: {type: array, maxItems: 100, items: {$ref: '#/components/schemas/Finding'}}
+        '401': {description: Authentification requise}
+        '404': {description: Mission introuvable, supprimée ou non autorisée}
+    post:
+      summary: Créer un constat en brouillon
+      description: Auditeur affecté ou SUPER_ADMIN par dérogation tracée, mission En cours. Référence attribuée par le serveur et jamais réattribuée.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/FindingInput'}
+      responses:
+        '201':
+          description: Brouillon créé
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Finding'}
+        '400': {description: Champs invalides ou contrôle hors mission}
+        '401': {description: Authentification requise}
+        '403': {description: Rôle ou affectation requis absent}
+        '404': {description: Mission introuvable ou non autorisée}
+        '409': {description: Mission hors statut En cours ou limite de 100 constats atteinte}
+  /missions/{id}/findings/{findingId}:
+    parameters:
+      - {in: path, name: id, required: true, schema: {type: string, format: uuid}}
+      - {in: path, name: findingId, required: true, schema: {type: string, format: uuid}}
+    put:
+      summary: Modifier un constat en brouillon
+      description: Auditeur affecté ou SUPER_ADMIN, mission En cours, version du constat obligatoire. La version de mission n’est pas modifiée.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - {$ref: '#/components/schemas/FindingInput'}
+                - type: object
+                  required: [version]
+                  properties:
+                    version: {type: integer, format: int64, minimum: 0}
+      responses:
+        '200':
+          description: Brouillon modifié
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Finding'}
+        '400': {description: Champs invalides, version absente ou contrôle hors mission}
+        '401': {description: Authentification requise}
+        '403': {description: Rôle ou affectation requis absent}
+        '404': {description: Mission ou constat introuvable}
+        '409': {description: Version périmée, constat hors brouillon ou mission hors statut En cours}
+    delete:
+      summary: Supprimer un brouillon jamais soumis
+      description: Auditeur affecté ou SUPER_ADMIN, mission En cours. La suppression est journalisée avec le contenu supprimé.
+      parameters:
+        - {in: query, name: version, required: true, schema: {type: integer, format: int64, minimum: 0}}
+      responses:
+        '204': {description: Brouillon supprimé}
+        '400': {description: Version absente ou invalide}
+        '401': {description: Authentification requise}
+        '403': {description: Rôle ou affectation requis absent}
+        '404': {description: Mission ou constat introuvable}
+        '409': {description: Version périmée, constat déjà soumis une fois ou mission hors statut En cours}
+  /missions/{id}/findings/{findingId}/transition:
+    put:
+      summary: Faire évoluer un constat
+      description: SUBMIT et WITHDRAW pour l’auditeur affecté. VALIDATE, RETURN, REJECT et REOPEN pour le responsable propriétaire. SUPER_ADMIN agit par dérogation tracée. La personne qui a soumis ne peut pas décider. Commentaire obligatoire pour RETURN, REJECT et REOPEN. SUBMIT exige cause, recommandation et un contrôle lié Non conforme.
+      parameters:
+        - {in: path, name: id, required: true, schema: {type: string, format: uuid}}
+        - {in: path, name: findingId, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version, action]
+              properties:
+                version: {type: integer, format: int64, minimum: 0}
+                action: {type: string, enum: [SUBMIT, WITHDRAW, VALIDATE, RETURN, REJECT, REOPEN]}
+                comment: {type: string, maxLength: 2000, nullable: true}
+      responses:
+        '200':
+          description: Constat actualisé
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Finding'}
+        '400': {description: Action invalide ou commentaire obligatoire absent}
+        '401': {description: Authentification requise}
+        '403': {description: Rôle requis absent ou décision sur sa propre soumission}
+        '404': {description: Mission ou constat introuvable}
+        '409': {description: Version périmée, statut incompatible, soumission incomplète ou mission hors statut En cours}
+  /missions/{id}/findings/{findingId}/history:
+    get:
+      summary: Historique d’un constat
+      description: Journal en ajout seul, du plus ancien au plus récent.
+      parameters:
+        - {in: path, name: id, required: true, schema: {type: string, format: uuid}}
+        - {in: path, name: findingId, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Changements et décisions
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/FindingHistoryEntry'}}
+        '401': {description: Authentification requise}
+        '404': {description: Mission ou constat introuvable}
   /missions/{id}/override:
     put:
       summary: Dérogation explicite réservée à SUPER_ADMIN
-      description: Motif obligatoire, version courante et journal atomique. APPROVE en cours ou en attente, CLOSE sauf brouillon ou déjà clôturée, REOPEN sauf brouillon ou déjà en cours, DELETE sur toute mission active.
+      description: Motif obligatoire, version courante et journal atomique. APPROVE en cours ou en attente, CLOSE sauf brouillon ou déjà clôturée, REOPEN sauf brouillon ou déjà en cours, DELETE sur toute mission active. APPROVE et CLOSE sont refusés tant qu’un constat est DRAFT ou SUBMITTED.
       parameters:
         - in: path
           name: id
@@ -335,7 +453,11 @@ paths:
         '401': {description: Authentification requise}
         '403': {description: Rôle SUPER_ADMIN requis}
         '404': {description: Mission absente ou supprimée}
-        '409': {description: Version ou statut incompatible}
+        '409':
+          description: Version ou statut incompatible, ou constats en attente
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/FindingsPending'}
   /missions/{id}/action-log:
     get:
       summary: Cent dernières entrées du journal, SUPER_ADMIN uniquement
@@ -660,7 +782,7 @@ paths:
   /missions/{id}/submission:
     put:
       summary: Soumettre une mission en cours au validateur désigné
-      description: AUDIT_MANAGER propriétaire. Contrôle de version obligatoire.
+      description: AUDIT_MANAGER propriétaire. Contrôle de version obligatoire. Refusée tant qu’un constat est DRAFT ou SUBMITTED.
       parameters:
         - name: id
           in: path
@@ -685,7 +807,11 @@ paths:
         '401': {description: Authentification requise}
         '403': {description: Rôle requis absent}
         '404': {description: Mission absente ou acteur non autorisé}
-        '409': {description: Version périmée ou état incompatible}
+        '409':
+          description: Version périmée, état incompatible ou constats en attente
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/FindingsPending'}
         '503': {description: Annuaire indisponible à la soumission}
   /missions/{id}/review:
     put:
@@ -723,6 +849,69 @@ components:
   securitySchemes:
     bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
   schemas:
+    FindingsPending:
+      type: object
+      description: Corps présent uniquement lorsque des constats bloquent la transition. Les autres 409 n’ont pas de code.
+      required: [code, pending]
+      properties:
+        code: {type: string, enum: [FINDINGS_PENDING]}
+        pending: {type: integer, minimum: 1}
+    FindingInput:
+      type: object
+      required: [title, condition, severity, controlIds]
+      properties:
+        title: {type: string, minLength: 1, maxLength: 200}
+        condition: {type: string, minLength: 1, maxLength: 4000}
+        criterion: {type: string, maxLength: 4000, nullable: true}
+        cause: {type: string, maxLength: 4000, nullable: true, description: Obligatoire pour soumettre}
+        consequence: {type: string, maxLength: 4000, nullable: true}
+        recommendation: {type: string, maxLength: 4000, nullable: true, description: Obligatoire pour soumettre}
+        severity: {type: string, enum: [LOW, MODERATE, HIGH, CRITICAL]}
+        controlIds: {type: array, uniqueItems: true, minItems: 1, maxItems: 20, items: {type: string, format: uuid}}
+    FindingControl:
+      type: object
+      required: [id, objective]
+      properties:
+        id: {type: string, format: uuid}
+        objective: {type: string}
+        outcome: {type: string, nullable: true, enum: [CONFORMING, NON_CONFORMING, NOT_APPLICABLE]}
+    Finding:
+      type: object
+      required: [id, reference, title, condition, severity, status, version, everSubmitted, createdBy, updatedBy, updatedAt, controls, riskIds, inconsistentControls]
+      properties:
+        id: {type: string, format: uuid}
+        reference: {type: integer, minimum: 1, description: Affichée C-01 par l’interface}
+        title: {type: string}
+        condition: {type: string}
+        criterion: {type: string, nullable: true}
+        cause: {type: string, nullable: true}
+        consequence: {type: string, nullable: true}
+        recommendation: {type: string, nullable: true}
+        severity: {type: string, enum: [LOW, MODERATE, HIGH, CRITICAL]}
+        status: {type: string, enum: [DRAFT, SUBMITTED, VALIDATED, REJECTED]}
+        version: {type: integer, format: int64, minimum: 0}
+        everSubmitted: {type: boolean}
+        createdBy: {type: string}
+        updatedBy: {type: string}
+        updatedAt: {type: string, format: date-time}
+        submittedBy: {type: string, nullable: true}
+        submittedAt: {type: string, format: date-time, nullable: true}
+        decidedBy: {type: string, nullable: true}
+        decidedAt: {type: string, format: date-time, nullable: true}
+        decisionComment: {type: string, nullable: true}
+        controls: {type: array, items: {$ref: '#/components/schemas/FindingControl'}}
+        riskIds: {type: array, uniqueItems: true, items: {type: string, format: uuid}}
+        inconsistentControls: {type: boolean, description: Vrai si un contrôle lié n’a pas le résultat Non conforme}
+    FindingHistoryEntry:
+      type: object
+      required: [action, actorSubject, findingVersion, override, occurredAt]
+      properties:
+        action: {type: string, enum: [CREATED, UPDATED, SUBMITTED, WITHDRAWN, VALIDATED, RETURNED, REJECTED, REOPENED, DELETED]}
+        actorSubject: {type: string}
+        findingVersion: {type: integer, format: int64, minimum: 0}
+        reason: {type: string, nullable: true}
+        override: {type: boolean, description: Action effectuée par dérogation SUPER_ADMIN}
+        occurredAt: {type: string, format: date-time}
     AdminUser:
       type: object
       properties:
