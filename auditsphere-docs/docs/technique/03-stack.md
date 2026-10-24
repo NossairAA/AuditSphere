@@ -72,7 +72,7 @@ Monorepo recommandé pour les premiers développements, avec images et pipelines
 
 ## Hébergement et limites
 
-Le serveur Ubuntu local est un environnement de développement envisagé, pas une production validée. Mesurer RAM, CPU et stockage avant de lancer Kafka, Temporal et l’observabilité ensemble, activer les profils à la demande. Le type d’installation Windows/Ubuntu reste à confirmer. D’abord des données synthétiques. Une sauvegarde hors du disque hôte et une restauration testée sont nécessaires avant toute preuve réelle. Le fournisseur S3, les accès GitHub et les politiques Tailscale restent à choisir/vérifier.
+Le serveur Ubuntu local est un environnement de développement envisagé, pas une production validée. ADR-0023 en fait la cible d'un cluster k3s à un nœud, voir le [guide d'hébergement](28-hebergement-k3s.md). kind reste l'outil d'apprentissage local. Mesurer RAM, CPU et stockage avant de lancer Kafka, Temporal et l’observabilité ensemble, activer les profils à la demande. Le type d’installation Windows/Ubuntu reste à confirmer. D’abord des données synthétiques. Une sauvegarde hors du disque hôte et une restauration testée sont nécessaires avant toute preuve réelle. Le fournisseur S3, les accès GitHub et les politiques Tailscale restent à choisir/vérifier.
 
 ## Références officielles
 

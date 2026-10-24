@@ -32,6 +32,8 @@ Le workflow `Build and permissions` (`.github/workflows/ci.yml`) se déclenche �
 
 ## Pipeline CD
 
+Cible retenue par ADR-0023 : k3s à un nœud sur le serveur privé. Voir le [guide d'hébergement](28-hebergement-k3s.md).
+
 - GitOps avec Argo CD, charts Helm et overlays par environnement.
 - Migrations compatibles ascendantes de base (expand/contract).
 - Deployments progressifs, smoke tests, health checks, rollback applicatif.

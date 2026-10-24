@@ -28,9 +28,9 @@ scripts/start-local.sh prépare Garage et sa clé limitée au bucket. scripts/se
 
 Les variables utilisées sont EVIDENCE_S3_ENDPOINT, EVIDENCE_S3_REGION, EVIDENCE_S3_BUCKET, EVIDENCE_S3_ACCESS_KEY et EVIDENCE_S3_SECRET_KEY. L’adressage par chemin est activé avec EVIDENCE_S3_PATH_STYLE. La région Garage vaut garage. Un endpoint externe configuré désactive le provisionnement du stockage local.
 
-## Homeserver
+## Serveur privé
 
-Installation réalisée dans /home/admin/auditsphere-garage sur le homeserver. Le port 3900 est lié à l’adresse Tailscale 100.110.65.42. Les fichiers et métadonnées Garage résident dans les répertoires data et meta de cette installation. Le Mac accède au serveur par Tailscale, l’application Docker utilise cet endpoint privé.
+Installation réalisée dans un dossier dédié du serveur privé. Le port 3900 est lié à l’adresse Tailscale du serveur. Les fichiers et métadonnées Garage résident dans les répertoires data et meta de cette installation. Le Mac accède au serveur par Tailscale, l’application Docker utilise cet endpoint privé.
 
 Le modèle réutilisable se trouve dans deploy/garage/compose.yaml. Définir GARAGE_BIND_IP avec une adresse privée appropriée, copier scripts/setup-garage.py dans le répertoire scripts de l’installation et créer un .env privé avant son exécution. Ne pas réutiliser les secrets de production en CI.
 
@@ -40,6 +40,6 @@ Une sauvegarde cohérente peut être produite depuis le dossier d’installation
 
 ## Vérifications
 
-53 tests du service d’audit et 4 tests gateway réussis. Compilation frontend réussie. Le parcours navigateur vérifie un dépôt supérieur à 32 Kio, le téléchargement exact par l’auditeur et le responsable, les en-têtes de téléchargement et le refus à un utilisateur extérieur. Le stockage homeserver est également testé par dépôt, lecture et suppression d’un objet synthétique. L’accès S3 anonyme retourne 403.
+53 tests du service d’audit et 4 tests gateway réussis. Compilation frontend réussie. Le parcours navigateur vérifie un dépôt supérieur à 32 Kio, le téléchargement exact par l’auditeur et le responsable, les en-têtes de téléchargement et le refus à un utilisateur extérieur. Le stockage du serveur privé est également testé par dépôt, lecture et suppression d’un objet synthétique. L’accès S3 anonyme retourne 403.
 
 Les objets de test sont supprimés par leur clé exacte avant le nettoyage SQL des missions de test. Les données existantes sont conservées. La CI précédente du commit 3e0dbcb est verte. Cette tranche reste locale et n’est pas encore publiée.
