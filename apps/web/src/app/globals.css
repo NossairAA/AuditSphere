@@ -273,6 +273,12 @@ p {
 .page-heading h1 {
   margin-bottom: 10px;
 }
+.heading-actions {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 10px;
+}
 .page-heading p {
   margin-bottom: 0;
   font-size: 13px;

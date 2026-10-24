@@ -242,6 +242,47 @@ class NotificationIntegrationTest {
   }
 
   @Test
+  void readAllOnlyMarksUnreadNotificationsOfTheSubject() throws Exception {
+    UUID alreadyRead = UUID.randomUUID();
+    consumer.receive(event(alreadyRead, "bulk-reader"));
+    consumer.receive(event(UUID.randomUUID(), "bulk-reader"));
+    consumer.receive(event(UUID.randomUUID(), "bulk-reader"));
+    UUID foreign = UUID.randomUUID();
+    consumer.receive(event(foreign, "bulk-other"));
+    mvc.perform(put("/notifications/read-all")).andExpect(status().isUnauthorized());
+    var firstRead =
+        mvc.perform(
+                put("/notifications/" + alreadyRead + "/read")
+                    .with(jwt().jwt(j -> j.subject("bulk-reader"))))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    mvc.perform(
+            put("/notifications/read-all?recipientSubject=bulk-other")
+                .with(jwt().jwt(j -> j.subject("bulk-reader"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("count").value(2));
+    mvc.perform(put("/notifications/read-all").with(jwt().jwt(j -> j.subject("bulk-reader"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("count").value(0));
+    mvc.perform(get("/notifications/unread-count").with(jwt().jwt(j -> j.subject("bulk-reader"))))
+        .andExpect(jsonPath("count").value(0));
+    assertEquals(
+        java.time.Instant.parse(mapper.readTree(firstRead).get("readAt").asText()),
+        jdbc.queryForObject(
+                "SELECT read_at FROM notifications WHERE event_id=?",
+                java.sql.Timestamp.class,
+                alreadyRead)
+            .toInstant());
+    assertNull(
+        jdbc.queryForObject(
+            "SELECT read_at FROM notifications WHERE event_id=?",
+            java.sql.Timestamp.class,
+            foreign));
+  }
+
+  @Test
   void onlyRecipientCanReadOrCountTheirNotifications() throws Exception {
     UUID id = UUID.randomUUID();
     consumer.receive(event(id, "protected-reader"));

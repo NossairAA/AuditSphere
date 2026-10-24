@@ -1,5 +1,12 @@
 # Journal des changements
 
+## 2026-10-24 : tout marquer comme lu
+
+- Bouton Tout marquer comme lu sur la page Notifications. Le compteur et la liste sont rechargés après l’action.
+- Endpoint PUT /notifications/read-all filtré par le sujet du JWT, dates de lecture existantes conservées. Route BFF protégée par session, origine et jeton CSRF.
+- Onze tests Java du service notifications et quatre scénarios navigateur réussis. TypeScript vérifié. Build Next.js non relancé.
+- Détails et limites dans le [guide des notifications](docs/technique/09-notifications-kafka.md). Aucun push ni déploiement.
+
 ## 2026-10-24 : CI, redémarrages d’audit-service
 
 - Le filtre de révocation de la gateway utilise le cache DNS borné des routes. Il ne vise plus l’ancienne adresse Docker d’audit-service après un redémarrage, cause de l’échec Temporal du commit 0871cbe.

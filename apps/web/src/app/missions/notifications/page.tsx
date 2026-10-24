@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ArrowRight, Bell, RefreshCw } from "lucide-react";
+import { ArrowRight, Bell, CheckCheck, RefreshCw } from "lucide-react";
 import { ErrorNotice, useUser } from "@/components/workspace";
 
 type NotificationPage = {
@@ -24,6 +24,8 @@ export default function Notifications() {
   const router = useRouter();
   const [pending, setPending] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState("");
+  const [markingAll, setMarkingAll] = useState(false);
+  const [notice, setNotice] = useState("");
   const [data, setData] = useState<NotificationPage | null>(null);
   const [error, setError] = useState("");
   const [page, setPage] = useState(0);
@@ -63,8 +65,51 @@ export default function Notifications() {
       });
     return () => controller.abort();
   }, [page, refresh]);
+  async function markAllRead() {
+    if (pending || markingAll) return;
+    setMarkingAll(true);
+    setMutationError("");
+    setNotice("");
+    try {
+      const r = await fetch("/api/notifications/read-all", {
+        method: "PUT",
+        headers: { "x-csrf-token": user?.csrf || "" },
+        signal: AbortSignal.timeout(10000),
+      });
+      const body = await r.json();
+      if (!r.ok) throw new Error(body.error);
+      // Server dates are reloaded with the list, the local copy only hides the unread state.
+      setData((old) =>
+        old
+          ? {
+              ...old,
+              items: old.items.map((n) =>
+                n.readAt ? n : { ...n, readAt: new Date().toISOString() },
+              ),
+            }
+          : old,
+      );
+      setNotice(
+        body.count === 0
+          ? "Aucune notification non lue."
+          : body.count === 1
+            ? "1 notification marquée comme lue."
+            : `${body.count} notifications marquées comme lues.`,
+      );
+      window.dispatchEvent(new Event("notifications-changed"));
+      setRefresh((v) => v + 1);
+    } catch (e) {
+      setMutationError(
+        e instanceof Error && e.message
+          ? e.message
+          : "Impossible de marquer les notifications comme lues.",
+      );
+    } finally {
+      setMarkingAll(false);
+    }
+  }
   async function openNotification(n: NotificationPage["items"][number]) {
-    if (pending) return;
+    if (pending || markingAll) return;
     if (n.readAt) {
       router.push(`/missions/${n.missionId}`);
       return;
@@ -116,13 +161,23 @@ export default function Notifications() {
             premier.
           </p>
         </div>
-        <button
-          className="button secondary"
-          disabled={loading}
-          onClick={() => setRefresh((v) => v + 1)}
-        >
-          <RefreshCw size={18} /> Actualiser
-        </button>
+        <div className="heading-actions">
+          <button
+            className="button secondary"
+            disabled={markingAll || pending !== null}
+            onClick={() => void markAllRead()}
+          >
+            <CheckCheck size={18} />{" "}
+            {markingAll ? "Marquage…" : "Tout marquer comme lu"}
+          </button>
+          <button
+            className="button secondary"
+            disabled={loading}
+            onClick={() => setRefresh((v) => v + 1)}
+          >
+            <RefreshCw size={18} /> Actualiser
+          </button>
+        </div>
       </div>
       <section className="panel" aria-label="Vos notifications">
         <div className="panel-title">
@@ -135,6 +190,13 @@ export default function Notifications() {
           </div>
           <Bell size={24} />
         </div>
+        {notice && (
+          <div className="panel-message">
+            <p className="notice" role="status">
+              {notice}
+            </p>
+          </div>
+        )}
         {mutationError && (
           <div className="panel-message">
             <ErrorNotice message={mutationError} />
