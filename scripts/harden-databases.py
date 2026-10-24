@@ -20,7 +20,7 @@ def sql(service,user,database,query,check=True):
  return result
 backup=root/'.local'/'backups'/(datetime.datetime.now().strftime('%Y%m%d-%H%M%S')+'-'+secrets.token_hex(3))
 backup.mkdir(parents=True,exist_ok=True)
-for db in ['audit','web','notification']:
+for db in ['audit','web','notification','remediation']:
  service=db+'-db';admin=db+'_admin';runtime=db+'_runtime';owner=db+'_migrator' if db!='web' else 'web_owner'
  current=admin if sql(service,admin,db,'SELECT 1;',False).returncode==0 else db
  # SQL uses psql quoting through format, values are generated URL-safe or validated identifiers.
@@ -45,6 +45,10 @@ for db in ['audit','web','notification']:
   sql(service,admin,db,"SELECT 'GRANT SELECT,INSERT ON program_change_log TO audit_runtime' WHERE EXISTS(SELECT FROM pg_tables WHERE schemaname='public' AND tablename='program_change_log')\\gexec\n")
   sql(service,admin,db,"SELECT 'GRANT SELECT,INSERT ON finding_change_log TO audit_runtime' WHERE EXISTS(SELECT FROM pg_tables WHERE schemaname='public' AND tablename='finding_change_log')\\gexec\n")
   sql(service,admin,db,"SELECT format('GRANT SELECT,INSERT,UPDATE,DELETE ON %I TO audit_runtime',tablename) FROM pg_tables WHERE schemaname='public' AND tablename IN ('missions','mission_assignments','assignment_outbox','review_workflow_outbox','mission_risks','mission_controls','mission_control_risks','mission_findings','mission_finding_controls','mission_finding_sequences')\\gexec\n")
+ elif db=='remediation':
+  # Change log and progress notes stay append-only for the runtime account.
+  sql(service,admin,db,"SELECT format('GRANT SELECT,INSERT ON %I TO remediation_runtime',tablename) FROM pg_tables WHERE schemaname='public' AND tablename IN ('remediation_change_log','action_progress_notes')\\gexec\n")
+  sql(service,admin,db,"SELECT format('GRANT SELECT,INSERT,UPDATE,DELETE ON %I TO remediation_runtime',tablename) FROM pg_tables WHERE schemaname='public' AND tablename IN ('mission_scopes','mission_scope_auditors','finding_follow_ups','action_sequences','corrective_actions','action_attachments','processed_events','remediation_outbox')\\gexec\n")
  else:
   sql(service,admin,db,"SELECT 'GRANT SELECT,INSERT ON notifications TO notification_runtime' WHERE EXISTS(SELECT FROM pg_tables WHERE schemaname='public' AND tablename='notifications')\\gexec\n")
   sql(service,admin,db,"SELECT 'GRANT UPDATE(read_at) ON notifications TO notification_runtime' WHERE EXISTS(SELECT FROM information_schema.columns WHERE table_schema='public' AND table_name='notifications' AND column_name='read_at')\\gexec\n")

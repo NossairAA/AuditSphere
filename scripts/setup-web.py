@@ -91,6 +91,25 @@ if not production:
   raise SystemExit('Compte superadmin existant avec une autre identité, droits inchangés.')
  call(base+'/users/'+admins[0]['id']+'/role-mappings/realm',[admin_role],'POST',token)
 print('Rôle SUPER_ADMIN prêt. Compte de démonstration créé uniquement en local.')
+# Auditees own corrective actions. The role grants no access to missions.
+try:
+ auditee_role=call(base+'/roles/AUDITEE',token=token)
+except urllib.error.HTTPError as error:
+ if error.code != 404: raise
+ call(base+'/roles',{'name':'AUDITEE','description':'Responsable d’actions correctives, sans accès aux missions'},'POST',token)
+ auditee_role=call(base+'/roles/AUDITEE',token=token)
+if not production:
+ auditees=call(base+'/users?username=auditee&exact=true',token=token)
+ if not auditees:
+  if 'AUDITEE_PASSWORD' not in env:
+   env['AUDITEE_PASSWORD']=secrets.token_urlsafe(24)
+   with (root/'.env').open('a') as f: f.write('AUDITEE_PASSWORD='+env['AUDITEE_PASSWORD']+'\n')
+  call(base+'/users',{'username':'auditee','enabled':True,'emailVerified':True,'firstName':'Nadia','lastName':'Rousseau','email':'auditee@example.invalid','credentials':[{'type':'password','value':env['AUDITEE_PASSWORD'],'temporary':False}]},'POST',token)
+  auditees=call(base+'/users?username=auditee&exact=true',token=token)
+ if auditees[0].get('email') != 'auditee@example.invalid':
+  raise SystemExit('Compte auditee existant avec une autre identité, droits inchangés.')
+ call(base+'/users/'+auditees[0]['id']+'/role-mappings/realm',[auditee_role],'POST',token)
+print('Rôle AUDITEE prêt. Compte de démonstration créé uniquement en local.')
 
 client={'clientId':'auditsphere-web','name':'AuditSphere Web','protocol':'openid-connect','publicClient':False,'secret':env['WEB_CLIENT_SECRET'],'standardFlowEnabled':True,'directAccessGrantsEnabled':False,'serviceAccountsEnabled':False,'redirectUris':[app_origin+'/auth/callback'],'webOrigins':[app_origin],'attributes':{'pkce.code.challenge.method':'S256','post.logout.redirect.uris':app_origin+'/'},'protocolMappers':[{'name':'api-audience','protocol':'openid-connect','protocolMapper':'oidc-audience-mapper','config':{'included.custom.audience':'auditsphere-api','access.token.claim':'true','id.token.claim':'false'}}]}
 existing=call('/admin/realms/auditsphere/clients?clientId=auditsphere-web',token=token)

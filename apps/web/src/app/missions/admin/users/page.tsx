@@ -17,6 +17,7 @@ const roles: Record<string, string> = {
   AUDIT_MANAGER: "Responsable",
   AUDITOR: "Auditeur",
   AUDIT_VALIDATOR: "Validateur",
+  AUDITEE: "Audité",
   SUPER_ADMIN: "Superadmin",
 };
 type History = {

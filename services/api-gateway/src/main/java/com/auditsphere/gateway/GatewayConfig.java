@@ -33,12 +33,14 @@ class GatewayConfig {
   RouteLocator routes(
       RouteLocatorBuilder builder,
       @Value("${AUDIT_URL:http://localhost:8081}") String url,
-      @Value("${NOTIFICATION_URL:http://localhost:8082}") String notificationUrl) {
+      @Value("${NOTIFICATION_URL:http://localhost:8082}") String notificationUrl,
+      @Value("${REMEDIATION_URL:http://localhost:8083}") String remediationUrl) {
     return builder
         .routes()
         .route(
             "notifications",
             r -> r.path("/notifications", "/notifications/**").uri(notificationUrl))
+        .route("remediation", r -> r.path("/remediation/**").uri(remediationUrl))
         .route(
             "audit",
             r -> r.path("/missions", "/missions/**", "/admin/**", "/account/security").uri(url))

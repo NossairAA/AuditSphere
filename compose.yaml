@@ -109,6 +109,32 @@ services:
       notification-db: {condition: service_healthy}
       kafka-init: {condition: service_completed_successfully}
       keycloak: {condition: service_started}
+  remediation-db:
+    image: postgres:17.9@sha256:2a0d0fe14825b0939f78a8cad5cd4e6aa68bf94d0e5dd96e24b6d23af4315545
+    environment:
+      POSTGRES_DB: remediation
+      POSTGRES_USER: remediation
+      POSTGRES_PASSWORD: ${REMEDIATION_DB_PASSWORD:?Run python3 scripts/prepare-remediation.py}
+    ports: ["127.0.0.1:5548:5432"]
+    volumes: [remediation-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U remediation -d remediation"]
+      interval: 5s
+      retries: 20
+  remediation-service:
+    build:
+      context: .
+      args: {SERVICE: remediation-service}
+    environment:
+      AUDIT_URL: http://audit-service:8081
+      DB_URL: jdbc:postgresql://remediation-db:5432/remediation
+      DB_USER: remediation_runtime
+      DB_PASSWORD: ${REMEDIATION_RUNTIME_PASSWORD:-not-provisioned}
+      OIDC_ISSUER: http://localhost:8180/realms/auditsphere
+      OIDC_JWKS: http://keycloak:8080/realms/auditsphere/protocol/openid-connect/certs
+    depends_on:
+      remediation-db: {condition: service_healthy}
+      keycloak: {condition: service_started}
   web-db:
     image: postgres:17.9@sha256:2a0d0fe14825b0939f78a8cad5cd4e6aa68bf94d0e5dd96e24b6d23af4315545
     environment:
@@ -211,15 +237,17 @@ services:
       GATEWAY_RATE_IP_LIMIT: ${GATEWAY_RATE_IP_LIMIT:-1200}
       AUDIT_URL: http://audit-service:8081
       NOTIFICATION_URL: http://notification-service:8082
+      REMEDIATION_URL: http://remediation-service:8083
       OIDC_ISSUER: http://localhost:8180/realms/auditsphere
       OIDC_JWKS: http://keycloak:8080/realms/auditsphere/protocol/openid-connect/certs
-    depends_on: [audit-service, notification-service]
+    depends_on: [audit-service, notification-service, remediation-service]
 volumes:
   garage-meta:
   garage-data:
   temporal-data:
   kafka-data:
   notification-data:
+  remediation-data:
   realm-import:
   web-data:
   audit-data:

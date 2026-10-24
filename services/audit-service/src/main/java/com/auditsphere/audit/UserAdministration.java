@@ -13,7 +13,7 @@ import org.springframework.web.server.ResponseStatusException;
 @Component
 class UserAdministration {
   static final Set<String> ROLES =
-      Set.of("SUPER_ADMIN", "AUDIT_MANAGER", "AUDITOR", "AUDIT_VALIDATOR");
+      Set.of("SUPER_ADMIN", "AUDIT_MANAGER", "AUDITOR", "AUDIT_VALIDATOR", "AUDITEE");
   private final RestClient client;
   private final String secret;
   private final boolean localEmailFallback;

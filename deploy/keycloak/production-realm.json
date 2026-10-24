@@ -7,7 +7,8 @@
       {"name": "AUDIT_MANAGER"},
       {"name": "AUDITOR"},
       {"name": "AUDIT_VALIDATOR"},
-      {"name": "SUPER_ADMIN"}
+      {"name": "SUPER_ADMIN"},
+      {"name": "AUDITEE"}
     ]
   },
   "clients": [],

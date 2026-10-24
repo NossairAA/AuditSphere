@@ -2,7 +2,7 @@
 
 from urllib.parse import quote
 
-DEMO_USERNAMES = ("manager", "auditor", "outsider", "validator", "superadmin")
+DEMO_USERNAMES = ("manager", "auditor", "outsider", "validator", "superadmin", "auditee")
 PASSWORD_POLICY = (
     "length(14) and upperCase(1) and lowerCase(1) and digits(1) "
     "and specialChars(1) and notUsername and notEmail and passwordHistory(5)"
