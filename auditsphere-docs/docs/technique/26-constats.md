@@ -1,9 +1,9 @@
 # Constats : implémentation
 
-**Statut :** lots 1 à 4 implémentés et vérifiés localement le 2026-10-24 : tests Java, tests unitaires, TypeScript et parcours navigateur. Branche non publiée, CI distante non exécutée.
+**Statut :** lots 1 à 5 implémentés et vérifiés le 2026-10-24 : tests Java, tests unitaires, TypeScript et parcours navigateur en local, puis CI distante réussie sur `92dd3ef`. Publié dans `main` par la PR #3, commit de fusion `65e4331`.
 **Tranche :** F-005, US-005. Règles métier dans le [plan métier](../produit/04-plan-metier.md). Choix du service dans [ADR-0021](../decisions/ADR-0021-constats-audit-service.md).
 
-Ce document décrit le découpage technique. Les lots 1 à 4 sont livrés sur la branche `feat/findings-lot1`, non publiée. Chaque lot est marqué implémenté puis vérifié avec ses preuves de test.
+Ce document décrit le découpage technique. Les lots 1 à 4 ont été livrés sur la branche `feat/findings-lot1`, fusionnée dans `main`. Chaque lot est marqué implémenté puis vérifié avec ses preuves de test.
 
 ## Emplacement
 
@@ -112,7 +112,14 @@ Les dérogations APPROVE et CLOSE du superadministrateur appliquent le même com
 
 La CI de la PR #3 a échoué sur `findings.spec.ts` : après l’enregistrement d’un brouillon, la soumission ne passait pas au statut Soumis. Le message Constat enregistré s’affichait avant le rechargement de la liste, les boutons restaient actifs avec l’ancienne version du constat et la soumission recevait 409. Le serveur local, plus rapide, masquait cette course.
 
-Le test retarde désormais de 1,5 seconde les lectures de la liste côté auditeur. Il reproduit l’échec de la CI avec l’ancien composant. Le composant recharge maintenant la liste avant de réactiver les actions et d’afficher le message. Le test retardé réussit localement, TypeScript aussi. La nouvelle CI reste à observer.
+Le test retarde désormais de 1,5 seconde les lectures de la liste côté auditeur. Il reproduit l’échec de la CI avec l’ancien composant. Le composant recharge maintenant la liste avant de réactiver les actions et d’afficher le message. Le test retardé réussit localement, TypeScript aussi.
+
+## Publication et CI distante
+
+- Exécution GitHub Actions `40113987183` de la PR #3, sur `92dd3ef`, réussie le 2026-10-24 : 69 tests audit-service, tests des scripts Python, TypeScript, build Next.js et parcours navigateur, dont `findings.spec.ts`.
+- Le lanceur isolé de la CI exécute `lifecycle`, `withdrawal` et `validator` sans échec. Les échecs observés lors d’un lancement groupé local ne se sont pas reproduits, leur cause reste non confirmée.
+- PR #3 fusionnée dans `main` le 2026-10-24, commit `65e4331`. La CI de `main` sur ce commit est réussie.
+- Aucun déploiement hors poste local. La migration V17 n’est appliquée que sur la base locale.
 
 ## Lots et vérifications prévues
 
@@ -122,9 +129,9 @@ Le test retarde désormais de 1,5 seconde les lectures de la liste côté audite
 | 2, vérifié | Blocage de la soumission de mission et des dérogations APPROVE et CLOSE | Test Java : refus avec un brouillon et un soumis, acceptation après validation et rejet, scénario concurrent |
 | 3, vérifié hors parcours réel | BFF et contrat | Tests des primitives existantes sur les nouvelles routes, TypeScript |
 | 4, vérifié | Interface | Playwright `findings.spec.ts` : création, soumission, renvoi, correction, validation, soumission de mission, utilisateur extérieur refusé. Nettoyage des données de test par identifiants exacts |
-| 5 | Documentation | Ce guide passé à implémenté puis vérifié, backlog, changelog, migration appliquée localement après sauvegarde |
+| 5, vérifié | Documentation et publication | Ce guide passé à implémenté puis vérifié, backlog, changelog, migration appliquée localement après sauvegarde, CI distante réussie et PR fusionnée |
 
-## Limites connues de la proposition
+## Limites connues
 
 - Aucun événement Kafka dans cette tranche. Les événements `audit.finding.submitted.v1` et `audit.finding.decided.v1` via outbox seront ajoutés avec les notifications correspondantes.
 - Le blocage de la soumission de mission lit les constats dans la même base. Une extraction vers un service dédié devra remplacer cette lecture par une projection ou un appel synchrone, voir ADR-0021.

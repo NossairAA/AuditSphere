@@ -1,7 +1,7 @@
 # Plan métier : audit interne et audit continu
 
 **Mise à jour :** 2026-10-24
-**Statut :** risques, contrôles, résultats, preuves et constats vérifiés localement, tranches suivantes à réaliser
+**Statut :** risques, contrôles, résultats et preuves vérifiés localement, constats vérifiés et publiés, actions correctives cadrées, tranches suivantes à réaliser
 
 ## Objectif
 
@@ -15,8 +15,8 @@ Le socle local comprend les missions, leurs permissions, la validation humaine s
 | --- | --- | --- | --- |
 | 1 | Risques et contrôles d’une mission | Le responsable prépare un programme consultable par les auditeurs affectés | Vérifié localement |
 | 2 | Exécution et preuves | L’auditeur consigne un résultat et ses justificatifs, avec accès contrôlé et versions conservées | Résultats et ajout de preuves vérifiés localement, conservation à compléter |
-| 3 | Constats | Une anomalie documentée devient un constat avec gravité, cause et recommandation | Vérifié localement, non publié |
-| 4 | Actions correctives | Un responsable suit une action et son échéance, puis un acteur habilité vérifie la correction | À réaliser |
+| 3 | Constats | Une anomalie documentée devient un constat avec gravité, cause et recommandation | Vérifié localement et par la CI distante, publié dans `main` |
+| 4 | Actions correctives | Un responsable suit une action et son échéance, puis un acteur habilité vérifie la correction | Cadré le 2026-10-24, à réaliser |
 | 5 | Audit continu | Une règle versionnée s’exécute sur une source autorisée et produit des anomalies reproductibles | À réaliser après le parcours manuel |
 
 Parcours cible : Mission → Risques → Contrôles → Preuves → Constats → Actions correctives → Vérification.
@@ -72,7 +72,7 @@ Les échelles ordinales de 1 à 5 sont implémentées, leurs libellés restent �
 
 ## Troisième tranche : constats
 
-**ID :** F-005, US-005 · **Priorité :** P0 · **Statut :** cadré le 2026-10-24, implémenté et vérifié localement le 2026-10-24, non publié
+**ID :** F-005, US-005 · **Priorité :** P0 · **Statut :** cadré, implémenté et vérifié localement le 2026-10-24, CI distante réussie sur `92dd3ef`, publié dans `main` par la PR #3
 **Responsable produit :** à définir
 
 ### Problème utilisateur et résultat attendu
@@ -154,9 +154,9 @@ Un résultat Non conforme signale un écart, mais ne dit ni pourquoi il existe, 
 
 Actions correctives, échéances et relances, export du rapport, notifications des décisions, création automatique d’un constat depuis un résultat, référentiel global de constats, pièces jointes propres au constat et cotation calculée. Les notifications de soumission et de décision sont les premiers candidats après la tranche.
 
-### Implémentation proposée
+### Implémentation
 
-Le découpage technique, le modèle de données et les étapes sont décrits dans le [guide technique](../technique/26-constats.md). Le choix du service hébergeant les constats fait l’objet d’[ADR-0021](../decisions/ADR-0021-constats-audit-service.md), accepté le 2026-10-24.
+Le découpage technique, le modèle de données, les étapes et leurs vérifications sont décrits dans le [guide technique](../technique/26-constats.md). Le choix du service hébergeant les constats fait l’objet d’[ADR-0021](../decisions/ADR-0021-constats-audit-service.md), accepté le 2026-10-24.
 
 ### Questions métier ouvertes
 
@@ -165,11 +165,129 @@ Le découpage technique, le modèle de données et les étapes sont décrits dan
 - Format définitif de la référence lisible et conservation de la numérotation après suppression d’un brouillon.
 - Droit de l’audité à consulter ou commenter un constat avant validation, prévu avec le rôle audité.
 
+## Quatrième tranche : actions correctives
+
+**ID :** F-006, US-006 et US-007 · **Priorité :** P0 · **Statut :** cadré le 2026-10-24, découpage accepté par ADR-0022, non implémenté
+**Responsable produit :** à définir
+
+### Problème utilisateur et résultat attendu
+
+Un constat validé décrit un écart et une recommandation. Il ne garantit pas que l’écart sera corrigé. Le responsable de mission doit traduire chaque constat émis en plan d’action. Chaque action est confiée à un responsable métier avec une échéance. La correction doit ensuite être justifiée, vérifiée par l’équipe d’audit puis clôturée par le validateur. Ce suivi continue après la clôture de la mission, souvent pendant plusieurs mois.
+
+### Point de départ du suivi
+
+- Le suivi d’un constat commence à l’approbation de la mission, par décision du validateur ou par la dérogation APPROVE du superadministrateur. Seuls les constats Validé sont émis. Un constat Rejeté ne donne lieu à aucun suivi.
+- Avant l’approbation, un constat validé peut encore être rouvert. Démarrer le suivi plus tôt créerait des actions sur un texte susceptible de changer.
+- Le suivi conserve une copie du constat à la date d’émission : référence, titre, gravité, condition observée, cause et recommandation. Le constat d’origine reste la référence dans la mission.
+- La clôture de la mission ne fige pas les actions correctives.
+- Une réouverture par dérogation d’une mission approuvée ou clôturée suspend les suivis de cette mission. Ils redeviennent actifs à la nouvelle approbation, avec la copie mise à jour. Un constat qui n’est plus Validé à ce moment passe au statut Retiré, ses actions restent consultables en lecture seule. La suppression d’une telle mission retire tous ses suivis.
+
+### Contenu d’une action corrective
+
+- Une action appartient au suivi d’un constat. Elle porte une référence attribuée par le serveur, unique dans le constat, affichée sous la forme C-01.A1.
+- Champs obligatoires : description de l’action attendue, responsable de l’action et échéance.
+- Bornes : description de 2000 caractères, avancement et commentaires de 2000 caractères, 20 actions par constat. L’échéance est comprise entre la date du jour et cinq ans.
+- Le responsable de l’action est un compte actif de l’annuaire disposant du nouveau rôle AUDITEE, l’audité. Il ne fait pas partie de l’équipe d’audit de la mission : ni propriétaire, ni auditeur affecté, ni validateur.
+- Justificatifs : PDF, JPEG ou PNG, 10 Mio par fichier, 10 fichiers par action et 100 Mio par mission, comme les preuves de contrôle. Ils restent distincts des preuves de contrôle.
+- Une action est en retard lorsque son échéance est dépassée et qu’elle est À faire ou En cours. Le retard est calculé à la lecture, ce n’est pas un statut. L’échéance est une date sans heure, évaluée dans le fuseau Europe/Paris par défaut.
+
+### Cycle de vie d’une action
+
+`À faire → En cours → Réalisée → Vérifiée`, avec le renvoi `Réalisée → En cours` et l’issue `Annulée`.
+
+- Le responsable de l’action renseigne l’avancement par des commentaires datés. Le premier avancement fait passer l’action En cours.
+- Déclarer l’action Réalisée exige un commentaire de réalisation et au moins un justificatif.
+- Un auditeur affecté à la mission ou le responsable de mission vérifie l’action Réalisée. Il la passe Vérifiée, ou la renvoie En cours avec un commentaire obligatoire.
+- Le responsable de mission peut modifier la description et changer le responsable d’une action À faire ou En cours. Le changement de responsable retire immédiatement l’accès au précédent.
+- Le responsable de mission peut reporter l’échéance avec un motif. Chaque report est conservé et compté. Le responsable de l’action ne modifie ni la description ni l’échéance.
+- Le responsable de mission peut annuler une action non vérifiée avec un motif. Une action annulée reste consultable.
+- Le responsable de mission peut rouvrir une action Vérifiée avec un motif, tant que le suivi n’est ni en Vérification ni Clôturé. Elle revient En cours.
+
+### Cycle de vie du suivi d’un constat
+
+`À planifier → Plan d’action en cours → Vérification → Clôturé`, avec le renvoi `Vérification → Plan d’action en cours`.
+
+- À planifier : constat émis sans action active. Annuler toutes les actions ramène le suivi à cet état.
+- Plan d’action en cours : au moins une action non annulée.
+- Le responsable de mission demande la clôture lorsque toutes les actions non annulées sont Vérifiée, avec au moins une action Vérifiée. Le suivi passe en Vérification et ses actions sont figées.
+- Le validateur désigné de la mission clôture le suivi, ou le renvoie avec un commentaire obligatoire. Le renvoi rétablit les modifications du responsable de mission. Clôturé est définitif dans cette tranche.
+- Clore un constat sans action, par acceptation du risque, n’est pas possible dans cette tranche.
+- Suspendu et Retiré sont réservés aux réouvertures et suppressions de mission décrites plus haut.
+
+### Permissions
+
+| Acteur | Droits |
+| --- | --- |
+| Responsable propriétaire de la mission, rôle AUDIT_MANAGER | Consulter les suivis, créer, modifier, réaffecter, reporter, annuler et rouvrir les actions, vérifier, demander la clôture |
+| Auditeur affecté à la mission, rôle AUDITOR | Consulter les suivis de la mission, vérifier ou renvoyer une action Réalisée |
+| Validateur désigné, rôle AUDIT_VALIDATOR | Consulter les suivis de la mission, clôturer ou renvoyer un suivi en Vérification |
+| Responsable de l’action, rôle AUDITEE | Consulter ses actions et la copie du constat associé, renseigner l’avancement, joindre ou retirer ses justificatifs avant réalisation, déclarer l’action Réalisée |
+| Superadministrateur | Actions du responsable de mission, de l’auditeur et du validateur par dérogation tracée, selon ADR-0014 |
+| Autres utilisateurs | Aucun accès, le suivi reste introuvable |
+
+- Le responsable d’une action ne peut ni la vérifier ni clôturer le suivi, quel que soit son rôle.
+- La personne qui a demandé la clôture d’un suivi ne peut pas le clôturer, même par dérogation.
+- L’audité ne voit ni les autres actions, ni le reste de la mission, ni les preuves de contrôle.
+- L’équipe prise en compte est celle de la mission à l’approbation. Les affectations sont déjà figées après approbation.
+- Un compte révoqué perd l’accès immédiatement. Ses actions restent affichées avec un responsable inactif, le responsable de mission doit les réaffecter.
+- Les droits sont vérifiés côté API à chaque requête. L’interface masque les actions interdites mais ne constitue pas une protection.
+
+### Traçabilité
+
+- Chaque création, modification, réaffectation, report, avancement, ajout ou retrait de justificatif, transition d’action et transition de suivi est journalisé avec acteur, date, version, motif, valeurs avant et après et indicateur de dérogation.
+- Ce journal est en ajout seul pour le compte applicatif. L’historique est consultable sur la fiche de l’action et du suivi.
+- Chaque justificatif conserve son empreinte SHA-256, son auteur et sa date. Un justificatif n’est plus retirable après la déclaration Réalisée.
+- Une modification concurrente est détectée par version et retourne un conflit.
+- Les logs techniques, les métriques et les messages Kafka ne contiennent ni les textes des constats, ni ceux des actions.
+
+### Parcours nominal et erreurs
+
+1. Le validateur approuve une mission dont le constat C-01 est Validé. Le suivi de C-01 apparaît À planifier dans l’onglet Suivi des actions.
+2. Le responsable de mission crée l’action C-01.A1, choisit un audité et une échéance. L’audité reçoit une notification.
+3. L’audité ouvre Mes actions, renseigne l’avancement, joint un justificatif et déclare l’action Réalisée.
+4. Un auditeur affecté renvoie l’action avec un commentaire. L’audité complète puis la déclare à nouveau Réalisée. L’auditeur la vérifie.
+5. Le responsable de mission demande la clôture. Le validateur clôture le suivi.
+6. L’API refuse un accès hors périmètre, un responsable sans rôle AUDITEE ou membre de l’équipe, une réalisation sans justificatif, une vérification par le responsable de l’action, une clôture par la personne qui l’a demandée, une écriture sur un suivi suspendu, clôturé ou retiré et une version périmée. L’interface explique l’erreur sans annoncer une sauvegarde réussie.
+
+### Critères d’acceptation
+
+- [ ] Créer un suivi pour chaque constat Validé à l’approbation de la mission, aucun pour un constat Rejeté, sans doublon après redélivrance.
+- [ ] Créer, modifier, réaffecter, reporter, annuler et rouvrir une action selon les permissions.
+- [ ] Refuser un responsable d’action sans rôle AUDITEE ou membre de l’équipe d’audit.
+- [ ] Renseigner l’avancement, joindre des justificatifs bornés et refuser une réalisation sans justificatif.
+- [ ] Vérifier ou renvoyer une action, refuser la vérification au responsable de l’action.
+- [ ] Demander la clôture, clôturer ou renvoyer, refuser la clôture à la personne qui l’a demandée.
+- [ ] Signaler les actions en retard sans modifier leur statut.
+- [ ] Limiter l’audité à ses propres actions et refuser l’accès à un utilisateur extérieur.
+- [ ] Suspendre les suivis à la réouverture de mission et les réconcilier à la nouvelle approbation.
+- [ ] Notifier l’audité de l’action qui lui est confiée.
+- [ ] Détecter les conflits de version et journaliser chaque changement en ajout seul.
+- [ ] Conserver les missions et constats existants lors des migrations.
+- [ ] Mettre à jour les contrats, la documentation et les tests ciblés.
+
+### Hors périmètre
+
+Relances et escalades automatiques des retards (US-009, Temporal), proposition du plan d’action par l’audité, demande de report par l’audité, acceptation formelle du risque, actions communes à plusieurs constats, export du rapport (US-008), indicateurs consolidés (US-010), notifications autres que l’affectation d’une action et rattachement des audités à une entité.
+
+### Implémentation proposée
+
+Le découpage technique, le modèle de données et les lots sont décrits dans le [guide technique](../technique/27-actions-correctives.md). Le service dédié et la synchronisation avec audit-service font l’objet d’[ADR-0022](../decisions/ADR-0022-actions-correctives-service-dedie.md), accepté le 2026-10-24.
+
+### Questions métier ouvertes
+
+- Clôture du suivi par le validateur désigné, retenue d’après US-007, ou par le responsable de mission.
+- Plan d’action proposé par l’audité puis accepté par le responsable, plutôt que saisi par le responsable.
+- Justificatif fichier obligatoire pour toute action, ou commentaire suffisant pour certaines actions organisationnelles.
+- Acceptation formelle du risque comme issue alternative à une action.
+- Libellé du rôle AUDITEE et rattachement des audités à une direction ou une filiale.
+- Durée de conservation des suivis et des justificatifs après clôture.
+- Fuseau horaire de référence de l’échéance, Europe/Paris retenu par défaut.
+
 ## Extension événementielle
 
 Conserver Spring Boot, les microservices existants, Kafka et l’outbox transactionnelle. Ajouter un événement lorsqu’un consommateur ou un traitement asynchrone a un besoin concret, sans transformer chaque modification d’écran en message.
 
-Événements candidats, non encore implémentés : contrôle terminé, anomalie détectée, constat ouvert et action en retard. Chaque contrat devra préciser identifiant, version, source et corrélation. La publication suivra le commit métier via outbox, les consommateurs supporteront les doublons. Ne pas publier le contenu des preuves ou des secrets dans Kafka.
+Événements candidats, non encore implémentés : contrôle terminé, anomalie détectée, constat ouvert et action en retard. Chaque contrat devra préciser identifiant, version, source et corrélation. La publication suivra le commit métier via outbox, les consommateurs supporteront les doublons. Ne pas publier le contenu des preuves ou des secrets dans Kafka. La tranche actions correctives propose l’émission des constats à l’approbation et l’affectation d’une action, sans texte de constat dans les messages, voir ADR-0022.
 
 Temporal pourra orchestrer les traitements longs et les échéances. Les services resteront propriétaires de leurs données. Tout nouveau découpage de service sera justifié dans un ADR avant réalisation.
 

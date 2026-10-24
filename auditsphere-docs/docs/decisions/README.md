@@ -46,6 +46,8 @@ Utiliser le modèle dans [`docs/templates/adr.md`](../templates/adr.md).
 
 - [ADR-0021 : constats hébergés par audit-service](ADR-0021-constats-audit-service.md)
 
+- [ADR-0022 : actions correctives dans un service dédié](ADR-0022-actions-correctives-service-dedie.md), accepté
+
 - [ADR-0018 : séparation validateur et auditeur](ADR-0018-separation-validateur-auditeur.md).
 - [ADR-0019 : sessions et accès web](ADR-0019-sessions-et-acces-web.md).
 - [ADR-0020 : déploiement interne sécurisé](ADR-0020-deploiement-interne-securise.md), proposé.

@@ -1,5 +1,12 @@
 # Journal des changements
 
+## 2026-10-24 : constats publiés, cadrage des actions correctives
+
+- F-005 clôturé : CI distante réussie sur `92dd3ef` (exécution `40113987183`), avec 69 tests audit-service et `findings.spec.ts`. PR #3 fusionnée dans `main` par `65e4331`, CI de `main` réussie. Le [guide des constats](docs/technique/26-constats.md) passe à vérifié et publié.
+- Tranche F-006 cadrée dans le [plan métier](docs/produit/04-plan-metier.md) : suivi d’un constat démarré à l’approbation de la mission, actions avec responsable audité, échéance et justificatifs, vérification par l’équipe d’audit et clôture par le validateur.
+- [Guide des actions correctives](docs/technique/27-actions-correctives.md) proposé : remediation-service, synchronisation par outbox et lecture interne, base et API, lots de tests.
+- ADR-0022 accepté : actions correctives dans un service dédié, sans texte de constat dans Kafka. Catalogue d’événements complété. Aucun code ni test pour F-006.
+
 ## 2026-10-24 : CI, actions Node 24 et runner explicite
 
 - `actions/checkout` v7.0.1, `actions/setup-java` v6.1.0 et `actions/setup-node` v7.1.0, toujours épinglées par SHA complet. Elles tournent sous Node 24 et remplacent les v4 sous Node 20.
