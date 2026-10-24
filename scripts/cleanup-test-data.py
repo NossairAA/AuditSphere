@@ -49,6 +49,9 @@ try:
   keys=sql('audit',f"SELECT object_key FROM control_evidence WHERE mission_id IN ({values})")
   for key in keys.splitlines(): storage_request('DELETE',key)
  program_cleanup = f"DELETE FROM mission_control_risks WHERE mission_id IN ({values}); " if sql('audit',"SELECT to_regclass('public.mission_control_risks') IS NOT NULL") == 't' else ''
+ if sql('audit',"SELECT to_regclass('public.mission_finding_controls') IS NOT NULL") == 't':
+  # Findings go before controls. Their append-only log is kept like the program log.
+  program_cleanup = f"DELETE FROM mission_finding_controls WHERE mission_id IN ({values}); DELETE FROM mission_findings WHERE mission_id IN ({values}); DELETE FROM mission_finding_sequences WHERE mission_id IN ({values}); " + program_cleanup
  sql('audit',f"BEGIN; {program_cleanup}DELETE FROM assignment_outbox WHERE mission_id IN ({values}); DELETE FROM review_workflow_outbox WHERE mission_id IN ({values}); DELETE FROM mission_assignments WHERE mission_id IN ({values}); DELETE FROM missions WHERE id IN ({values}); COMMIT;")
  sql('notification',f"DELETE FROM notifications WHERE mission_id IN ({values})")
  # Keep mission_action_log, including evidence of draft deletion.

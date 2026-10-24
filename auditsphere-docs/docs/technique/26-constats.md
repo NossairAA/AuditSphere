@@ -1,9 +1,9 @@
 # Constats : implémentation
 
-**Statut :** lots 1 et 2 vérifiés par les tests Java, lot 3 vérifié par tests unitaires, TypeScript et build le 2026-10-24. Lots 4 et 5 proposés, non implémentés.
+**Statut :** lots 1 à 4 implémentés et vérifiés localement le 2026-10-24 : tests Java, tests unitaires, TypeScript et parcours navigateur. Branche non publiée, CI distante non exécutée.
 **Tranche :** F-005, US-005. Règles métier dans le [plan métier](../produit/04-plan-metier.md). Choix du service dans [ADR-0021](../decisions/ADR-0021-constats-audit-service.md).
 
-Ce document décrit le découpage technique. Les lots 1 à 3 sont livrés sur la branche `feat/findings-lot1`, non publiée. Chaque lot est marqué implémenté puis vérifié avec ses preuves de test.
+Ce document décrit le découpage technique. Les lots 1 à 4 sont livrés sur la branche `feat/findings-lot1`, non publiée. Chaque lot est marqué implémenté puis vérifié avec ses preuves de test.
 
 ## Emplacement
 
@@ -70,9 +70,12 @@ Les dérogations APPROVE et CLOSE du superadministrateur appliquent le même com
 - Le BFF exige AUDITOR pour écrire, soumettre et retirer, AUDIT_MANAGER pour valider, renvoyer, rejeter et rouvrir, ou SUPER_ADMIN. audit-service reste l’autorité, notamment pour l’affectation et l’auto-décision.
 - La suppression reçoit la version dans un corps JSON, comme les autres suppressions de l’application. Le BFF la valide comme entier positif et la transmet en paramètre `version`.
 - Les messages d’erreur sont rédigés par le BFF, aucun message amont n’est relayé. Pour la soumission et les dérogations de mission, `src/lib/api.ts` relaie seulement un corps 409 conforme à `{"code":"FINDINGS_PENDING","pending":n}`, avec un message en français. Tout autre corps 409 garde le message générique.
-- Composant `mission-findings.tsx` dans la fiche de mission : liste filtrable par statut et gravité, formulaire à la demande, sélection des contrôles de la mission, avertissement sur un contrôle incohérent.
-- Dialogue de décision avec commentaire obligatoire pour renvoyer, rejeter et rouvrir. Historique en lecture sur la fiche du constat.
-- Message explicite quand la soumission de mission est bloquée par des constats en attente, avec lien vers la section Constats.
+- Onglet Constats de la fiche de mission, entre Contrôles et Équipe, servi par `mission-findings.tsx` : liste filtrable par statut et gravité, cartes avec référence C-01, gravité, statut, champs, contrôles liés avec leur résultat, auteurs et date de mise à jour.
+- Panneau latéral de saisie, réutilisant celui du programme, avec sélection des contrôles de la mission et protection contre la perte d’une saisie non enregistrée. Les champs cause et recommandation peuvent rester vides en brouillon.
+- Actions affichées selon le statut et le rôle : modifier, soumettre et supprimer un brouillon, retirer une soumission, valider, renvoyer et rejeter, rouvrir. Dialogue de décision avec commentaire obligatoire sauf pour valider. La personne qui a soumis voit un message à la place des décisions.
+- Avertissement quand un contrôle lié n’est pas Non conforme, rappel du nombre de constats en attente, message de lecture seule hors En cours. Historique déplié à la demande, avec les dérogations signalées.
+- Les noms viennent de `/participants`. Un superadministrateur hors équipe apparaît comme Compte hors équipe pour les autres utilisateurs.
+- Le refus FINDINGS_PENDING affiché par `mission-lifecycle.tsx` propose un lien Voir les constats. Les dérogations du superadministrateur affichent le message sans lien.
 - Contrat `contracts/audit-api.yaml` en version 0.14.0 : quatre chemins de constats, schémas `Finding`, `FindingInput`, `FindingControl`, `FindingHistoryEntry` et `FindingsPending`, réponses 409 de la soumission et de la dérogation complétées.
 
 ## Vérifications du lot 1
@@ -96,6 +99,15 @@ Les dérogations APPROVE et CLOSE du superadministrateur appliquent le même com
 - Contrat analysé comme YAML valide, toutes les références de schémas résolues.
 - Non vérifié : appel réel à travers BFF, gateway et audit-service, car la pile locale ne contient pas l’image audit-service avec V17. Le lot 4 le couvrira avec Playwright. La CI n’exécute pas encore les tests unitaires Node, seulement TypeScript et build.
 
+## Vérifications du lot 4
+
+- Base locale sauvegardée dans `.local/backups/pre-v17-20261024-182232`, puis image audit-service reconstruite, V17 appliquée par `scripts/migrate-local.py` et droits rejoués. Les 49 missions existantes sont conservées. Droits vérifiés : audit_runtime peut insérer dans `finding_change_log` mais pas le modifier, et peut modifier les constats et la séquence.
+- `apps/web/tests/findings.spec.ts` réussi contre le serveur de développement : création par l’auditeur, refus de soumission incomplète, correction, soumission, refus de soumission de mission avec lien vers les constats, renvoi avec commentaire, nouvelle soumission, validation, historique de six entrées, accès refusé à un utilisateur extérieur, soumission de mission acceptée, constats en lecture seule ensuite.
+- Captures `.local/design/findings-desktop.png` et `findings-mobile.png` contrôlées, sans défilement horizontal à 390 pixels.
+- Nettoyage vérifié : `scripts/cleanup-test-data.py` supprime liens, constats et séquence des missions de test avant les missions, et conserve le journal comme pour le programme.
+- Non-régression : `lifecycle`, `withdrawal` et `validator` réussis. Lancés ensemble sur le serveur de développement, `withdrawal` et un test `validator` ont échoué sur des éléments absents, puis ont réussi seuls. Cause non confirmée, les quotas en mémoire partagés justifient déjà le lanceur isolé de la CI.
+- Non couvert par le navigateur : suppression d’un brouillon, rejet et réouverture, vérifiés uniquement par les tests Java. Suite navigateur complète et CI distante non exécutées.
+
 ## Lots et vérifications prévues
 
 | Lot | Contenu | Vérification attendue |
@@ -103,7 +115,7 @@ Les dérogations APPROVE et CLOSE du superadministrateur appliquent le même com
 | 1, vérifié | Migration V17, contrôleur, journal, droits SQL | Test d’intégration Java : matrice des permissions, statuts, contrôle d’une autre mission, version périmée, refus de l’auto-décision, journal sans UPDATE ni DELETE |
 | 2, vérifié | Blocage de la soumission de mission et des dérogations APPROVE et CLOSE | Test Java : refus avec un brouillon et un soumis, acceptation après validation et rejet, scénario concurrent |
 | 3, vérifié hors parcours réel | BFF et contrat | Tests des primitives existantes sur les nouvelles routes, TypeScript |
-| 4 | Interface | Playwright `findings.spec.ts` : création, soumission, renvoi, correction, validation, soumission de mission, utilisateur extérieur refusé. Nettoyage des données de test par identifiants exacts |
+| 4, vérifié | Interface | Playwright `findings.spec.ts` : création, soumission, renvoi, correction, validation, soumission de mission, utilisateur extérieur refusé. Nettoyage des données de test par identifiants exacts |
 | 5 | Documentation | Ce guide passé à implémenté puis vérifié, backlog, changelog, migration appliquée localement après sauvegarde |
 
 ## Limites connues de la proposition

@@ -1,6 +1,7 @@
 "use client";
 import { canManageMission } from "@/lib/types";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useState } from "react";
 import { ErrorNotice, useUser } from "./workspace";
 import { type Mission } from "@/lib/types";
@@ -23,6 +24,7 @@ export default function MissionLifecycle({
     user.subject !== mission.ownerSubject;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [pendingFindings, setPendingFindings] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
   const [start, setStart] = useState(mission.plannedStartDate || "");
   const [end, setEnd] = useState(mission.plannedEndDate || "");
@@ -36,6 +38,7 @@ export default function MissionLifecycle({
   ) {
     setBusy(true);
     setError("");
+    setPendingFindings(false);
     setNotice("");
     try {
       const response = await fetch(`/api/missions/${mission.id}/${resource}`, {
@@ -48,7 +51,10 @@ export default function MissionLifecycle({
         signal: AbortSignal.timeout(10000),
       });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error);
+      if (!response.ok) {
+        setPendingFindings(result.code === "FINDINGS_PENDING");
+        throw new Error(result.error);
+      }
       onUpdated(result);
       setNotice(
         resource === "schedule" ? "Dates enregistrées." : "Statut mis à jour.",
@@ -121,9 +127,18 @@ export default function MissionLifecycle({
       {error && (
         <>
           <ErrorNotice message={error} />
-          <button className="button secondary" disabled={busy} onClick={reload}>
-            Recharger la fiche
-          </button>
+          {pendingFindings ? (
+            <Link
+              className="button secondary"
+              href={`/missions/${mission.id}?tab=findings`}
+            >
+              Voir les constats
+            </Link>
+          ) : (
+            <button className="button secondary" disabled={busy} onClick={reload}>
+              Recharger la fiche
+            </button>
+          )}
         </>
       )}
       {notice && <p role="status">{notice}</p>}

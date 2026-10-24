@@ -1517,3 +1517,26 @@ td {
 .dashboard-grid a:focus-visible,.dashboard-stats a:focus-visible { outline:3px solid #39735c; outline-offset:4px; }
 @media(max-width:1000px) { .dashboard-grid { grid-template-columns:1fr; } }
 @media(max-width:480px) { .dashboard-stats { grid-template-columns:1fr; } .dashboard-priorities li { align-items:start; padding:1rem; } }
+
+/* Constats de mission */
+.finding-list { list-style:none; margin:1rem 0 0; padding:0; display:grid; gap:1rem; }
+.finding-card { border:1px solid var(--line); border-radius:8px; padding:1.1rem 1.2rem; background:white; }
+.finding-card header { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem .75rem; }
+.finding-card header h3 { margin:0; font-size:1rem; flex:1 1 220px; overflow-wrap:anywhere; }
+.finding-reference { font-weight:700; color:#1e5142; font-variant-numeric:tabular-nums; }
+.finding-fields { display:grid; grid-template-columns:minmax(120px,180px) minmax(0,1fr); gap:.4rem 1rem; margin:1rem 0; }
+.finding-fields dt { color:#61715f; font-size:.85rem; font-weight:600; }
+.finding-fields dd { margin:0; overflow-wrap:anywhere; }
+.finding-fields ul { margin:0; padding-left:1rem; }
+.finding-history { margin:1rem 0 0; padding-left:1.2rem; font-size:.85rem; }
+.finding-history li { margin:.4rem 0; }
+.finding-history p { margin:.2rem 0 0; }
+.finding-severity-critical { color:#8a2b22; background:#fbe9e6; border-color:#efcdc7; }
+.finding-severity-high { color:#7a4b16; background:#fbefe0; border-color:#ecd7bb; }
+.finding-severity-moderate { color:#775322; background:#faf1df; border-color:#e7d8b9; }
+.finding-severity-low { color:#4c5d52; background:#eef2ee; border-color:#d9e1db; }
+.finding-status-submitted { color:#775322; background:#faf1df; border-color:#e7d8b9; }
+.finding-status-validated { color:#245b3d; background:#eaf2e5; border-color:#cfdfc6; }
+.finding-status-rejected { color:#5d5d5d; background:#f0f0ee; border-color:#dcdcd8; }
+.finding-status-draft { color:#275d71; background:#edf5f8; border-color:#d3e4e9; }
+@media(max-width:760px) { .finding-fields { grid-template-columns:minmax(0,1fr); } .finding-fields dd { margin-bottom:.5rem; } }

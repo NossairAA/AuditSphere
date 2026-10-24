@@ -1,5 +1,12 @@
 # Journal des changements
 
+## 2026-10-24 : constats, lot 4
+
+- Onglet Constats dans la fiche de mission : liste filtrée, saisie en panneau latéral, soumission, retrait, décisions avec commentaire, réouverture et historique.
+- Refus de soumission de mission pour constats en attente affiché avec un lien Voir les constats.
+- Nettoyage des données de test étendu aux constats. Base locale sauvegardée puis V17 appliquée, 49 missions conservées, droits du journal vérifiés.
+- Parcours `findings.spec.ts` réussi, captures bureau et mobile contrôlées. `lifecycle`, `withdrawal` et `validator` réussis seuls, deux échecs observés lors d’un lancement groupé, cause non confirmée. CI distante non exécutée. Aucun push.
+
 ## 2026-10-24 : constats, lot 3
 
 - Routes BFF des constats : liste, création, modification, suppression, transitions et historique, avec session, CSRF, limitation de débit, liste blanche des champs et messages propres au BFF.

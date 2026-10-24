@@ -1,7 +1,7 @@
 # Plan métier : audit interne et audit continu
 
 **Mise à jour :** 2026-10-24
-**Statut :** risques, contrôles, résultats et preuves vérifiés localement, tranche constats cadrée, tranches suivantes à réaliser
+**Statut :** risques, contrôles, résultats, preuves et constats vérifiés localement, tranches suivantes à réaliser
 
 ## Objectif
 
@@ -15,7 +15,7 @@ Le socle local comprend les missions, leurs permissions, la validation humaine s
 | --- | --- | --- | --- |
 | 1 | Risques et contrôles d’une mission | Le responsable prépare un programme consultable par les auditeurs affectés | Vérifié localement |
 | 2 | Exécution et preuves | L’auditeur consigne un résultat et ses justificatifs, avec accès contrôlé et versions conservées | Résultats et ajout de preuves vérifiés localement, conservation à compléter |
-| 3 | Constats | Une anomalie documentée devient un constat avec gravité, cause et recommandation | API, blocage de soumission et BFF livrés, interface à réaliser |
+| 3 | Constats | Une anomalie documentée devient un constat avec gravité, cause et recommandation | Vérifié localement, non publié |
 | 4 | Actions correctives | Un responsable suit une action et son échéance, puis un acteur habilité vérifie la correction | À réaliser |
 | 5 | Audit continu | Une règle versionnée s’exécute sur une source autorisée et produit des anomalies reproductibles | À réaliser après le parcours manuel |
 
@@ -72,7 +72,7 @@ Les échelles ordinales de 1 à 5 sont implémentées, leurs libellés restent �
 
 ## Troisième tranche : constats
 
-**ID :** F-005, US-005 · **Priorité :** P0 · **Statut :** cadré le 2026-10-24, API et blocage de la soumission de mission vérifiés par tests Java, BFF et contrat livrés, interface à réaliser
+**ID :** F-005, US-005 · **Priorité :** P0 · **Statut :** cadré le 2026-10-24, implémenté et vérifié localement le 2026-10-24, non publié
 **Responsable produit :** à définir
 
 ### Problème utilisateur et résultat attendu
@@ -139,16 +139,16 @@ Un résultat Non conforme signale un écart, mais ne dit ni pourquoi il existe, 
 
 ### Critères d’acceptation
 
-- [ ] Créer, consulter, modifier et supprimer un brouillon de constat depuis la mission.
+- [x] Créer, consulter, modifier et supprimer un brouillon de constat depuis la mission.
 - [x] Lier un constat à plusieurs contrôles de la même mission et refuser un contrôle d’une autre mission.
 - [x] Refuser la soumission sans cause, sans recommandation ou sans contrôle lié Non conforme.
-- [ ] Valider, renvoyer avec commentaire, rejeter avec motif et rouvrir avec motif, selon les permissions.
+- [x] Valider, renvoyer avec commentaire, rejeter avec motif et rouvrir avec motif, selon les permissions.
 - [x] Refuser toute décision à la personne qui a soumis le constat, y compris par dérogation.
 - [x] Figer les constats hors statut En cours et refuser la soumission de mission avec un constat Brouillon ou Soumis.
 - [x] Détecter les conflits de version et journaliser chaque changement en ajout seul.
-- [ ] Vérifier les permissions côté API et dans les parcours navigateur, y compris pour un utilisateur extérieur.
-- [ ] Conserver les missions et données existantes lors de la migration.
-- [ ] Mettre à jour les contrats, la documentation et les tests ciblés.
+- [x] Vérifier les permissions côté API et dans les parcours navigateur, y compris pour un utilisateur extérieur.
+- [x] Conserver les missions et données existantes lors de la migration.
+- [x] Mettre à jour les contrats, la documentation et les tests ciblés.
 
 ### Hors périmètre
 

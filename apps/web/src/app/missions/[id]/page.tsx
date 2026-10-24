@@ -1,5 +1,6 @@
 "use client";
 import AuditProgram from "@/components/audit-program";
+import MissionFindings from "@/components/mission-findings";
 import AdminMissionActions from "@/components/admin-mission-actions";
 import { isSuperAdmin } from "@/lib/types";
 import { Suspense, use, useEffect, useState } from "react";
@@ -26,7 +27,7 @@ import {
 function Detail({ params }: { params: Promise<{ id: string }> }) {
   const search = useSearchParams();
   const requestedTab = search.get("tab") || "overview";
-  const tab = ["overview", "risks", "controls", "team", "followup"].includes(
+  const tab = ["overview", "risks", "controls", "findings", "team", "followup"].includes(
     requestedTab,
   )
     ? requestedTab
@@ -201,6 +202,7 @@ function Detail({ params }: { params: Promise<{ id: string }> }) {
               ["overview", "Vue d’ensemble"],
               ["risks", "Risques"],
               ["controls", "Contrôles"],
+              ["findings", "Constats"],
               ["team", "Équipe"],
               ["followup", "Suivi"],
             ].map(([key, label]) => (
@@ -248,6 +250,9 @@ function Detail({ params }: { params: Promise<{ id: string }> }) {
                   mission={mission}
                   onUpdated={setMission}
                 />
+              )}
+              {tab === "findings" && (
+                <MissionFindings key={mission.id} mission={mission} />
               )}
               {tab === "team" && (
                 <>
