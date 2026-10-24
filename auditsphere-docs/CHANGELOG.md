@@ -1,5 +1,14 @@
 # Journal des changements
 
+## 2026-10-24 : actions correctives, lot 2
+
+- Lot 1 publié : CI distante réussie sur `226c006`, PR #6 fusionnée dans `main` par `05f6191`.
+- Migration V18 d’audit-service : `missions.issue_cycle` et `findings_issue_outbox`. Émission quand la mission entre dans APPROVED ou CLOSED, retrait sur REOPEN ou DELETE d’une mission émise. Pas d’émission rétroactive des missions approuvées avant V18.
+- `FindingsIssuePublisher` publie `audit.mission.findings-issued.v1` et `audit.mission.findings-withdrawn.v1`, clé `missionId`, identifiants seulement. Topics et DLT créés par `kafka-init`, schémas dans `contracts`.
+- Lecture interne `GET /internal/missions/{id}/issues/{cycle}`, réservée au rôle REMEDIATION_SYNC, non routée par la gateway, protégée par un verrou partagé sur la mission.
+- Rôle REMEDIATION_SYNC et client de service `remediation-service` créés par `setup-web.py`, sans rôle humain.
+- Vérifié localement : six tests Java dont un test de mutation, `clean verify` complet, pile relancée, droits réels, smoke et parcours réel jusqu’au message Kafka. CI distante non exécutée. Détails dans le [guide des actions correctives](docs/technique/27-actions-correctives.md).
+
 ## 2026-10-24 : actions correctives, lot 1
 
 - Nouveau service `remediation-service` : module Maven, port 8083, base `remediation` publiée sur 127.0.0.1:5548 en développement uniquement, route gateway `/remediation/**`.
