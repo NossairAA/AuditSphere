@@ -205,6 +205,8 @@ Voir le [guide du rôle validateur](../technique/11-role-validateur.md).
 
 - NOTIF-11 : mise à jour SSE de la liste et du compteur, vérifiée localement avec une instance de notification-service. Diffusion partagée entre plusieurs instances à réaliser avant extension.
 
+- NOTIF-12 : action Tout marquer comme lu, limitée au destinataire du JWT et protégée par CSRF. Vérifié localement par onze tests Java du service notifications et quatre scénarios navigateur. Voir le [guide des notifications](../technique/09-notifications-kafka.md).
+
 ## Refonte ergonomique du 21 octobre 2026
 
 La navigation par onglets, les filtres de missions, le détail des contrôles et l’administration des comptes sont implémentés localement. Voir le [guide de navigation](../technique/24-navigation-administration.md). La prochaine tranche métier reste les constats.
