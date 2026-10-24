@@ -18,12 +18,13 @@ import reactor.netty.http.client.HttpClient;
 /** Checks the audit service's revocation ledger before forwarding an authenticated request. */
 @Component
 class AccountRevocationFilter implements GlobalFilter, Ordered {
+  // Same bounded DNS as the routes: a restarted audit-service may get a new Docker address.
+  final HttpClient client = GatewayConfig.boundedDns(HttpClient.create());
   private final WebClient audit;
 
   AccountRevocationFilter(@Value("${AUDIT_URL:http://localhost:8081}") String auditUrl) {
-    // Same bounded DNS as the routes: a restarted audit-service may get a new Docker address.
     this.audit = WebClient.builder()
-        .clientConnector(new ReactorClientHttpConnector(GatewayConfig.boundedDns(HttpClient.create())))
+        .clientConnector(new ReactorClientHttpConnector(client))
         .baseUrl(auditUrl)
         .build();
   }
