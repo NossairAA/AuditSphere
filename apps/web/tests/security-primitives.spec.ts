@@ -3,7 +3,9 @@ import { randomBytes } from "node:crypto";
 import { rateLimit } from "../src/lib/rate";
 import { encryptSession, decryptSession } from "../src/lib/session-crypto";
 import { NextRequest } from "next/server";
-import { proxy } from "../src/proxy";
+import { proxy, config as proxyConfig } from "../src/proxy";
+import nextConfig from "../next.config";
+import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
 
 test("login limits isolate trusted proxy client addresses", () => {
   const previous = process.env.TRUSTED_PROXY_IP_HEADER;
@@ -74,5 +76,27 @@ test("CSP has a fresh nonce and HTTPS responses carry HSTS", () => {
     else process.env.APP_ORIGIN = previous;
     if (previousIssuer === undefined) delete process.env.OIDC_ISSUER;
     else process.env.OIDC_ISSUER = previousIssuer;
+  }
+});
+
+
+test("CSP proxy excludes upload and auth bodies before route admission", async () => {
+  for (const url of ["/api", "/api/session", "/api/missions/a/controls/b/evidence", "/auth", "/auth/login", "/auth/logout"]) {
+    expect(unstable_doesMiddlewareMatch({ config: proxyConfig, nextConfig, url })).toBe(false);
+  }
+  for (const url of ["/", "/missions", "/missions/new", "/missions/a"]) {
+    expect(unstable_doesMiddlewareMatch({ config: proxyConfig, nextConfig, url })).toBe(true);
+  }
+  expect(nextConfig.experimental?.proxyClientMaxBodySize).toBe(32768);
+  const previous = process.env.APP_ORIGIN;
+  process.env.APP_ORIGIN = "https://audit.example";
+  try {
+    const rules = await nextConfig.headers!();
+    expect(rules.find((rule) => rule.source === "/:path*")?.headers).toContainEqual({
+      key: "Strict-Transport-Security", value: "max-age=31536000",
+    });
+  } finally {
+    if (previous === undefined) delete process.env.APP_ORIGIN;
+    else process.env.APP_ORIGIN = previous;
   }
 });

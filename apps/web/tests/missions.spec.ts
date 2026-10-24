@@ -78,10 +78,15 @@ test("responsable : connexion, création, détail, liste, session opaque et déc
   const identity = await (await page.request.get("/api/session")).json();
   expect(identity.accessToken).toBeUndefined();
   expect(identity.refreshToken).toBeUndefined();
+  const identityLogout = page.waitForRequest((request) => {
+    const url = new URL(request.url());
+    return url.origin === "http://localhost:8180" && url.pathname.endsWith("/openid-connect/logout");
+  });
   await page.getByRole("button", { name: "Se déconnecter" }).click();
-  await expect(page).toHaveURL(/localhost:8180\/realms\/auditsphere\/protocol\/openid-connect\/logout/);
-  await expect(page.locator("#kc-logout")).toBeVisible();
-  await page.locator("#kc-logout").click();
+  await identityLogout;
+  await page.waitForURL((url) => url.port === "8180" || url.pathname === "/");
+  if (new URL(page.url()).port === "8180")
+    await page.locator("#kc-logout").click();
   await expect(page).toHaveURL("http://localhost:3000/");
   const replay = await page.request.get("/api/session", {
     headers: { Cookie: "auditsphere-session=" + cookie.value },
