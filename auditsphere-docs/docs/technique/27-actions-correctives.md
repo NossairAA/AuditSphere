@@ -1,9 +1,9 @@
 # Actions correctives : implémentation proposée
 
-**Statut :** proposé le 2026-10-24, découpage accepté par ADR-0022. Aucun code, aucune migration et aucun test n’existent pour cette tranche.
+**Statut :** découpage accepté par ADR-0022. Lot 1 implémenté et vérifié localement le 2026-10-24, CI distante non exécutée. Lots 2 à 8 proposés, non implémentés.
 **Tranche :** F-006, US-006 et US-007. Règles métier dans le [plan métier](../produit/04-plan-metier.md). Découpage du service dans [ADR-0022](../decisions/ADR-0022-actions-correctives-service-dedie.md), accepté le 2026-10-24.
 
-Ce document décrit le découpage technique prévu. Chaque lot sera marqué implémenté puis vérifié avec ses preuves de test. Les noms de tables, de chemins et de variables sont des propositions.
+Ce document décrit le découpage technique. Chaque lot est marqué implémenté puis vérifié avec ses preuves de test. Les noms des lots 2 à 8 restent des propositions.
 
 ## Emplacement
 
@@ -32,7 +32,7 @@ audit-service reste propriétaire des missions et des constats. Il publie l’é
 - titre de la mission, sujet du propriétaire, du validateur et des auditeurs affectés.
 - constats Validé : identifiant, version, référence, titre, gravité, condition observée, cause et recommandation.
 
-La lecture exige un jeton client credentials du client Keycloak `remediation-service`, porteur du rôle de service `REMEDIATION_SYNC`. La gateway ne route pas `/internal/**`, le chemin reste accessible uniquement depuis le réseau interne. Elle répond 409 si le cycle demandé n’est plus le cycle courant ou si la mission n’est plus approuvée ou clôturée. L’instantané est stable car les constats, les affectations et la désignation sont figés après approbation.
+La lecture exige un jeton client credentials du client Keycloak `remediation-service`, porteur du rôle de service `REMEDIATION_SYNC`. Ce client et ce rôle sont créés au lot 2, avec leur premier usage. La gateway ne route pas `/internal/**`, le chemin reste accessible uniquement depuis le réseau interne. Elle répond 409 si le cycle demandé n’est plus le cycle courant ou si la mission n’est plus approuvée ou clôturée. L’instantané est stable car les constats, les affectations et la désignation sont figés après approbation.
 
 ### Consommation dans remediation-service
 
@@ -102,7 +102,7 @@ Le retard est calculé à la lecture avec `REMEDIATION_TIME_ZONE`, Europe/Paris 
 
 - Nouveau rôle de royaume `AUDITEE`. Compte de démonstration `auditee` dans le royaume de développement uniquement, le royaume de production reste sans compte démo selon C1.
 - L’administration des comptes, ADR-0016, permet d’attribuer AUDITEE.
-- Adaptateur d’annuaire dans remediation-service avec un client technique `remediation-directory`, limité à view-users, sur le modèle d’ADR-0005. Il valide le rôle AUDITEE et l’activité du compte à la création et à la réaffectation.
+- Adaptateur d’annuaire dans remediation-service avec un client technique `remediation-directory`, sur le modèle d’ADR-0005. Il est créé au lot 4 avec ses droits exacts, vérifiés contre Keycloak. Il valide le rôle AUDITEE et l’activité du compte à la création et à la réaffectation.
 - Filtre de révocation repris de notification-service et de la gateway, pour retirer l’accès sans attendre l’expiration du jeton.
 
 ## Notifications
@@ -119,19 +119,40 @@ remediation-service écrit `audit.action.assigned.v1` dans son outbox à la cré
 
 ## Compose et CI
 
-- Compose : `remediation-service`, base `remediation-db` publiée sur 127.0.0.1:5547 en développement uniquement, bucket Garage et clé dédiés préparés par `scripts/setup-garage.py`.
+- Compose : `remediation-service`, base `remediation-db` publiée sur 127.0.0.1:5548 en développement uniquement, le port 5547 étant déjà pris par notification-db, bucket Garage et clé dédiés préparés par `scripts/setup-garage.py`.
 - Module Maven ajouté au parent, donc compilé et testé par `./mvnw -B verify` en CI.
 - `scripts/test-remediation.py --faults` sur le modèle des scripts de notifications : redélivrance, audit-service arrêté pendant la lecture d’instantané, reprise sans doublon.
 - `scripts/cleanup-test-data.py` étendu à la base remediation, journal conservé.
+
+## Lot 1 : socle du service
+
+- Module Maven `services/remediation-service`, port 8083, sans Kafka à ce stade. `MIGRATION_ONLY` applique Flyway avec le compte migrateur, comme les autres services.
+- Migration V1 : toutes les tables décrites plus haut. Les contraintes CHECK testent explicitement `IS NOT NULL` pour les valeurs obligatoires, car un CHECK évalué à NULL est accepté par PostgreSQL. Les numéros d’action sont uniques par suivi, une action ne peut pas viser le suivi d’une autre mission, le responsable d’une action ne peut pas en être le vérificateur et la personne qui demande la clôture ne peut pas clôturer.
+- Sécurité : jeton JWT de l’audience `auditsphere-api`, rôles de royaume convertis en rôles Spring, filtre de révocation interrogeant `/account/security` d’audit-service. `/remediation/**` est réservé aux rôles humains, tout autre chemin est refusé.
+- Lecture `GET /remediation/me/actions`, réservée à AUDITEE : actions de l’utilisateur connecté, hors suivis et missions retirés, triées par échéance, avec l’indicateur de retard calculé par `REMEDIATION_TIME_ZONE`.
+- `scripts/prepare-remediation.py` crée les secrets locaux. `harden-databases.py` et `migrate-local.py` traitent la base remediation. Compose ajoute `remediation-db` et `remediation-service`, la gateway route `/remediation/**`.
+- Rôle AUDITEE créé dans tous les environnements par `setup-web.py`, compte de démonstration `auditee` en local uniquement, refusé en production par `keycloak_production.py`. L’administration des comptes peut attribuer ce rôle, affiché Audité.
+- Un audité peut se connecter à l’application web, mais n’a encore aucun écran dédié. Il ne voit aucune mission, audit-service lui répond 404 sur une mission dont il n’est pas participant.
+
+## Vérifications du lot 1
+
+- `RemediationIntegrationTest`, cinq tests avec PostgreSQL Testcontainers : migration V1 sur base vide et liste exacte des tables, rejet en base des lignes incohérentes, actions de l’audité limitées aux siennes avec retard calculé sur une horloge fixée, refus sans jeton, avec jeton invalide, pour AUDITOR et pour un compte de service, chemin hors `/remediation/**` refusé, compte révoqué refusé en 401 et registre injoignable en 503.
+- Test de mutation : avec l’ancien CHECK sans `IS NOT NULL` sur le motif d’annulation, le test des contraintes échoue. Migration restaurée ensuite.
+- `./mvnw -B clean verify` avec JDK 25 : 69 tests audit-service, 11 gateway, 17 notification-service et 5 remediation-service réussis.
+- Tests Python des scripts : 22 tests réussis dont deux ignorés par conception, puis les deux tests de droits locaux réussis avec `AUDITSPHERE_TEST_LOCAL_GRANTS=1`. Ils couvrent l’ajout seul sur `remediation_change_log` et `action_progress_notes` et un droit explicite pour chaque table. `test_keycloak_production` vérifie aussi l’absence de port publié pour `remediation-db` en production.
+- Pile locale relancée par `scripts/start-local.sh` : sauvegardes créées, V1 appliquée par le compte migrateur, `remediation_runtime` sans superutilisateur, 11 tables appartenant à `remediation_migrator`. Droits réels vérifiés : insertion sans modification ni suppression sur les deux tables en ajout seul.
+- `scripts/smoke.py` avec de vrais jetons Keycloak par la gateway : l’audité obtient 200 et une liste sur `/remediation/me/actions`, 404 sur une mission et une liste de missions vide. AUDITOR reçoit 403, une requête sans jeton ou avec un jeton invalide reçoit 401.
+- TypeScript du frontend réussi après l’ajout du libellé Audité.
+- Non vérifié : CI distante, parcours navigateur de l’administration des comptes avec le rôle AUDITEE.
 
 ## Lots et vérifications prévues
 
 | Lot | Contenu | Vérification attendue |
 | --- | --- | --- |
-| 1 | Squelette remediation-service, migration V1, droits SQL, route gateway, Compose, rôle AUDITEE et clients Keycloak | Migration sur base vide avec Testcontainers, test des droits, santé du service, jeton invalide refusé |
-| 2 | audit-service : V18, outbox d’émission et de retrait, lecture interne | Test Java : un événement par approbation et dérogation APPROVE, aucun après annulation de transaction, retrait sur REOPEN et DELETE, lecture interne refusée sans rôle de service, 409 sur cycle périmé |
+| 1, vérifié localement | Squelette remediation-service, migration V1, droits SQL, route gateway, Compose, rôle AUDITEE et lecture `GET /remediation/me/actions` | Migration sur base vide avec Testcontainers, contraintes, test des droits, santé du service, jeton invalide refusé, parcours réel par la gateway |
+| 2 | audit-service : V18, outbox d’émission et de retrait, lecture interne, client `remediation-service` et rôle `REMEDIATION_SYNC` | Test Java : un événement par approbation et dérogation APPROVE, aucun après annulation de transaction, retrait sur REOPEN et DELETE, lecture interne refusée sans rôle de service, 409 sur cycle périmé |
 | 3 | Consommateur, lecture d’instantané et réconciliation | Test d’intégration : redélivrance sans doublon, cycle ancien ignoré, audit-service indisponible sans acquittement, suspension puis réactivation, constat absent passé Retiré |
-| 4 | API des suivis et actions, annuaire, journal | Test Java : matrice des permissions, séparation des fonctions y compris par dérogation, versions, retard avec horloge fixée, journal sans UPDATE ni DELETE |
+| 4 | API des suivis et actions, annuaire et client `remediation-directory`, journal | Test Java : matrice des permissions, séparation des fonctions y compris par dérogation, versions, retard avec horloge fixée, journal sans UPDATE ni DELETE |
 | 5 | Justificatifs dans Garage | Test : type, taille, nombre, quota concurrent, nettoyage de l’objet après refus, retrait interdit après réalisation |
 | 6 | Notification d’affectation | Test notification-service : consommation idempotente, destinataire seul, reprise après panne du broker |
 | 7 | BFF, contrat et interface | Tests unitaires Node, TypeScript, build, Playwright `remediation.spec.ts` : approbation, action, avancement et justificatif par l’audité, renvoi, vérification, demande de clôture, clôture, audité extérieur et utilisateur extérieur refusés |

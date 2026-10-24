@@ -38,6 +38,7 @@ class ProductionRealmTest(unittest.TestCase):
             "WEB_DB_PASSWORD": "test",
             "AUDIT_DB_PASSWORD": "test",
             "NOTIFICATION_DB_PASSWORD": "test",
+            "REMEDIATION_DB_PASSWORD": "test",
             "DIRECTORY_CLIENT_SECRET": "test",
         })
         result = subprocess.run(
@@ -47,6 +48,7 @@ class ProductionRealmTest(unittest.TestCase):
         )
         config = json.loads(result.stdout)
         self.assertEqual(config["name"], "auditsphere-production")
+        self.assertNotIn("ports", config["services"]["remediation-db"])
         volumes = config["services"]["keycloak-import"]["volumes"]
         import_source = next(volume["source"] for volume in volumes if volume["target"] == "/source/realm.json")
         self.assertEqual(import_source, str(root / "deploy/keycloak/production-realm.json"))

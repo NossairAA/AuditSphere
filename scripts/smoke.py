@@ -20,7 +20,7 @@ for attempt in range(120):
  time.sleep(2)
 else: raise SystemExit('Services indisponibles après 4 minutes')
 tokens={}
-for name in ['manager','auditor','outsider','validator']:
+for name in ['manager','auditor','outsider','validator','auditee']:
  status,body=request('http://localhost:8180/realms/auditsphere/protocol/openid-connect/token',data={'client_id':'auditsphere-demo','grant_type':'password','username':name,'password':env[name.upper()+'_PASSWORD']},form=True)
  assert status==200, f'Login {name}: {status}'
  tokens[name]=body['access_token']
@@ -36,5 +36,14 @@ assert request(url)[0]==401
 assert request(url,'invalid-token')[0]==401
 assert request(base+'/missions',tokens['auditor'],payload)[0]==403
 assert request(base+'/missions',tokens['manager'],{**payload,'title':''})[0]==400
+status,actions=request(base+'/remediation/me/actions',tokens['auditee'])
+assert status==200 and isinstance(actions,list), f'Actions audité : {status}'
+assert request(base+'/missions/'+mission['id'],tokens['auditee'])[0]==404
+status,listing=request(base+'/missions',tokens['auditee'])
+assert status==200 and listing['total']==0, f'Missions visibles par l’audité : {status}'
+assert request(base+'/remediation/me/actions',tokens['auditor'])[0]==403
+assert request(base+'/remediation/me/actions')[0]==401
+assert request(base+'/remediation/me/actions','invalid-token')[0]==401
 print('PASS : création, consultation autorisée, isolation, authentification, rôle et validation.')
+print('PASS : remediation-service joignable par la gateway, réservé à l’audité, sans accès aux missions.')
 print('Mission de démonstration : '+mission['id'])

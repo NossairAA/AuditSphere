@@ -54,6 +54,7 @@ export const roleLabels = (roles: string[] = []) =>
     ["AUDIT_MANAGER", "Responsable"],
     ["AUDITOR", "Auditeur"],
     ["AUDIT_VALIDATOR", "Validateur"],
+    ["AUDITEE", "Audité"],
   ]
     .filter(([role]) => roles.includes(role))
     .map(([, label]) => label)

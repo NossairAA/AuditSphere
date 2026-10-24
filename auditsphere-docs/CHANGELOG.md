@@ -1,5 +1,15 @@
 # Journal des changements
 
+## 2026-10-24 : actions correctives, lot 1
+
+- Nouveau service `remediation-service` : module Maven, port 8083, base `remediation` publiée sur 127.0.0.1:5548 en développement uniquement, route gateway `/remediation/**`.
+- Migration V1 : suivis, actions, notes d’avancement, justificatifs, journal, événements traités et outbox. Contraintes CHECK avec `IS NOT NULL` explicite pour les valeurs obligatoires.
+- Droits `remediation_runtime` : ajout seul sur le journal et les notes d’avancement. Scripts de préparation, de migration et de démarrage étendus.
+- Rôle AUDITEE dans tous les environnements, compte `auditee` en local uniquement et refusé en production. Rôle attribuable depuis l’administration des comptes.
+- Lecture `GET /remediation/me/actions` réservée à l’audité, avec retard calculé à la lecture.
+- Clients Keycloak `remediation-service` et `remediation-directory` reportés aux lots 2 et 4, qui les utilisent.
+- Vérifié localement : `clean verify` complet, tests Python, pile relancée, smoke par la gateway et droits réels. CI distante non exécutée. Détails dans le [guide des actions correctives](docs/technique/27-actions-correctives.md).
+
 ## 2026-10-24 : constats publiés, cadrage des actions correctives
 
 - F-005 clôturé : CI distante réussie sur `92dd3ef` (exécution `40113987183`), avec 69 tests audit-service et `findings.spec.ts`. PR #3 fusionnée dans `main` par `65e4331`, CI de `main` réussie. Le [guide des constats](docs/technique/26-constats.md) passe à vérifié et publié.
