@@ -25,6 +25,8 @@ Un brouillon doit être planifié et démarré avant une approbation ou une clô
 
 Depuis [ADR-0018](../decisions/ADR-0018-separation-validateur-auditeur.md), la dérogation APPROVE refuse aussi une approbation personnelle avec 409. Les superadministrateurs propriétaires, validateurs ou auditeurs affectés doivent demander à un autre superadministrateur d'effectuer cette action.
 
+Depuis le lot 2 des [constats](26-constats.md), APPROVE et CLOSE sont refusés en 409 FINDINGS_PENDING tant qu’un constat de la mission est Brouillon ou Soumis.
+
 ## Trace et cohérence
 
 Le journal enregistre auteur, opération, motif, date, version, statut avant et statut après. L’interface montre la dernière dérogation aux personnes ayant accès à la mission. Le superadmin peut consulter les 100 dernières entrées via la fiche ou `GET /missions/{id}/action-log`, y compris par identifiant après suppression. Les mutations ordinaires du superadmin produisent aussi une entrée ADMIN_CHANGE avec l’opération et la version obtenue.

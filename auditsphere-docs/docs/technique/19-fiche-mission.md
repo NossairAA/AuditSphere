@@ -10,6 +10,8 @@ Les liens de navigation donnent accès au cadre, à l’équipe, au suivi et aux
 
 L’action principale précède les modifications secondaires. Sur un écran suffisamment large et haut, le panneau reste visible pendant le défilement, avec un défilement interne si nécessaire. Les liens et commandes disposent d’un indicateur de focus au clavier.
 
+Depuis le lot 4 des [constats](26-constats.md), un onglet Constats se place entre Contrôles et Équipe. Un refus de soumission dû à des constats en attente affiche le nombre concerné et un lien Voir les constats à la place du rechargement de la fiche.
+
 La section Décisions et suivi rassemble la dernière décision, le dernier retrait et les dates disponibles. Elle présente les derniers repères enregistrés, pas un historique exhaustif.
 
 ## Validation

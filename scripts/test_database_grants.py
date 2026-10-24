@@ -24,6 +24,13 @@ class AdministrationGrantsTest(unittest.TestCase):
         self.assertIn('REVOKE ALL ON ALL TABLES IN SCHEMA public FROM {runtime}', source)
         self.assertIn('GRANT SELECT,INSERT,UPDATE ON account_revocations TO audit_runtime', source)
 
+    def test_provisioning_keeps_finding_log_append_only(self):
+        source = (ROOT / 'scripts/harden-databases.py').read_text()
+        grants = re.findall(r"GRANT ([^']+) TO audit_runtime", source)
+        log_grants = [grant for grant in grants if 'finding_change_log' in grant]
+        self.assertEqual(log_grants, ['SELECT,INSERT ON finding_change_log'])
+        self.assertIn("'mission_findings','mission_finding_controls','mission_finding_sequences')", source)
+
     @unittest.skipUnless(os.environ.get('AUDITSPHERE_TEST_LOCAL_GRANTS') == '1', 'local PostgreSQL verification is opt-in')
     def test_local_runtime_cannot_update_actor_but_can_complete_operation(self):
         checks = ["has_table_privilege('audit_runtime','user_admin_log','UPDATE')"]

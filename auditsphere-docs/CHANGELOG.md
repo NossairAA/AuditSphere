@@ -1,5 +1,46 @@
 # Journal des changements
 
+## 2026-10-24 : constats, correctif CI
+
+- Échec CI de `findings.spec.ts` expliqué : actions réactivées avant le rechargement de la liste, soumission envoyée avec une version périmée puis refusée en 409.
+- La liste est rechargée avant la réactivation des actions. Le test retarde les lectures de liste et reproduisait l’échec avant correction. Réussi localement, nouvelle CI à observer.
+
+## 2026-10-24 : constats, lot 4
+
+- Onglet Constats dans la fiche de mission : liste filtrée, saisie en panneau latéral, soumission, retrait, décisions avec commentaire, réouverture et historique.
+- Refus de soumission de mission pour constats en attente affiché avec un lien Voir les constats.
+- Nettoyage des données de test étendu aux constats. Base locale sauvegardée puis V17 appliquée, 49 missions conservées, droits du journal vérifiés.
+- Parcours `findings.spec.ts` réussi, captures bureau et mobile contrôlées. `lifecycle`, `withdrawal` et `validator` réussis seuls, deux échecs observés lors d’un lancement groupé, cause non confirmée. CI distante non exécutée. Aucun push.
+
+## 2026-10-24 : constats, lot 3
+
+- Routes BFF des constats : liste, création, modification, suppression, transitions et historique, avec session, CSRF, limitation de débit, liste blanche des champs et messages propres au BFF.
+- Relais strict du refus FINDINGS_PENDING pour la soumission et les dérogations de mission, avec le nombre de constats en attente.
+- Contrat audit-api 0.14.0 complété avec les chemins et schémas des constats.
+- Six tests unitaires Node ajoutés, dix réussis au total. TypeScript et build Next.js réussis. Parcours réel non vérifié, prévu au lot 4. Aucun push.
+
+## 2026-10-24 : constats, lot 2
+
+- Soumission de mission refusée en 409 tant qu’un constat est Brouillon ou Soumis. Corps `{"code":"FINDINGS_PENDING","pending":n}` pour l’interface, messages internes toujours masqués.
+- Comptage rejoué sous verrou de mission dans la transaction finale. Dérogations APPROVE et CLOSE du superadministrateur soumises à la même règle.
+- Deux tests Java ajoutés, dont un scénario concurrent validé par mutation. 69 tests audit-service réussis.
+- BFF, interface et migration locale restent à faire. Détails dans le [guide des constats](docs/technique/26-constats.md). Aucun push.
+
+## 2026-10-24 : constats, lot 1
+
+- ADR-0021 accepté : constats hébergés par audit-service.
+- Migration V17 : constats, contrôles liés, séquence de références par mission et journal en ajout seul. Droits audit_runtime ajoutés dans `scripts/harden-databases.py`.
+- `FindingController` : liste, historique, création, modification et suppression de brouillon, transitions de soumission, retrait, validation, renvoi, rejet et réouverture. Séparation entre auteur de la soumission et décideur, dérogations tracées.
+- Deux tests d’intégration Java et un test des droits SQL ajoutés. 67 tests audit-service réussis. Le test a révélé la réattribution d’une référence supprimée, corrigée par la table de séquence.
+- Migration non appliquée à la base locale. Blocage de la soumission de mission, BFF et interface à réaliser. Détails dans le [guide des constats](docs/technique/26-constats.md). Aucun push.
+
+## 2026-10-24 : cadrage des constats
+
+- Tranche F-005 cadrée dans le [plan métier](docs/produit/04-plan-metier.md) : contenu, cycle Brouillon, Soumis, Validé ou Rejeté, permissions, interaction avec la mission, traçabilité et critères d’acceptation.
+- Implémentation proposée dans le [guide des constats](docs/technique/26-constats.md) : migration V17, API audit-service, blocage de la soumission de mission, BFF, interface et lots de tests.
+- [ADR-0021](docs/decisions/ADR-0021-constats-audit-service.md) proposé : constats dans audit-service, frontière réexaminée à F-006. Index des ADR complété de 0018 à 0021.
+- Statut des preuves corrigé dans l’ordre de livraison du plan métier. Documentation seulement, aucun code ni test exécuté.
+
 ## 2026-10-24 : tout marquer comme lu
 
 - Bouton Tout marquer comme lu sur la page Notifications. Le compteur et la liste sont rechargés après l’action.

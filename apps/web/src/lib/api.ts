@@ -2,6 +2,7 @@ import "server-only";
 import { rateLimit, rateLimitAnonymous, rateLimitSession } from "./rate";
 import { limitedText, BodyError } from "./body";
 import { json, session, validMutation } from "./auth";
+import { pendingFindingsError } from "./findings-rules";
 export async function missions(
   request: Request,
   id?: string,
@@ -176,6 +177,13 @@ export async function missions(
       cache: "no-store",
       signal: AbortSignal.timeout(10_000),
     });
+    if (
+      response.status === 409 &&
+      (resource === "submission" || resource === "override")
+    ) {
+      const pending = pendingFindingsError(await response.json().catch(() => null));
+      if (pending) return json(pending, 409);
+    }
     if (!response.ok)
       return json(
         {

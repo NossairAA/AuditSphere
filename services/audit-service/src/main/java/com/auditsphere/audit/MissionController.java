@@ -22,6 +22,7 @@ class MissionController {
   private final AssignmentOutbox outbox;
   private final ReviewOutbox reviewOutbox;
   private final MissionActionLog actionLog;
+  private final PendingFindings pendingFindings;
   private final org.springframework.transaction.support.TransactionTemplate tx;
 
   MissionController(
@@ -30,11 +31,13 @@ class MissionController {
       AssignmentOutbox outbox,
       ReviewOutbox reviewOutbox,
       MissionActionLog actionLog,
+      PendingFindings pendingFindings,
       org.springframework.transaction.PlatformTransactionManager manager) {
     this.directory = directory;
     this.outbox = outbox;
     this.reviewOutbox = reviewOutbox;
     this.actionLog = actionLog;
+    this.pendingFindings = pendingFindings;
     this.tx = new org.springframework.transaction.support.TransactionTemplate(manager);
     this.tx.setTimeout(5);
     this.repository = repository;
@@ -449,6 +452,15 @@ class MissionController {
         || m.ownerSubject.equals(m.validatorSubject)
         || m.assigneeSubjects.contains(m.validatorSubject))
       throw new ResponseStatusException(HttpStatus.CONFLICT);
+    pendingFindings.requireNone(m.id);
+  }
+
+  record PendingFindingsError(String code, int pending) {}
+
+  @ExceptionHandler(PendingFindings.Blocked.class)
+  ResponseEntity<PendingFindingsError> pendingFindings(PendingFindings.Blocked e) {
+    return ResponseEntity.status(HttpStatus.CONFLICT)
+        .body(new PendingFindingsError("FINDINGS_PENDING", e.pending));
   }
 
   @PutMapping("/{id}/submission")
@@ -562,6 +574,8 @@ class MissionController {
             throw new ResponseStatusException(HttpStatus.CONFLICT);
           if (body.action().equals("APPROVE") && before.equals("CLOSED"))
             throw new ResponseStatusException(HttpStatus.CONFLICT);
+          if (body.action().equals("APPROVE") || body.action().equals("CLOSE"))
+            pendingFindings.requireNone(m.id);
           if (body.action().equals("APPROVE")
               && (jwt.getSubject().equals(m.ownerSubject)
                   || jwt.getSubject().equals(m.validatorSubject)
