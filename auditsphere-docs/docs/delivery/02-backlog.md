@@ -193,6 +193,7 @@ Voir le [guide du rôle validateur](../technique/11-role-validateur.md).
 - Les relances, échéances, emails et notifications de décision restent hors de cette tranche.
 
 - OPS-DNS-01 : reprise des routes après changement d’adresse Docker, cache DNS borné et scénario de panne Temporal comme vérification distante.
+- OPS-DNS-02 : registre de révocation de la gateway sur le même cache DNS borné, nettoyage de test qui attend la santé d’audit-service. Vérifié localement par le scénario Temporal avec pannes et neuf tests gateway, CI distante à observer. Voir la [reprise DNS de la gateway](../technique/16-reprise-dns-gateway.md).
 
 - DEMO-01 : nettoyage des anciennes données et six missions fictives réalistes, vérifié localement. Voir le [jeu de démonstration](../technique/17-donnees-demonstration.md).
 
