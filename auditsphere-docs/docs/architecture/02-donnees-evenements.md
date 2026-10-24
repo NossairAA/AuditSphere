@@ -59,3 +59,15 @@ Conserver les versions des règles, les jeux de données autorisés et les param
 ## Événement livré : affectation de mission
 
 Le topic audit.mission.assigned.v1 est implémenté. audit-service enregistre un événement par nouvel auditeur dans son outbox, puis notification-service crée une notification avec event_id unique. Les deux services possèdent des bases distinctes. Le message contient missionId, recipientSubject, aggregateVersion, occurredAt, eventId, eventType et eventVersion. Les autres événements du catalogue restent proposés. Voir [ADR-0007](../decisions/ADR-0007-notifications-outbox.md) et le [guide de reprise](../technique/09-notifications-kafka.md).
+
+## Événements proposés pour les actions correctives
+
+[ADR-0022](../decisions/ADR-0022-actions-correctives-service-dedie.md), accepté, prévoit trois topics. Aucun n’est implémenté.
+
+| Topic logique | Producteur | Consommateur | Contenu |
+| --- | --- | --- | --- |
+| `audit.mission.findings-issued.v1` | Audit | Remediation | Mission et cycle d’émission, sans texte de constat |
+| `audit.mission.findings-withdrawn.v1` | Audit | Remediation | Mission, cycle et motif REOPENED ou DELETED |
+| `audit.action.assigned.v1` | Remediation | Notifications | Action, suivi, mission et destinataire, sans texte d’action |
+
+remediation-service lit le contenu des constats émis par un appel interne à audit-service, puis le copie dans sa base. `audit.finding.validated.v1` reste proposé pour le reporting, il n’alimente pas le suivi des actions. Détails dans le [guide des actions correctives](../technique/27-actions-correctives.md).
