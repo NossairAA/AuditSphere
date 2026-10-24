@@ -19,10 +19,11 @@ class ImagePinTest(unittest.TestCase):
                     self.assertRegex(image, SHA256)
 
     def test_dockerfile_base_images_are_digest_pinned(self):
-        source = (ROOT / "Dockerfile").read_text()
-        for image in re.findall(r"^FROM\s+(\S+)", source, re.MULTILINE):
-            with self.subTest(image=image.split("@")[0]):
-                self.assertRegex(image, SHA256)
+        for filename in ("Dockerfile", "apps/web/Dockerfile"):
+            source = (ROOT / filename).read_text()
+            for image in re.findall(r"^FROM\s+(\S+)", source, re.MULTILINE):
+                with self.subTest(file=filename, image=image.split("@")[0]):
+                    self.assertRegex(image, SHA256)
 
     def test_ci_actions_and_scanner_are_immutable(self):
         source = (ROOT / ".github/workflows/ci.yml").read_text()
@@ -38,6 +39,9 @@ class ImagePinTest(unittest.TestCase):
         scanner = re.search(r"zricethezav/gitleaks:[^\s]+", source)
         self.assertIsNotNone(scanner)
         self.assertRegex(scanner.group(), SHA256)
+        trivy = re.search(r"aquasec/trivy:[^\s]+", source)
+        self.assertIsNotNone(trivy)
+        self.assertRegex(trivy.group(), SHA256)
 
 
 if __name__ == "__main__":

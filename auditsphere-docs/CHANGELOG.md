@@ -1,5 +1,15 @@
 # Journal des changements
 
+## 2026-10-24 : hébergement privé, phases 0 et 1
+
+- Phase 0 démarrée : un port d'administration local joignable par le tailnet écoute désormais sur 127.0.0.1, vérifié depuis le tailnet. Mémoire vidéo, nom neutre et liaison réseau restent à faire.
+- `apps/web/Dockerfile` : image standalone sur Node 24.22.1 Alpine épinglé par digest, utilisateur non root, npm retiré de l'image finale, aucun secret embarqué.
+- JVM réglées par `JAVA_TOOL_OPTIONS` : SerialGC, tas à 60 % de la limite, piles de 512 Kio. Pools HikariCP à 5 connexions et 50 threads Tomcat. Limites mémoire Compose sur les processus Java et Keycloak, tas de Keycloak plafonné.
+- Mémoire mesurée sous limites : services Java de 2,1 Gio à 1,33 Gio, aucun arrêt OOM. audit-service relevé à 448 Mio après un premier essai trop serré à 320 Mio.
+- CI : job `images` avec Trivy 0.75.0 épinglé, SBOM CycloneDX et publication GHCR depuis `main` uniquement.
+- Trivy révèle des vulnérabilités critiques dans Spring 6.2, Tomcat et Netty. Spring Boot 3.5 n'a plus de correctifs libres. Analyse en mode rapport, migration Spring Boot 4 ajoutée au backlog (TECH-009).
+- Vérifié localement : smoke, pannes Kafka et Temporal, typecheck, build Next.js, conteneur frontend et tests Python. Playwright non relancé en local, CI distante et publication GHCR en attente. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-24 : hébergement privé avec k3s
 
 - Relevé du serveur privé en lecture seule : 8 threads, 6,7 Gio de mémoire visible, 168 Go libres, aucune alimentation secourue, Kubernetes absent.

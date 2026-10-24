@@ -1,0 +1,17 @@
+node_modules
+.next
+.env*
+test-results
+playwright-report
+tests
+tsconfig.tsbuildinfo
+Dockerfile
+.dockerignore
+
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+.agents
+.claude
+.codex
+.cursor

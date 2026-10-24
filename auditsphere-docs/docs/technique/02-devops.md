@@ -28,6 +28,7 @@ Le workflow `Build and permissions` (`.github/workflows/ci.yml`) se déclenche �
 - Actions épinglées par SHA complet, avec la version en commentaire : `actions/checkout` v7.0.1, `actions/setup-java` v6.1.0 et `actions/setup-node` v7.1.0. Ces versions s'exécutent sous Node 24. Les v4 précédentes visaient Node 20, déprécié, et setup-java v4 n'est plus maintenu.
 - Chaque SHA a été contrôlé auprès du dépôt de l'action avec `git ls-remote` et `gh api`. Les notes de version des majeures intermédiaires ne signalent aucun changement cassant pour notre usage : déclencheurs push et pull_request, cache Maven et npm explicites, distribution Temurin 21, Node 24.
 - `scripts/test_image_pins.py` vérifie l'épinglage par SHA, la présence du commentaire de version et l'absence de libellé de runner en `-latest`.
+- Le job `images` suit `verify` sur les pull requests et sur `main`. Il construit les quatre images Java et celle du frontend, taguées par SHA de commit, puis produit l'analyse Trivy et un SBOM CycloneDX en artefacts. Seul un push sur `main` publie dans GHCR, avec la permission `packages: write` limitée à ce job. L'analyse reste en mode rapport jusqu'à la migration Spring Boot 4, voir le [guide d'hébergement](28-hebergement-k3s.md).
 - Pour une mise à jour : relever la dernière version publiée, contrôler `runs.using` dans son `action.yml`, lire les changements cassants, résoudre le SHA du tag puis relancer les tests Python.
 
 ## Pipeline CD

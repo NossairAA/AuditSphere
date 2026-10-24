@@ -8,5 +8,7 @@ RUN cp services/${SERVICE}/target/${SERVICE}-*.jar /app.jar
 FROM eclipse-temurin:21-jre@sha256:227118764cccd3c3294617061aaa93a08309c63a395eefa83e6b35032992ea99
 WORKDIR /app
 COPY --from=build /app.jar app.jar
+# Sized for container memory limits. Kubernetes values can override this variable.
+ENV JAVA_TOOL_OPTIONS="-XX:+UseSerialGC -XX:MaxRAMPercentage=60 -Xss512k"
 USER 10001:10001
 ENTRYPOINT ["java","-jar","/app/app.jar"]

@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 const config: NextConfig = {
+  // Standalone output lets the container image ship only the traced runtime files.
+  output: "standalone",
   poweredByHeader: false,
   agentRules: false,
   serverExternalPackages: ["pg"],

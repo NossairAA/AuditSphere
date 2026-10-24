@@ -96,3 +96,5 @@ La navigation par onglets, les filtres de missions, le détail des contrôles et
 ## Hébergement privé : 2026-10-24
 
 La phase 4, Production interne, cible désormais un cluster k3s à un nœud sur un serveur privé de l'utilisateur, selon [ADR-0023](../decisions/ADR-0023-hebergement-prive-k3s.md). Le relevé matériel est vérifié. Aucune installation n'est faite. Les dix phases, de la préparation de l'hôte à l'extension, et leurs critères de sortie sont décrits dans le [guide d'hébergement](../technique/28-hebergement-k3s.md). Cette trajectoire avance en parallèle de l'ordre métier actif et ne le remplace pas.
+
+Le 2026-10-24, la phase 0 a démarré avec la fermeture d'un port d'administration joignable par le tailnet. La phase 1 est implémentée et mesurée localement. Elle révèle que Spring Boot 3.5 n'a plus de correctifs libres : la migration vers Spring Boot 4 devient un prérequis avant d'activer une analyse de vulnérabilités bloquante.
