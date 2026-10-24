@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { randomBytes } from "node:crypto";
+import { request as httpRequest } from "node:http";
 import { rateLimit } from "../src/lib/rate";
 import { encryptSession, decryptSession } from "../src/lib/session-crypto";
 import { NextRequest } from "next/server";
@@ -99,4 +100,23 @@ test("CSP proxy excludes upload and auth bodies before route admission", async (
     if (previous === undefined) delete process.env.APP_ORIGIN;
     else process.env.APP_ORIGIN = previous;
   }
+});
+
+
+test("anonymous upload is rejected before its body finishes", async () => {
+  const status = await new Promise<number>((resolve, reject) => {
+    const upload = httpRequest("http://localhost:3000/api/missions/00000000-0000-0000-0000-000000000001/controls/00000000-0000-0000-0000-000000000002/evidence", {
+      method: "POST",
+      headers: { "Content-Type": "multipart/form-data; boundary=security-test" },
+    }, (response) => {
+      response.resume();
+      resolve(response.statusCode || 0);
+      upload.destroy();
+    });
+    upload.on("error", reject);
+    upload.setTimeout(3000, () => upload.destroy(new Error("Upload body was buffered before authentication")));
+    // Deliberately keep the chunked body unfinished. Authentication must reject it now.
+    upload.write("--security-test\r\nContent-Disposition: form-data; name=\"file\"; filename=\"test.pdf\"\r\n\r\n%PDF-1.4");
+  });
+  expect(status).toBe(401);
 });

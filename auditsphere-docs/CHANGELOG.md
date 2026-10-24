@@ -1,5 +1,9 @@
 # Journal des changements
 
+## 2026-10-23 : C3, vérification navigateur
+
+Un dépôt anonyme au corps volontairement inachevé reçoit 401 immédiatement, avant tamponnement. Six tests de primitives et quatre tests de lecture/admission réussis. Le parcours de preuve à 10 Mio franchit BFF et gateway mais échoue sur le stockage Garage distant injoignable. Il reste à rejouer quand ce service est disponible.
+
 ## 2026-10-23 : C6, vérification navigateur
 
 Parcours superadmin complet réussi : refus API409 de sa propre approbation, option HTML désactivée et dérogations autorisées sur une mission distincte. L’assertion cible la propriété native de l’option.

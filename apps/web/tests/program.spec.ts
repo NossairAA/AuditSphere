@@ -178,7 +178,7 @@ test("programme préparé par le responsable, consultable par l’auditeur et ve
     await read.getByText("Preuves du contrôle", { exact: true }).click();
     const fixture = Buffer.concat([
       Buffer.from("%PDF-1.4\n% Synthetic test fixture\n"),
-      Buffer.alloc(40000, 32),
+      Buffer.alloc(10 * 1024 * 1024 - Buffer.byteLength("%PDF-1.4\n% Synthetic test fixture\n") - Buffer.byteLength("\n%%EOF"), 32),
       Buffer.from("\n%%EOF"),
     ]);
     await read
@@ -188,9 +188,13 @@ test("programme préparé par le responsable, consultable par l’auditeur et ve
         mimeType: "application/pdf",
         buffer: fixture,
       });
+    const uploadResponse = auditor.waitForResponse((response) =>
+      response.request().method() === "POST" && response.url().endsWith(`/controls/${controlId}/evidence`),
+    );
     await read
       .getByRole("button", { name: "Joindre le fichier", exact: true })
       .click();
+    expect((await uploadResponse).status()).toBe(201);
     const proof = read.getByRole("link", {
       name: "facture-test.pdf",
       exact: true,

@@ -4,6 +4,7 @@
 
 ## Correctifs de sécurité du 23 octobre 2026
 
+- C3, vérification navigateur : Un dépôt anonyme au corps volontairement inachevé reçoit 401 immédiatement, avant tamponnement. Six tests de primitives et quatre tests de lecture/admission réussis. Le parcours de preuve à 10 Mio franchit BFF et gateway mais échoue sur le stockage Garage distant injoignable. Il reste à rejouer quand ce service est disponible.
 - C6, vérification navigateur : Parcours superadmin complet réussi : refus API409 de sa propre approbation, option HTML désactivée et dérogations autorisées sur une mission distincte. L’assertion cible la propriété native de l’option.
 - C12, vérification complémentaire : Proxy CSP réservé aux pages, corps de pages bornés à 32768 octets et HSTS conservé sur toutes les routes au build HTTPS. Déconnexion autorisée vers la seule origine OIDC configurée. Cinq tests de primitives et parcours réel de déconnexion Keycloak réussis, build et TypeScript vérifiés.
 - C10, vérification complémentaire : Le filtre de limites précède la consultation du registre de révocation. Test composé avec 245 requêtes valides puis révoquées : au-delà de 240 requêtes, aucun appel supplémentaire au registre. Trois tests gateway réussis.
