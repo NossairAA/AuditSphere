@@ -2506,4 +2506,180 @@ class MissionIntegrationTest {
         "IN_PROGRESS",
         jdbc.queryForObject("SELECT status FROM missions WHERE id=?", String.class, missionId));
   }
+
+  @org.springframework.test.context.bean.override.mockito.MockitoSpyBean FindingsIssueOutbox issueOutbox;
+
+  long missionVersion(String id) {
+    return jdbc.queryForObject("SELECT version FROM missions WHERE id=?", Long.class, java.util.UUID.fromString(id));
+  }
+
+  java.util.List<java.util.Map<String, Object>> issueEvents(String id) {
+    return jdbc.queryForList(
+        "SELECT event_type, issue_cycle, reason, aggregate_version FROM findings_issue_outbox WHERE mission_id=? ORDER BY occurred_at, issue_cycle, event_type",
+        java.util.UUID.fromString(id));
+  }
+
+  org.springframework.test.web.servlet.ResultActions snapshot(String id, int cycle, String... roles) throws Exception {
+    var authorities =
+        java.util.Arrays.stream(roles)
+            .map(r -> (org.springframework.security.core.GrantedAuthority) new SimpleGrantedAuthority("ROLE_" + r))
+            .toList();
+    return mvc.perform(
+        get("/internal/missions/" + id + "/issues/" + cycle)
+            .with(jwt().jwt(j -> j.subject("service-account-remediation")).authorities(authorities)));
+  }
+
+  /** Mission with one validated and one rejected finding, submitted to the validator. */
+  String missionPendingReviewWithDecidedFindings() throws Exception {
+    String id = startedMissionWithNonConformingControl(), control = firstControl(id);
+    String kept =
+        idOf(saveFinding(id, null, "assigned", "AUDITOR", findingBody(null, "Contrôle absent", "Bloquer les doublons", "HIGH", control)));
+    String dropped =
+        idOf(saveFinding(id, null, "assigned", "AUDITOR", findingBody(null, "Cause", "Recommandation", "LOW", control)));
+    moveFinding(id, kept, 0, "assigned", "AUDITOR", "SUBMIT", null).andExpect(status().isOk());
+    moveFinding(id, dropped, 0, "assigned", "AUDITOR", "SUBMIT", null).andExpect(status().isOk());
+    moveFinding(id, kept, 1, "owner", "AUDIT_MANAGER", "VALIDATE", null).andExpect(status().isOk());
+    moveFinding(id, dropped, 1, "owner", "AUDIT_MANAGER", "REJECT", "Doublon").andExpect(status().isOk());
+    lifecycle(id, "submission", "{\"version\":" + missionVersion(id) + "}").andExpect(status().isOk());
+    return id;
+  }
+
+  @Test
+  void approvalIssuesValidatedFindingsAndReopenOrDeletionWithdrawsThem() throws Exception {
+    String id = missionPendingReviewWithDecidedFindings();
+    org.junit.jupiter.api.Assertions.assertTrue(issueEvents(id).isEmpty(), "Submission must not issue");
+    decide(id, missionVersion(id), "validator", "APPROVED").andExpect(status().isOk());
+    var events = issueEvents(id);
+    org.junit.jupiter.api.Assertions.assertEquals(1, events.size());
+    org.junit.jupiter.api.Assertions.assertEquals(FindingsIssueOutbox.ISSUED, events.get(0).get("event_type"));
+    org.junit.jupiter.api.Assertions.assertEquals(1, events.get(0).get("issue_cycle"));
+    org.junit.jupiter.api.Assertions.assertNull(events.get(0).get("reason"));
+    org.junit.jupiter.api.Assertions.assertEquals(missionVersion(id), ((Number) events.get(0).get("aggregate_version")).longValue());
+
+    snapshot(id, 1, "REMEDIATION_SYNC")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("missionId").value(id))
+        .andExpect(jsonPath("issueCycle").value(1))
+        .andExpect(jsonPath("title").value("Audit achats"))
+        .andExpect(jsonPath("ownerSubject").value("owner"))
+        .andExpect(jsonPath("validatorSubject").value("validator"))
+        .andExpect(jsonPath("auditorSubjects[0]").value("assigned"))
+        .andExpect(jsonPath("findings.length()").value(1))
+        .andExpect(jsonPath("findings[0].reference").value(1))
+        .andExpect(jsonPath("findings[0].severity").value("HIGH"))
+        .andExpect(jsonPath("findings[0].cause").value("Contrôle absent"))
+        .andExpect(jsonPath("findings[0].recommendation").value("Bloquer les doublons"))
+        .andExpect(jsonPath("findings[0].conditionText").value("Deux paiements pour la même facture"));
+    snapshot(id, 2, "REMEDIATION_SYNC").andExpect(status().isConflict());
+    snapshot(java.util.UUID.randomUUID().toString(), 1, "REMEDIATION_SYNC").andExpect(status().isNotFound());
+
+    // A regular close of an approved mission keeps the same issue.
+    lifecycle(id, "status", "{\"version\":" + missionVersion(id) + ",\"status\":\"CLOSED\"}").andExpect(status().isOk());
+    org.junit.jupiter.api.Assertions.assertEquals(1, issueEvents(id).size());
+    snapshot(id, 1, "REMEDIATION_SYNC").andExpect(status().isOk());
+
+    overrideMission(id, missionVersion(id), "REOPEN", "Constat à reprendre", "administrator").andExpect(status().isOk());
+    events = issueEvents(id);
+    org.junit.jupiter.api.Assertions.assertEquals(2, events.size());
+    org.junit.jupiter.api.Assertions.assertEquals(FindingsIssueOutbox.WITHDRAWN, events.get(1).get("event_type"));
+    org.junit.jupiter.api.Assertions.assertEquals(1, events.get(1).get("issue_cycle"));
+    org.junit.jupiter.api.Assertions.assertEquals("REOPENED", events.get(1).get("reason"));
+    snapshot(id, 1, "REMEDIATION_SYNC").andExpect(status().isConflict());
+
+    overrideMission(id, missionVersion(id), "APPROVE", "Validation après reprise", "administrator").andExpect(status().isOk());
+    events = issueEvents(id);
+    org.junit.jupiter.api.Assertions.assertEquals(3, events.size());
+    org.junit.jupiter.api.Assertions.assertEquals(FindingsIssueOutbox.ISSUED, events.get(2).get("event_type"));
+    org.junit.jupiter.api.Assertions.assertEquals(2, events.get(2).get("issue_cycle"));
+    snapshot(id, 2, "REMEDIATION_SYNC").andExpect(status().isOk()).andExpect(jsonPath("findings.length()").value(1));
+
+    overrideMission(id, missionVersion(id), "DELETE", "Mission créée par erreur", "administrator").andExpect(status().isNoContent());
+    events = issueEvents(id);
+    org.junit.jupiter.api.Assertions.assertEquals(4, events.size());
+    org.junit.jupiter.api.Assertions.assertEquals(FindingsIssueOutbox.WITHDRAWN, events.get(3).get("event_type"));
+    org.junit.jupiter.api.Assertions.assertEquals(2, events.get(3).get("issue_cycle"));
+    org.junit.jupiter.api.Assertions.assertEquals("DELETED", events.get(3).get("reason"));
+    snapshot(id, 2, "REMEDIATION_SYNC").andExpect(status().isConflict());
+  }
+
+  @Test
+  void rejectionDoesNotIssueAndDirectCloseOverrideDoes() throws Exception {
+    String id = missionPendingReviewWithDecidedFindings();
+    decide(id, missionVersion(id), "validator", "REJECTED").andExpect(status().isOk());
+    org.junit.jupiter.api.Assertions.assertTrue(issueEvents(id).isEmpty());
+    overrideMission(id, missionVersion(id), "CLOSE", "Clôture administrative", "administrator").andExpect(status().isOk());
+    var events = issueEvents(id);
+    org.junit.jupiter.api.Assertions.assertEquals(1, events.size());
+    org.junit.jupiter.api.Assertions.assertEquals(FindingsIssueOutbox.ISSUED, events.get(0).get("event_type"));
+    snapshot(id, 1, "REMEDIATION_SYNC").andExpect(status().isOk()).andExpect(jsonPath("findings.length()").value(1));
+  }
+
+  @Test
+  void missionApprovedBeforeIssueCyclesIsReopenedWithoutWithdrawal() throws Exception {
+    String id = create();
+    jdbc.update(
+        "UPDATE missions SET status='APPROVED',planned_start_date=current_date,planned_end_date=current_date,started_at=now(),validator_subject='validator',submitted_at=now(),reviewed_at=now(),reviewed_by='validator',review_decision='APPROVED',review_comment='Revue' WHERE id=?",
+        java.util.UUID.fromString(id));
+    overrideMission(id, missionVersion(id), "REOPEN", "Reprise", "administrator").andExpect(status().isOk());
+    org.junit.jupiter.api.Assertions.assertTrue(issueEvents(id).isEmpty());
+    snapshot(id, 0, "REMEDIATION_SYNC").andExpect(status().isConflict());
+  }
+
+  @Test
+  void internalSnapshotIsReservedToTheSyncServiceRole() throws Exception {
+    String id = missionPendingReviewWithDecidedFindings();
+    decide(id, missionVersion(id), "validator", "APPROVED").andExpect(status().isOk());
+    mvc.perform(get("/internal/missions/" + id + "/issues/1")).andExpect(status().isUnauthorized());
+    for (String role : new String[] {"AUDIT_MANAGER", "AUDITOR", "AUDIT_VALIDATOR", "AUDITEE", "SUPER_ADMIN"})
+      snapshot(id, 1, role).andExpect(status().isForbidden());
+    snapshot(id, 1, "REMEDIATION_SYNC").andExpect(status().isOk());
+  }
+
+  @Test
+  void failedIssueOutboxRollsBackApproval() throws Exception {
+    String id = missionPendingReviewWithDecidedFindings();
+    long version = missionVersion(id);
+    FindingsIssueOutbox target = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(issueOutbox);
+    org.mockito.Mockito.doAnswer(
+            call -> {
+              call.callRealMethod();
+              throw new IllegalStateException("Synthetic outbox failure");
+            })
+        .when(target)
+        .afterTransition(
+            org.mockito.ArgumentMatchers.any(Mission.class),
+            org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.anyBoolean());
+    try {
+      org.junit.jupiter.api.Assertions.assertThrows(
+          jakarta.servlet.ServletException.class, () -> decide(id, version, "validator", "APPROVED"));
+    } finally {
+      org.mockito.Mockito.reset(target);
+    }
+    var mission = jdbc.queryForMap("SELECT status, version, issue_cycle FROM missions WHERE id=?", java.util.UUID.fromString(id));
+    org.junit.jupiter.api.Assertions.assertEquals("PENDING_REVIEW", mission.get("status"));
+    org.junit.jupiter.api.Assertions.assertEquals(version, ((Number) mission.get("version")).longValue());
+    org.junit.jupiter.api.Assertions.assertEquals(0, mission.get("issue_cycle"));
+    org.junit.jupiter.api.Assertions.assertTrue(issueEvents(id).isEmpty());
+    decide(id, version, "validator", "APPROVED").andExpect(status().isOk());
+    org.junit.jupiter.api.Assertions.assertEquals(1, issueEvents(id).size());
+  }
+
+  @Test
+  void issueMessagesCarryIdentifiersOnly() {
+    var row = new java.util.HashMap<String, Object>();
+    row.put("event_id", java.util.UUID.randomUUID());
+    row.put("event_type", FindingsIssueOutbox.WITHDRAWN);
+    row.put("mission_id", java.util.UUID.randomUUID());
+    row.put("issue_cycle", 3);
+    row.put("reason", "REOPENED");
+    row.put("aggregate_version", 12L);
+    row.put("occurred_at", java.sql.Timestamp.from(java.time.Instant.parse("2026-10-24T10:00:00Z")));
+    org.junit.jupiter.api.Assertions.assertEquals(
+        java.util.Set.of("eventId", "eventType", "eventVersion", "missionId", "issueCycle", "reason", "aggregateVersion", "occurredAt"),
+        FindingsIssuePublisher.payload(row).keySet());
+    row.put("event_type", FindingsIssueOutbox.ISSUED);
+    row.put("reason", null);
+    org.junit.jupiter.api.Assertions.assertFalse(FindingsIssuePublisher.payload(row).containsKey("reason"));
+  }
 }

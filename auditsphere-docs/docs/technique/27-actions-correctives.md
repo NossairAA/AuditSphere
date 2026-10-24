@@ -1,6 +1,6 @@
 # Actions correctives : implémentation proposée
 
-**Statut :** découpage accepté par ADR-0022. Lot 1 implémenté et vérifié localement le 2026-10-24, CI distante non exécutée. Lots 2 à 8 proposés, non implémentés.
+**Statut :** découpage accepté par ADR-0022. Lot 1 implémenté, vérifié localement puis par la CI distante, publié dans `main` le 2026-10-24. Lot 2 vérifié localement, CI distante non exécutée. Lots 3 à 8 proposés, non implémentés.
 **Tranche :** F-006, US-006 et US-007. Règles métier dans le [plan métier](../produit/04-plan-metier.md). Découpage du service dans [ADR-0022](../decisions/ADR-0022-actions-correctives-service-dedie.md), accepté le 2026-10-24.
 
 Ce document décrit le découpage technique. Chaque lot est marqué implémenté puis vérifié avec ses preuves de test. Les noms des lots 2 à 8 restent des propositions.
@@ -17,13 +17,14 @@ audit-service reste propriétaire des missions et des constats. Il publie l’é
 
 | Topic | Moment | Contenu |
 | --- | --- | --- |
-| `audit.mission.findings-issued.v1` | Transaction d’approbation de la mission : décision APPROVED du validateur ou dérogation APPROVE | eventId, eventType, eventVersion, occurredAt, missionId, issueCycle, aggregateVersion |
+| `audit.mission.findings-issued.v1` | Transaction qui fait entrer la mission dans APPROVED ou CLOSED depuis un autre statut : décision APPROVED du validateur, dérogation APPROVE, dérogation CLOSE depuis En cours ou En attente | eventId, eventType, eventVersion, occurredAt, missionId, issueCycle, aggregateVersion |
 | `audit.mission.findings-withdrawn.v1` | Dérogation REOPEN ou DELETE d’une mission approuvée ou clôturée | eventId, eventType, eventVersion, occurredAt, missionId, issueCycle, reason parmi REOPENED et DELETED |
 
-- Migration V18 d’audit-service : colonne `missions.issue_cycle`, entier nul par défaut, incrémentée à chaque approbation. Table `findings_issue_outbox` sur le modèle de `assignment_outbox` et `review_workflow_outbox`, publiée par `OutboxPublisher`.
+- Migration V18 d’audit-service : colonne `missions.issue_cycle`, valant 0 par défaut, incrémentée à chaque émission. Elle n’est pas mappée par JPA : seul `FindingsIssueOutbox` l’écrit, en SQL, dans la transaction de la mission, sans changer la version de la mission. Table `findings_issue_outbox` sur le modèle de `assignment_outbox`, publiée par `FindingsIssuePublisher` avec le même protocole de bail.
+- La clôture ordinaire d’une mission approuvée ne crée pas de nouvelle émission. Une mission approuvée ou clôturée avant V18 garde le cycle 0 : elle n’est pas émise rétroactivement et sa réouverture ne publie aucun retrait.
 - La clé Kafka est `missionId`. L’ordre des deux événements d’une même mission est donc conservé dans sa partition.
 - Les messages ne contiennent aucun texte de constat, aucun titre de mission et aucun sujet utilisateur. Kafka n’est pas encore chiffré ni authentifié, voir C7 et ADR-0020.
-- Les schémas sont ajoutés dans `contracts/mission-findings-issued-v1.schema.json` et `contracts/mission-findings-withdrawn-v1.schema.json`.
+- Les schémas sont dans `contracts/mission-findings-issued-v1.schema.json` et `contracts/mission-findings-withdrawn-v1.schema.json`. Les topics et leurs DLT sont créés par `kafka-init`.
 
 ### Lecture interne de l’instantané
 
@@ -32,7 +33,7 @@ audit-service reste propriétaire des missions et des constats. Il publie l’é
 - titre de la mission, sujet du propriétaire, du validateur et des auditeurs affectés.
 - constats Validé : identifiant, version, référence, titre, gravité, condition observée, cause et recommandation.
 
-La lecture exige un jeton client credentials du client Keycloak `remediation-service`, porteur du rôle de service `REMEDIATION_SYNC`. Ce client et ce rôle sont créés au lot 2, avec leur premier usage. La gateway ne route pas `/internal/**`, le chemin reste accessible uniquement depuis le réseau interne. Elle répond 409 si le cycle demandé n’est plus le cycle courant ou si la mission n’est plus approuvée ou clôturée. L’instantané est stable car les constats, les affectations et la désignation sont figés après approbation.
+La lecture exige un jeton client credentials du client Keycloak `remediation-service`, porteur du rôle de service `REMEDIATION_SYNC` et de l’audience `auditsphere-api`. `setup-web.py` crée ce client confidentiel, sans flux navigateur ni mot de passe, et n’attribue à son compte de service que ce rôle. Le secret `REMEDIATION_SYNC_CLIENT_SECRET` reste dans `.env`. Aucune personne ne doit recevoir ce rôle, l’administration des comptes ne le propose pas. La gateway ne route pas `/internal/**`, le chemin reste accessible uniquement depuis le réseau interne. Elle répond 409 si le cycle demandé n’est plus le cycle courant ou si la mission n’est plus approuvée ou clôturée. L’instantané est stable car les constats, les affectations et la désignation sont figés après approbation. La lecture verrouille la ligne de mission en partage : une réouverture ou une suppression concurrente attend la fin de la lecture. La transaction n’est pas déclarée en lecture seule, PostgreSQL refusant `FOR SHARE` dans ce mode.
 
 ### Consommation dans remediation-service
 
@@ -143,14 +144,33 @@ remediation-service écrit `audit.action.assigned.v1` dans son outbox à la cré
 - Pile locale relancée par `scripts/start-local.sh` : sauvegardes créées, V1 appliquée par le compte migrateur, `remediation_runtime` sans superutilisateur, 11 tables appartenant à `remediation_migrator`. Droits réels vérifiés : insertion sans modification ni suppression sur les deux tables en ajout seul.
 - `scripts/smoke.py` avec de vrais jetons Keycloak par la gateway : l’audité obtient 200 et une liste sur `/remediation/me/actions`, 404 sur une mission et une liste de missions vide. AUDITOR reçoit 403, une requête sans jeton ou avec un jeton invalide reçoit 401.
 - TypeScript du frontend réussi après l’ajout du libellé Audité.
-- Non vérifié : CI distante, parcours navigateur de l’administration des comptes avec le rôle AUDITEE.
+- CI distante réussie sur `226c006`, exécutions `40120010724` et `40120015552`. PR #6 fusionnée dans `main` le 2026-10-24, commit `05f6191`.
+- Non vérifié : parcours navigateur de l’administration des comptes avec le rôle AUDITEE.
+
+## Lot 2 : émission depuis audit-service
+
+- `FindingsIssueOutbox.afterTransition` est appelé après l’écriture de la mission dans la transition de statut, la décision du validateur et les dérogations. Il émet quand la mission entre dans APPROVED ou CLOSED, et publie un retrait quand elle en sort par REOPEN ou DELETE.
+- `IssueSnapshotController` sert `GET /internal/missions/{id}/issues/{cycle}`. `SecurityConfig` réserve `/internal/**` au rôle REMEDIATION_SYNC, avant toute autre règle.
+- `audit_runtime` reçoit SELECT, INSERT, UPDATE et DELETE sur `findings_issue_outbox`. `cleanup-test-data.py` supprime aussi ces lignes pour les missions de test.
+- Aucun consommateur n’existe encore : les messages restent dans les topics jusqu’au lot 3.
+
+## Vérifications du lot 2
+
+- Six tests Java dans `MissionIntegrationTest` : émission à l’approbation avec instantané complet, aucune émission à la soumission ni à la clôture ordinaire, retrait REOPENED puis nouvelle émission au cycle 2 puis retrait DELETED, 409 sur un cycle périmé, 404 sur une mission inconnue, aucune émission après un refus, émission par la dérogation CLOSE, mission approuvée avant V18 rouverte sans retrait, accès interne refusé sans jeton et pour chacun des cinq rôles humains, annulation complète de l’approbation si l’outbox échoue, messages limités aux identifiants.
+- Test de mutation : sans l’appel dans la décision du validateur, le test d’émission échoue. Code restauré ensuite.
+- `./mvnw -B clean verify` avec JDK 25 : 75 tests audit-service, 11 gateway, 17 notification-service et 5 remediation-service réussis. Tests Python des scripts réussis.
+- Pile locale relancée par `scripts/start-local.sh` : sauvegardes créées, V18 appliquée, 51 missions conservées. Les 15 missions déjà approuvées ou clôturées gardent le cycle 0. Topics et DLT présents dans Kafka.
+- Droits réels de `audit_runtime`, dans une transaction annulée : `FOR SHARE` sur `missions`, mise à jour de `issue_cycle` et insertion dans `findings_issue_outbox` acceptées.
+- `scripts/smoke.py` : jeton client credentials de `remediation-service` obtenu auprès de Keycloak, avec REMEDIATION_SYNC, l’audience `auditsphere-api` et aucun rôle humain. La gateway répond 404 sur `/internal/**`, même avec ce jeton, et le compte de service ne voit aucune mission.
+- Parcours réel par la gateway avec les comptes de démonstration : création, programme, résultat Non conforme, constat validé, soumission et approbation. Le message arrive dans `audit.mission.findings-issued.v1` avec la clé `missionId`, le cycle 1 et uniquement des identifiants. La ligne d’outbox est marquée publiée après une tentative.
+- Non couvert par un test automatisé : la réouverture concurrente d’une lecture d’instantané en cours. Non vérifié : appel réel de la lecture interne depuis le réseau Docker, prévu au lot 3 avec le consommateur. CI distante non exécutée.
 
 ## Lots et vérifications prévues
 
 | Lot | Contenu | Vérification attendue |
 | --- | --- | --- |
-| 1, vérifié localement | Squelette remediation-service, migration V1, droits SQL, route gateway, Compose, rôle AUDITEE et lecture `GET /remediation/me/actions` | Migration sur base vide avec Testcontainers, contraintes, test des droits, santé du service, jeton invalide refusé, parcours réel par la gateway |
-| 2 | audit-service : V18, outbox d’émission et de retrait, lecture interne, client `remediation-service` et rôle `REMEDIATION_SYNC` | Test Java : un événement par approbation et dérogation APPROVE, aucun après annulation de transaction, retrait sur REOPEN et DELETE, lecture interne refusée sans rôle de service, 409 sur cycle périmé |
+| 1, vérifié et publié | Squelette remediation-service, migration V1, droits SQL, route gateway, Compose, rôle AUDITEE et lecture `GET /remediation/me/actions` | Migration sur base vide avec Testcontainers, contraintes, test des droits, santé du service, jeton invalide refusé, parcours réel par la gateway |
+| 2, vérifié localement | audit-service : V18, outbox d’émission et de retrait, lecture interne, client `remediation-service` et rôle `REMEDIATION_SYNC` | Test Java : un événement par approbation et dérogation APPROVE, aucun après annulation de transaction, retrait sur REOPEN et DELETE, lecture interne refusée sans rôle de service, 409 sur cycle périmé |
 | 3 | Consommateur, lecture d’instantané et réconciliation | Test d’intégration : redélivrance sans doublon, cycle ancien ignoré, audit-service indisponible sans acquittement, suspension puis réactivation, constat absent passé Retiré |
 | 4 | API des suivis et actions, annuaire et client `remediation-directory`, journal | Test Java : matrice des permissions, séparation des fonctions y compris par dérogation, versions, retard avec horloge fixée, journal sans UPDATE ni DELETE |
 | 5 | Justificatifs dans Garage | Test : type, taille, nombre, quota concurrent, nettoyage de l’objet après refus, retrait interdit après réalisation |
@@ -158,10 +178,11 @@ remediation-service écrit `audit.action.assigned.v1` dans son outbox à la cré
 | 7 | BFF, contrat et interface | Tests unitaires Node, TypeScript, build, Playwright `remediation.spec.ts` : approbation, action, avancement et justificatif par l’audité, renvoi, vérification, demande de clôture, clôture, audité extérieur et utilisateur extérieur refusés |
 | 8 | Documentation et publication | Ce guide passé à implémenté puis vérifié, backlog, changelog, migrations appliquées localement après sauvegarde, CI distante |
 
-## Limites connues de la proposition
+## Limites connues
 
 - Le texte des constats est copié dans une seconde base. Sauvegarde, conservation et chiffrement des volumes, C7, doivent couvrir aussi la base remediation et son bucket.
 - La lecture interne crée un couplage au moment de la consommation. Une indisponibilité d’audit-service retarde la synchronisation sans perte, le message reste en attente.
 - La protection de `/internal/**` repose sur le jeton de service et le réseau interne. mTLS entre services reste prévu par ADR-0020, non déployé.
 - Les relances et escalades de retard ne sont pas incluses. Le retard reste un affichage jusqu’à US-009 et Temporal.
 - Un suivi Clôturé ne peut pas être rouvert dans cette tranche.
+- Une dérogation APPROVE peut viser une mission sans validateur désigné. L’instantané porte alors `validatorSubject` nul, alors que `mission_scopes.validator_subject` est obligatoire dans la base remediation. Le lot 3 doit rendre ce champ facultatif et réserver alors la clôture au superadministrateur.

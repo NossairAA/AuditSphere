@@ -62,7 +62,7 @@ Le topic audit.mission.assigned.v1 est implémenté. audit-service enregistre un
 
 ## Événements proposés pour les actions correctives
 
-[ADR-0022](../decisions/ADR-0022-actions-correctives-service-dedie.md), accepté, prévoit trois topics. Aucun n’est implémenté.
+[ADR-0022](../decisions/ADR-0022-actions-correctives-service-dedie.md), accepté, prévoit trois topics. Les deux topics d’audit-service sont produits depuis le lot 2 de F-006, sans consommateur à ce stade. `audit.action.assigned.v1` reste proposé.
 
 | Topic logique | Producteur | Consommateur | Contenu |
 | --- | --- | --- | --- |

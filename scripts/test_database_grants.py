@@ -30,6 +30,8 @@ class AdministrationGrantsTest(unittest.TestCase):
         log_grants = [grant for grant in grants if 'finding_change_log' in grant]
         self.assertEqual(log_grants, ['SELECT,INSERT ON finding_change_log'])
         self.assertIn("'mission_findings','mission_finding_controls','mission_finding_sequences')", source)
+        # The issue outbox is written by the mission transaction and leased by the publisher.
+        self.assertIn("'review_workflow_outbox','findings_issue_outbox',", source)
 
     def test_provisioning_keeps_remediation_trace_append_only(self):
         source = (ROOT / 'scripts/harden-databases.py').read_text()

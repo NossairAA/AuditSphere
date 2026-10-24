@@ -52,6 +52,8 @@ try:
  if sql('audit',"SELECT to_regclass('public.mission_finding_controls') IS NOT NULL") == 't':
   # Findings go before controls. Their append-only log is kept like the program log.
   program_cleanup = f"DELETE FROM mission_finding_controls WHERE mission_id IN ({values}); DELETE FROM mission_findings WHERE mission_id IN ({values}); DELETE FROM mission_finding_sequences WHERE mission_id IN ({values}); " + program_cleanup
+ if sql('audit',"SELECT to_regclass('public.findings_issue_outbox') IS NOT NULL") == 't':
+  program_cleanup += f"DELETE FROM findings_issue_outbox WHERE mission_id IN ({values}); "
  sql('audit',f"BEGIN; {program_cleanup}DELETE FROM assignment_outbox WHERE mission_id IN ({values}); DELETE FROM review_workflow_outbox WHERE mission_id IN ({values}); DELETE FROM mission_assignments WHERE mission_id IN ({values}); DELETE FROM missions WHERE id IN ({values}); COMMIT;")
  sql('notification',f"DELETE FROM notifications WHERE mission_id IN ({values})")
  # Keep mission_action_log, including evidence of draft deletion.
