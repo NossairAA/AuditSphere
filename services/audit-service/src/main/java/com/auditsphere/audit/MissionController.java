@@ -23,6 +23,7 @@ class MissionController {
   private final ReviewOutbox reviewOutbox;
   private final MissionActionLog actionLog;
   private final PendingFindings pendingFindings;
+  private final FindingsIssueOutbox issueOutbox;
   private final org.springframework.transaction.support.TransactionTemplate tx;
 
   MissionController(
@@ -32,12 +33,14 @@ class MissionController {
       ReviewOutbox reviewOutbox,
       MissionActionLog actionLog,
       PendingFindings pendingFindings,
+      FindingsIssueOutbox issueOutbox,
       org.springframework.transaction.PlatformTransactionManager manager) {
     this.directory = directory;
     this.outbox = outbox;
     this.reviewOutbox = reviewOutbox;
     this.actionLog = actionLog;
     this.pendingFindings = pendingFindings;
+    this.issueOutbox = issueOutbox;
     this.tx = new org.springframework.transaction.support.TransactionTemplate(manager);
     this.tx.setTimeout(5);
     this.repository = repository;
@@ -357,6 +360,7 @@ class MissionController {
                   .findForUpdate(id)
                   .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
           checkOwner(m, jwt, body.version());
+          String before = m.status;
           if (m.status.equals("DRAFT") && body.status().equals("IN_PROGRESS")) {
             if (m.plannedStartDate == null || m.plannedEndDate == null)
               throw new ResponseStatusException(HttpStatus.CONFLICT);
@@ -367,6 +371,7 @@ class MissionController {
             m.closedAt = Instant.now();
           } else throw new ResponseStatusException(HttpStatus.CONFLICT);
           repository.saveAndFlush(m);
+          issueOutbox.afterTransition(m, before, false);
           if (isAdmin(jwt))
             actionLog.admin(
                 m,
@@ -519,12 +524,14 @@ class MissionController {
             throw new ResponseStatusException(HttpStatus.CONFLICT);
           if (m.assigneeSubjects.contains(m.validatorSubject))
             throw new ResponseStatusException(HttpStatus.CONFLICT);
+          String before = m.status;
           m.reviewDecision = body.decision();
           m.reviewComment = body.comment().strip();
           m.reviewedBy = jwt.getSubject();
           m.reviewedAt = Instant.now();
           m.status = body.decision().equals("APPROVED") ? "APPROVED" : "IN_PROGRESS";
           repository.saveAndFlush(m);
+          issueOutbox.afterTransition(m, before, false);
           if (isAdmin(jwt))
             actionLog.admin(
                 m,
@@ -624,6 +631,7 @@ class MissionController {
             }
           }
           repository.saveAndFlush(m);
+          issueOutbox.afterTransition(m, before, body.action().equals("DELETE"));
           return body.action().equals("DELETE")
               ? ResponseEntity.noContent().build()
               : ResponseEntity.ok(MissionView.of(m));

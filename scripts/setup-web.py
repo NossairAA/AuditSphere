@@ -13,7 +13,7 @@ identity_origin=env.get('PROD_OIDC_ORIGIN','') if production else 'http://localh
 if production and (not app_origin.startswith('https://') or not identity_origin.startswith('https://')):
  raise SystemExit('PROD_APP_ORIGIN et PROD_OIDC_ORIGIN HTTPS sont obligatoires.')
 
-missing={k:secrets.token_urlsafe(32) for k in ['WEB_DB_PASSWORD','WEB_CLIENT_SECRET','DIRECTORY_CLIENT_SECRET','USER_ADMIN_CLIENT_SECRET'] if k not in env}
+missing={k:secrets.token_urlsafe(32) for k in ['WEB_DB_PASSWORD','WEB_CLIENT_SECRET','DIRECTORY_CLIENT_SECRET','USER_ADMIN_CLIENT_SECRET','REMEDIATION_SYNC_CLIENT_SECRET'] if k not in env}
 if 'SESSION_ENCRYPTION_KEY' not in env:
  missing['SESSION_ENCRYPTION_KEY']=base64.b64encode(secrets.token_bytes(32)).decode()
 if missing:
@@ -140,6 +140,22 @@ account=call(base+'/clients/'+client_id+'/service-account-user',token=token)
 roles=[call(base+'/clients/'+management+'/roles/'+name,token=token) for name in ['view-users','query-users','manage-users','view-realm']]
 call(base+'/users/'+account['id']+'/role-mappings/clients/'+management,roles,'POST',token)
 print('Client serveur de gestion des utilisateurs configuré, distinct de l’annuaire.')
+
+# Service account of remediation-service, accepted only by audit-service's internal snapshot route.
+try:
+ sync_role=call(base+'/roles/REMEDIATION_SYNC',token=token)
+except urllib.error.HTTPError as error:
+ if error.code != 404: raise
+ call(base+'/roles',{'name':'REMEDIATION_SYNC','description':'Compte de service : lecture des constats émis, jamais attribué à une personne'},'POST',token)
+ sync_role=call(base+'/roles/REMEDIATION_SYNC',token=token)
+sync_client={'clientId':'remediation-service','protocol':'openid-connect','publicClient':False,'secret':env['REMEDIATION_SYNC_CLIENT_SECRET'],'standardFlowEnabled':False,'directAccessGrantsEnabled':False,'serviceAccountsEnabled':True,'protocolMappers':[{'name':'api-audience','protocol':'openid-connect','protocolMapper':'oidc-audience-mapper','config':{'included.custom.audience':'auditsphere-api','access.token.claim':'true','id.token.claim':'false'}}]}
+existing=call(base+'/clients?clientId=remediation-service',token=token)
+if existing:call(base+'/clients/'+existing[0]['id'],sync_client,'PUT',token)
+else:call(base+'/clients',sync_client,'POST',token)
+client_id=call(base+'/clients?clientId=remediation-service',token=token)[0]['id']
+account=call(base+'/clients/'+client_id+'/service-account-user',token=token)
+call(base+'/users/'+account['id']+'/role-mappings/realm',[sync_role],'POST',token)
+print('Client de service remediation-service configuré avec le seul rôle REMEDIATION_SYNC.')
 
 for realm in ['auditsphere','master']:
  settings={'bruteForceProtected':True,'permanentLockout':False,'failureFactor':5,'waitIncrementSeconds':30,'minimumQuickLoginWaitSeconds':30,'maxFailureWaitSeconds':900,'maxDeltaTimeSeconds':43200,'eventsEnabled':True,'eventsExpiration':604800,'adminEventsEnabled':True,'adminEventsDetailsEnabled':False}

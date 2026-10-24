@@ -46,4 +46,18 @@ assert request(base+'/remediation/me/actions')[0]==401
 assert request(base+'/remediation/me/actions','invalid-token')[0]==401
 print('PASS : création, consultation autorisée, isolation, authentification, rôle et validation.')
 print('PASS : remediation-service joignable par la gateway, réservé à l’audité, sans accès aux missions.')
+status,body=request('http://localhost:8180/realms/auditsphere/protocol/openid-connect/token',data={'client_id':'remediation-service','client_secret':env['REMEDIATION_SYNC_CLIENT_SECRET'],'grant_type':'client_credentials'},form=True)
+assert status==200, f'Jeton de service : {status}'
+import base64
+part=body['access_token'].split('.')[1]
+claims=json.loads(base64.urlsafe_b64decode(part+'='*(-len(part)%4)))
+audience=claims['aud'] if isinstance(claims['aud'],list) else [claims['aud']]
+assert 'REMEDIATION_SYNC' in claims.get('realm_access',{}).get('roles',[]) and 'auditsphere-api' in audience
+assert not {'AUDIT_MANAGER','AUDITOR','AUDIT_VALIDATOR','AUDITEE','SUPER_ADMIN'} & set(claims['realm_access']['roles'])
+# The internal snapshot route exists only behind the gateway, which never routes it.
+assert request(base+'/internal/missions/'+mission['id']+'/issues/1',body['access_token'])[0]==404
+assert request(base+'/internal/missions/'+mission['id']+'/issues/1',tokens['manager'])[0]==404
+status,listing=request(base+'/missions',body['access_token'])
+assert status==200 and listing['total']==0
+print('PASS : compte de service REMEDIATION_SYNC sans rôle humain, lecture interne non exposée par la gateway.')
 print('Mission de démonstration : '+mission['id'])

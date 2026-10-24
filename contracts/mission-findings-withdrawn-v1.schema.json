@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "audit.mission.findings-withdrawn.v1",
+  "type": "object",
+  "required": [
+    "eventId",
+    "eventType",
+    "eventVersion",
+    "missionId",
+    "issueCycle",
+    "aggregateVersion",
+    "occurredAt",
+    "reason"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "eventType": {
+      "const": "audit.mission.findings-withdrawn.v1"
+    },
+    "eventVersion": {
+      "const": 1
+    },
+    "missionId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "issueCycle": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "aggregateVersion": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "reason": {
+      "enum": [
+        "REOPENED",
+        "DELETED"
+      ]
+    }
+  }
+}
