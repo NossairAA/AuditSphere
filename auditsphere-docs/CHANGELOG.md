@@ -1,5 +1,15 @@
 # Journal des changements
 
+## 2026-10-24 : vérifications finales des correctifs de sécurité
+
+- Correctifs applicatifs C1 à C6 et C8 à C18 commités par constat. C7 reste un ADR proposé.
+- Maven verify réussi avec 88 tests, puis test de concurrence SQL et trois tests gateway ciblés réussis. Quinze tests Python et quatre tests Node réussis.
+- TypeScript et build web réussis. Vingt-sept tests Playwright réussis, dont déconnexion Keycloak, séparation du validateur et refus du dépôt anonyme avant lecture complète du corps.
+- Le scénario de preuve à 10 Mio reste bloqué par une connexion expirée vers Garage sur Tailscale. Il n'est pas déclaré réussi, aucun endpoint ni secret n'a été modifié pour le contourner.
+- Images locales gateway et notifications reconstruites et relancées. Smoke API rejoué avec succès. Résilience Kafka avec DLT et résilience Temporal vérifiées. Droits SQL C9 et migration V16 appliqués localement après sauvegarde, anciennes sessions en clair supprimées.
+- Le test de répertoire attend la fin de la navigation des filtres avant de mémoriser son URL. Les données de test identifiées précisément sont nettoyées avec sauvegarde.
+- Résultats et limites détaillés dans le [guide des correctifs](docs/technique/25-correctifs-securite.md). Aucun push ni déploiement de production.
+
 ## 2026-10-23 : C3, vérification navigateur
 
 Un dépôt anonyme au corps volontairement inachevé reçoit 401 immédiatement, avant tamponnement. Six tests de primitives et quatre tests de lecture/admission réussis. Le parcours de preuve à 10 Mio franchit BFF et gateway mais échoue sur le stockage Garage distant injoignable. Il reste à rejouer quand ce service est disponible.

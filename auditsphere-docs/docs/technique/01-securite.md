@@ -40,3 +40,11 @@ Ce contrôle porte sur la publication du code, il ne transforme pas l’environn
 ## Session web
 
 Le [guide BFF](05-frontend-bff.md) décrit le stockage des jetons côté serveur, PKCE, state, nonce, les cookies, le CSRF, le renouvellement et les limites de production. La navigation ne donne aucun privilège supplémentaire par rapport aux permissions du service métier.
+
+## Durcissement du 23 octobre 2026
+
+La passerelle et le service de notifications interrogent /account/security du service d'audit avec le jeton présenté avant de traiter une requête authentifiée. Un jeton révoqué reçoit 401. Une panne de cette vérification reçoit 503. Le délai de deux secondes de la passerelle porte seulement sur cette vérification et ne coupe pas la réponse métier ou le flux de notifications. Le service d'audit reste la source du registre account_revocations. Les limites de débit de la passerelle précèdent cette consultation, pour protéger aussi le registre contre les requêtes répétées avec un jeton révoqué.
+
+Le script de durcissement PostgreSQL limite UPDATE sur user_admin_log à outcome, completed_at, target_subject et requested_changes. Il conserve UPDATE sur account_revocations. Les champs de l'acteur, de l'action, de la raison et de la création du journal ne sont plus modifiables par le compte applicatif. Les anciens droits de table sont retirés avant ces nouveaux GRANT. Ces privilèges ont été appliqués localement après sauvegarde. Le test PostgreSQL confirme le refus de modifier l'acteur, l'action, la raison et la date de création, tout en autorisant les colonnes de finalisation.
+
+Les résultats de contrôle et les preuves résolvent maintenant le nom d'auteur par le sujet dans l'annuaire. Le nom d'un jeton ne décide plus de la valeur conservée. L'annuaire doit rester disponible au moment de l'écriture, avec le cache actuel de 60 secondes pour les noms déjà résolus.

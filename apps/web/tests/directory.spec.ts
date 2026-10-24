@@ -38,6 +38,7 @@ test("filtres globaux et navigation conservée", async ({ page }) => {
   await expect(
     page.getByRole("link", { name: "Consulter " + title, exact: true }),
   ).toBeVisible();
+  await expect(page).toHaveURL((url) => url.searchParams.get("q") === title && url.searchParams.get("status") === "DRAFT" && url.searchParams.get("sort") === "title");
   const filtered = page.url();
   await page
     .getByRole("link", { name: "Consulter " + title, exact: true })

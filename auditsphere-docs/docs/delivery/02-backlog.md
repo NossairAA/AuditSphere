@@ -2,6 +2,22 @@
 
 **Statut :** priorités métier révisées le 2026-10-19.
 
+## Revue de sécurité du 22 octobre 2026
+
+Les constats C1 à C18 sont suivis dans le [compte rendu des correctifs](../technique/25-correctifs-securite.md). Les protections applicatives sont implémentées localement. Les vérifications des 23 et 24 octobre comptent 27 tests Playwright réussis, avec un scénario de preuve à 10 Mio bloqué par Garage distant injoignable. C7 reste un chantier de déploiement distinct décrit par ADR-0020, proposé et non déployé.
+
+| Constats | Évolution | État |
+| --- | --- | --- |
+| C1, C17 | Royaume de production isolé sans comptes démo, OTP obligatoire et grants directs désactivés | Tests ciblés et Keycloak jetable vérifiés, production non déployée |
+| C2 | Action email sans mot de passe dans l'API, adresse existante immuable | Tests API et navigateur réussis, SMTP de production à vérifier |
+| C6, C13 | Séparation validateur et auditeur, dérogation APPROVE limitée, équipe figée après exécution | Tests API, SQL concurrents et navigateur réussis, migration locale V16 appliquée |
+| C3, C4, C16 | Dépôts et flux bornés, limites de session et proxy | Implémenté, tests ciblés réussis |
+| C5 | Messages invalides en DLT sans perte silencieuse | Scénario Kafka avec DLT et trois pannes réelles réussi |
+| C8, C9, C10, C11, C14 | Empreinte, droits du journal, révocation, quota et annuaire | Tests d’intégration réussis, droits du journal appliqués et vérifiés localement |
+| C12, C15 | CSP à nonce et sessions chiffrées | Implémenté, tests ciblés réussis |
+| C18 | Actions et images épinglées | Vérifié par les tests de configuration |
+| C7 | TLS et identités internes, persistance Temporal, chiffrement des volumes | ADR proposé, reste à déployer et vérifier |
+
 ## Correctifs de sécurité du 23 octobre 2026
 
 - C3, vérification navigateur : Un dépôt anonyme au corps volontairement inachevé reçoit 401 immédiatement, avant tamponnement. Six tests de primitives et quatre tests de lecture/admission réussis. Le parcours de preuve à 10 Mio franchit BFF et gateway mais échoue sur le stockage Garage distant injoignable. Il reste à rejouer quand ce service est disponible.
