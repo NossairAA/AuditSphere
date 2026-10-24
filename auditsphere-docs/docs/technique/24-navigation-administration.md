@@ -52,7 +52,7 @@ Exécuter setup-web.py pour préparer le client dédié, puis les migrations ave
 
 Les 55 tests du service d’audit, les 4 tests gateway et les 4 tests Python passent. La compilation frontend réussit. Les parcours navigateur exécutés par suites isolées comptent 17 tests réussis sur les 18 tests actuels, dont le changement de rôle avec invalidation de session et reconnexion avec les nouveaux droits.
 
-Le parcours programme avec dépôt de preuve avait réussi lors d’une exécution précédente. Sa dernière exécution reste bloquée par l’indisponibilité réseau de Garage sur le homeserver. Il faut le relancer après rétablissement du stockage avant de déclarer la totalité des parcours valide. Les sept missions existantes ont été conservées. Aucun push ni validation CI distante pour cette refonte.
+Le parcours programme avec dépôt de preuve avait réussi lors d’une exécution précédente. Sa dernière exécution reste bloquée par l’indisponibilité réseau de Garage sur le serveur privé. Il faut le relancer après rétablissement du stockage avant de déclarer la totalité des parcours valide. Les sept missions existantes ont été conservées. Aucun push ni validation CI distante pour cette refonte.
 
 Le point de révocation est comparé à la date d’émission du JWT à la seconde près. Une reconnexion dans la même seconde que la révocation peut être refusée, une nouvelle tentative à la seconde suivante résout ce cas.
 

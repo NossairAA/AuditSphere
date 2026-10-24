@@ -92,3 +92,7 @@ La soumission est reliée au service de notifications existant via Kafka. Une no
 ## Refonte ergonomique du 21 octobre 2026
 
 La navigation par onglets, les filtres de missions, le détail des contrôles et l’administration des comptes sont implémentés localement. Voir le [guide de navigation](../technique/24-navigation-administration.md). La prochaine tranche métier reste les constats.
+
+## Hébergement privé : 2026-10-24
+
+La phase 4, Production interne, cible désormais un cluster k3s à un nœud sur un serveur privé de l'utilisateur, selon [ADR-0023](../decisions/ADR-0023-hebergement-prive-k3s.md). Le relevé matériel est vérifié. Aucune installation n'est faite. Les dix phases, de la préparation de l'hôte à l'extension, et leurs critères de sortie sont décrits dans le [guide d'hébergement](../technique/28-hebergement-k3s.md). Cette trajectoire avance en parallèle de l'ordre métier actif et ne le remplace pas.

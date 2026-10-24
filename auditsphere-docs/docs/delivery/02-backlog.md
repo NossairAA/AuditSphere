@@ -96,7 +96,24 @@ Pour chaque user story ajoutée, utiliser [le modèle de fonctionnalité](../tem
 | TECH-005 | Kafka et outbox | Reprise après panne, aucun effet métier doublé après redélivrance | Vérifié localement, jalon notifications |
 | TECH-006 | Workflow Temporal | Validation durable et reprise du worker, expiration à ajouter | Implémenté localement, échéances proposées |
 | TECH-007 | Observabilité | Trace corrélée HTTP/Kafka et métriques consultables | Proposé |
-| TECH-008 | CI/CD et Kubernetes | Image analysée, déploiement Helm/GitOps et rollback testés | Proposé |
+| TECH-008 | CI/CD et Kubernetes | Image analysée, déploiement Helm/GitOps et rollback testés | Proposé, cible k3s sur le serveur privé par ADR-0023 |
+
+## Hébergement privé avec k3s
+
+Décision prise le 2026-10-24 par [ADR-0023](../decisions/ADR-0023-hebergement-prive-k3s.md). Détail et critères de sortie dans le [guide d'hébergement](../technique/28-hebergement-k3s.md).
+
+| ID | Livrable | État |
+| --- | --- | --- |
+| HOST-000 | Préparation de l'hôte : mémoire vidéo, ports d'administration, réseau, nom neutre | Proposé |
+| HOST-001 | Images légères, Dockerfile web, réglages JVM, GHCR, Trivy, mémoire mesurée | Proposé |
+| HOST-002 | k3s à un nœud, API et entrée par Tailscale uniquement | Proposé |
+| HOST-003 | PostgreSQL unique, Kafka, Temporal, Garage hors cluster | Proposé |
+| HOST-004 | Charts Helm, Keycloak, frontend, Traefik derrière l'entrée Tailscale | Proposé |
+| HOST-005 | GitOps Argo CD minimal et Sealed Secrets | Proposé |
+| HOST-006 | Observabilité par paliers et alertes | Proposé |
+| HOST-007 | Sauvegardes hors machine et restauration vérifiée | Proposé |
+| HOST-008 | Sécurité C7 sur le cluster selon ADR-0020 | Proposé |
+| HOST-009 | Second nœud, essai AKS ou EKS, accès public éventuel | Proposé |
 
 ## Avancement fonctionnel du jalon 1
 

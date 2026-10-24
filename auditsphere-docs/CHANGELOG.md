@@ -1,5 +1,13 @@
 # Journal des changements
 
+## 2026-10-24 : hébergement privé avec k3s
+
+- Relevé du serveur privé en lecture seule : 8 threads, 6,7 Gio de mémoire visible, 168 Go libres, aucune alimentation secourue, Kubernetes absent.
+- ADR-0023 accepté : cluster k3s à un nœud sur le serveur privé, outils professionnels répartis entre permanents et à la demande. Options Compose, Hetzner, AKS, EKS et Oracle évaluées avec tarifs relevés le jour même.
+- [Guide d'hébergement](docs/technique/28-hebergement-k3s.md) proposé : budget mémoire, dix phases et critères de sortie. Backlog HOST-000 à HOST-009 et roadmap mis à jour.
+- Documentation publique neutralisée : plus de lieu d'hébergement, de modèle de machine, de compte ni d'adresse privée. Libellés d'ADR-0015 et des guides 23 et 24 ajustés sans changer leurs décisions.
+- Aucune installation, aucun déploiement et aucun test sur le serveur.
+
 ## 2026-10-24 : actions correctives, lot 2
 
 - Lot 1 publié : CI distante réussie sur `226c006`, PR #6 fusionnée dans `main` par `05f6191`.
@@ -220,7 +228,7 @@ Royaume sans utilisateurs de démonstration, projet Compose et volumes distincts
 ## Preuves privées des contrôles : 2026-10-21
 
 - Résultats et correctif CI publiés dans 3e0dbcb, CI verte.
-- Garage privé installé sur le homeserver et raccordé par Tailscale.
+- Garage privé installé sur le serveur privé et raccordé par Tailscale.
 - Dépôt PDF et images, métadonnées et téléchargement soumis aux permissions de mission.
 - 53 tests audit-service, 4 tests gateway et un parcours navigateur réussis, compilation validée.
 - Nettoyage ciblé des objets synthétiques et documentation de sauvegarde. Tranche non publiée.

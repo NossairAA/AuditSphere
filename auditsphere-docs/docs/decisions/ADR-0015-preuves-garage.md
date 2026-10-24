@@ -5,7 +5,7 @@ Statut : accepté pour cette tranche
 
 ## Décision
 
-Les fichiers de preuve sont conservés dans Garage compatible S3, les métadonnées et les permissions dans PostgreSQL. Le stockage est indépendant des conteneurs applicatifs. En local et en CI, Garage utilise un volume Docker. L’installation utilisateur utilise un homeserver, accessible uniquement sur son adresse Tailscale pour le port S3. Aucun port RPC, administration ou site web Garage n’est publié.
+Les fichiers de preuve sont conservés dans Garage compatible S3, les métadonnées et les permissions dans PostgreSQL. Le stockage est indépendant des conteneurs applicatifs. En local et en CI, Garage utilise un volume Docker. L’installation utilisateur utilise un serveur privé, accessible uniquement sur son adresse Tailscale pour le port S3. Aucun port RPC, administration ou site web Garage n’est publié.
 
 Le bucket est privé. Le navigateur ne reçoit ni clé S3 ni URL signée. Chaque liste et téléchargement passe par le BFF puis audit-service, qui vérifie l’accès courant à la mission et l’appartenance du contrôle. Les téléchargements sont servis en pièce jointe avec nosniff et no-store.
 
