@@ -3,6 +3,7 @@
 import argparse, json, os, subprocess, time, uuid
 from pathlib import Path
 from kafka_cleanup import offsets_drained
+from service_health import wait_healthy
 root=Path(__file__).resolve().parents[1]
 parser=argparse.ArgumentParser()
 parser.add_argument('manifest',type=Path)
@@ -58,7 +59,4 @@ finally:
  # Callers chain suites right after cleanup: hand back a stack whose API answers again.
  if 'audit-service' in producers:
   probe='exec 3<>/dev/tcp/127.0.0.1/8081; printf "GET /actuator/health HTTP/1.0\\r\\n\\r\\n" >&3; head -1 <&3'
-  deadline=time.monotonic()+120
-  while ' 200' not in compose('exec','-T','audit-service','bash','-c',probe,check=False).stdout:
-   if time.monotonic()>deadline: raise RuntimeError('audit-service indisponible après nettoyage')
-   time.sleep(1)
+  wait_healthy(lambda:compose('exec','-T','audit-service','bash','-c',probe,check=False).stdout,'audit-service')
