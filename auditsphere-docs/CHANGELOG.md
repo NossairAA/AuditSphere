@@ -1,5 +1,12 @@
 # Journal des changements
 
+## 2026-10-24 : constats, lot 2
+
+- Soumission de mission refusée en 409 tant qu’un constat est Brouillon ou Soumis. Corps `{"code":"FINDINGS_PENDING","pending":n}` pour l’interface, messages internes toujours masqués.
+- Comptage rejoué sous verrou de mission dans la transaction finale. Dérogations APPROVE et CLOSE du superadministrateur soumises à la même règle.
+- Deux tests Java ajoutés, dont un scénario concurrent validé par mutation. 69 tests audit-service réussis.
+- BFF, interface et migration locale restent à faire. Détails dans le [guide des constats](docs/technique/26-constats.md). Aucun push.
+
 ## 2026-10-24 : constats, lot 1
 
 - ADR-0021 accepté : constats hébergés par audit-service.

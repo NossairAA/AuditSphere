@@ -2440,4 +2440,70 @@ class MissionIntegrationTest {
     mvc.perform(get("/missions/" + id + "/findings").with(programJwt("assigned", "AUDITOR")))
         .andExpect(status().isNotFound());
   }
+
+  @Autowired org.springframework.transaction.PlatformTransactionManager transactions;
+
+  @Test
+  void missionSubmissionWaitsForEveryFindingDecision() throws Exception {
+    String id = startedMissionWithNonConformingControl(), control = firstControl(id);
+    String kept =
+        idOf(saveFinding(id, null, "assigned", "AUDITOR", findingBody(null, "Cause", "Recommandation", "HIGH", control)));
+    String dropped =
+        idOf(saveFinding(id, null, "assigned", "AUDITOR", findingBody(null, "Cause", "Recommandation", "LOW", control)));
+    lifecycle(id, "submission", "{\"version\":3}")
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("code").value("FINDINGS_PENDING"))
+        .andExpect(jsonPath("pending").value(2));
+    moveFinding(id, kept, 0, "assigned", "AUDITOR", "SUBMIT", null).andExpect(status().isOk());
+    moveFinding(id, dropped, 0, "assigned", "AUDITOR", "SUBMIT", null).andExpect(status().isOk());
+    moveFinding(id, kept, 1, "owner", "AUDIT_MANAGER", "VALIDATE", null).andExpect(status().isOk());
+    lifecycle(id, "submission", "{\"version\":3}")
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("pending").value(1));
+    overrideMission(id, 3, "APPROVE", "Urgence", "administrator")
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("code").value("FINDINGS_PENDING"));
+    overrideMission(id, 3, "CLOSE", "Urgence", "administrator")
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("code").value("FINDINGS_PENDING"));
+    moveFinding(id, dropped, 1, "owner", "AUDIT_MANAGER", "REJECT", "Doublon du constat C-01")
+        .andExpect(status().isOk());
+    lifecycle(id, "submission", "{\"version\":3}")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("status").value("PENDING_REVIEW"));
+  }
+
+  @Test
+  void missionSubmissionCountsFindingsUnderMissionLock() throws Exception {
+    String id = startedMissionWithNonConformingControl();
+    java.util.UUID missionId = java.util.UUID.fromString(id);
+    var locked = new java.util.concurrent.CountDownLatch(1);
+    var writer =
+        java.util.concurrent.CompletableFuture.runAsync(
+            () ->
+                new org.springframework.transaction.support.TransactionTemplate(transactions)
+                    .executeWithoutResult(
+                        state -> {
+                          jdbc.queryForObject("SELECT id FROM missions WHERE id=? FOR UPDATE", java.util.UUID.class, missionId);
+                          jdbc.update(
+                              "INSERT INTO mission_findings(id,mission_id,reference,title,condition_text,severity,status,created_by,updated_by)"
+                                  + " VALUES (?,?,1,'Concurrent','Écrit sous verrou','LOW','DRAFT','assigned','assigned')",
+                              java.util.UUID.randomUUID(),
+                              missionId);
+                          locked.countDown();
+                          try {
+                            Thread.sleep(700);
+                          } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                          }
+                        }));
+    org.junit.jupiter.api.Assertions.assertTrue(locked.await(5, java.util.concurrent.TimeUnit.SECONDS));
+    lifecycle(id, "submission", "{\"version\":3}")
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("code").value("FINDINGS_PENDING"));
+    writer.get(5, java.util.concurrent.TimeUnit.SECONDS);
+    org.junit.jupiter.api.Assertions.assertEquals(
+        "IN_PROGRESS",
+        jdbc.queryForObject("SELECT status FROM missions WHERE id=?", String.class, missionId));
+  }
 }

@@ -1,9 +1,9 @@
 # Constats : implémentation
 
-**Statut :** lot 1 implémenté et vérifié par les tests Java le 2026-10-24. Lots 2 à 5 proposés, non implémentés.
+**Statut :** lots 1 et 2 implémentés et vérifiés par les tests Java le 2026-10-24. Lots 3 à 5 proposés, non implémentés.
 **Tranche :** F-005, US-005. Règles métier dans le [plan métier](../produit/04-plan-metier.md). Choix du service dans [ADR-0021](../decisions/ADR-0021-constats-audit-service.md).
 
-Ce document décrit le découpage technique. Seul le lot 1 est livré sur la branche `feat/findings-lot1`, non publiée. Chaque lot est marqué implémenté puis vérifié avec ses preuves de test.
+Ce document décrit le découpage technique. Les lots 1 et 2 sont livrés sur la branche `feat/findings-lot1`, non publiée. Chaque lot est marqué implémenté puis vérifié avec ses preuves de test.
 
 ## Emplacement
 
@@ -49,7 +49,7 @@ Chaque écriture suit le même ordre :
 3. Charger le constat de cette mission, comparer sa version, appliquer la transition autorisée.
 4. Écrire le constat, ses liens et le journal dans la même transaction.
 
-Les erreurs suivent les conventions actuelles : 400 pour un champ invalide, un contrôle inconnu ou un commentaire manquant, 403 pour un rôle insuffisant ou une décision sur sa propre soumission, 404 hors mission, 409 pour un statut, une version ou une soumission incomplète. Le service applique `server.error.include-message=never`, aucun code de raison n’est donc transmis. Le lot 2 devra choisir comment distinguer FINDINGS_PENDING des autres 409 sans exposer de message interne.
+Les erreurs suivent les conventions actuelles : 400 pour un champ invalide, un contrôle inconnu ou un commentaire manquant, 403 pour un rôle insuffisant ou une décision sur sa propre soumission, 404 hors mission, 409 pour un statut, une version ou une soumission incomplète. Le service applique `server.error.include-message=never`, aucun code de raison n’est donc transmis. Seul le refus de soumission de mission porte un code, décrit ci-dessous.
 
 La décision par la personne qui a soumis est refusée en 403, y compris pour SUPER_ADMIN. Une décision du superadministrateur hors rôle de responsable propriétaire est enregistrée avec override à vrai, selon ADR-0014.
 
@@ -57,7 +57,11 @@ La mission ne change pas de version lors d’une écriture sur un constat. Deux 
 
 ## Soumission de mission
 
-`MissionController.checkSubmission` compte les constats DRAFT ou SUBMITTED de la mission. La soumission est refusée en 409 avec FINDINGS_PENDING si ce nombre n’est pas nul. Le contrôle est rejoué dans la transaction finale de `submit`, après l’appel à l’annuaire, sous verrou de mission. Une écriture de constat concurrente ne peut donc pas passer entre le contrôle et le changement de statut.
+Le composant `PendingFindings` compte les constats DRAFT ou SUBMITTED de la mission. C’est la seule lecture des constats depuis le cycle de mission prévue par ADR-0021. `MissionController.checkSubmission` l’appelle dans les deux transactions de `submit` : la première échoue tôt, avant l’appel à l’annuaire, la transaction finale rejoue le comptage sous verrou de mission. Une écriture de constat concurrente prend le même verrou et ne peut donc pas passer entre le contrôle et le changement de statut.
+
+Le refus retourne 409 avec le corps `{"code":"FINDINGS_PENDING","pending":n}`, produit par un gestionnaire dédié. Ce code stable et le nombre de constats en attente sont destinés à l’interface. Ils ne révèlent aucun message interne, la règle `server.error.include-message=never` reste inchangée pour les autres erreurs.
+
+Les dérogations APPROVE et CLOSE du superadministrateur appliquent le même comptage. Sans cette règle, une mission approuvée ou clôturée directement depuis En cours figerait des constats encore en brouillon ou soumis, sans décision possible. REOPEN et DELETE ne sont pas concernés.
 
 ## BFF et interface
 
@@ -74,12 +78,19 @@ La mission ne change pas de version lors d’une écriture sur un constat. Deux 
 - Suite audit-service complète : 67 tests réussis avec JDK 25 et PostgreSQL Testcontainers. `scripts/test_database_grants.py` : deux tests réussis, un test local optionnel ignoré.
 - Non vérifié : migration V17 appliquée sur la base locale, droits réels de audit_runtime, BFF, interface et CI distante.
 
+## Vérifications du lot 2
+
+- `MissionIntegrationTest#missionSubmissionWaitsForEveryFindingDecision` : soumission refusée avec deux brouillons puis avec un constat soumis, code et nombre vérifiés, dérogations APPROVE et CLOSE refusées, soumission acceptée quand les constats sont validés ou rejetés.
+- `MissionIntegrationTest#missionSubmissionCountsFindingsUnderMissionLock` : un brouillon inséré dans une transaction qui détient le verrou de mission bloque la soumission lancée pendant ce temps. Test de mutation effectué : avec le comptage limité à la première transaction, le test échoue avec 200 au lieu de 409. Code restauré ensuite.
+- Suite audit-service complète : 69 tests réussis avec JDK 25 et PostgreSQL Testcontainers.
+- Non vérifié : transmission du corps par le BFF, message dans l’interface, CI distante.
+
 ## Lots et vérifications prévues
 
 | Lot | Contenu | Vérification attendue |
 | --- | --- | --- |
 | 1, vérifié | Migration V17, contrôleur, journal, droits SQL | Test d’intégration Java : matrice des permissions, statuts, contrôle d’une autre mission, version périmée, refus de l’auto-décision, journal sans UPDATE ni DELETE |
-| 2 | Blocage de la soumission de mission | Test Java : refus avec un brouillon et un soumis, acceptation après validation et rejet, scénario concurrent |
+| 2, vérifié | Blocage de la soumission de mission et des dérogations APPROVE et CLOSE | Test Java : refus avec un brouillon et un soumis, acceptation après validation et rejet, scénario concurrent |
 | 3 | BFF et contrat | Tests des primitives existantes sur les nouvelles routes, TypeScript |
 | 4 | Interface | Playwright `findings.spec.ts` : création, soumission, renvoi, correction, validation, soumission de mission, utilisateur extérieur refusé. Nettoyage des données de test par identifiants exacts |
 | 5 | Documentation | Ce guide passé à implémenté puis vérifié, backlog, changelog, migration appliquée localement après sauvegarde |
