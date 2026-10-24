@@ -38,6 +38,14 @@ Utiliser le modèle dans [`docs/templates/adr.md`](../templates/adr.md).
 
 - [ADR-0017 : identité et authentification de production](ADR-0017-identite-production.md)
 
+- [ADR-0018 : séparation du validateur et des auditeurs affectés](ADR-0018-separation-validateur-auditeur.md)
+
+- [ADR-0019 : actions de mot de passe et protection du BFF](ADR-0019-sessions-et-acces-web.md)
+
+- [ADR-0020 : sécurisation du déploiement interne](ADR-0020-deploiement-interne-securise.md)
+
+- [ADR-0021 : constats hébergés par audit-service](ADR-0021-constats-audit-service.md)
+
 - [ADR-0018 : séparation validateur et auditeur](ADR-0018-separation-validateur-auditeur.md).
 - [ADR-0019 : sessions et accès web](ADR-0019-sessions-et-acces-web.md).
 - [ADR-0020 : déploiement interne sécurisé](ADR-0020-deploiement-interne-securise.md), proposé.

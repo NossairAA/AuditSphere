@@ -2227,4 +2227,217 @@ class MissionIntegrationTest {
         .andExpect(status().isPayloadTooLarge());
     org.mockito.Mockito.verify(evidenceStore).delete(org.mockito.ArgumentMatchers.anyString());
   }
+
+  java.util.Map<String, Object> findingBody(
+      Long version, String cause, String recommendation, String severity, String... controls) {
+    var body = new java.util.HashMap<String, Object>();
+    if (version != null) body.put("version", version);
+    body.put("title", "Factures en double");
+    body.put("condition", "Deux paiements pour la même facture");
+    body.put("criterion", "Une facture est payée une seule fois");
+    body.put("cause", cause);
+    body.put("consequence", "Perte financière");
+    body.put("recommendation", recommendation);
+    body.put("severity", severity);
+    body.put("controlIds", java.util.List.of(controls));
+    return body;
+  }
+
+  org.springframework.test.web.servlet.ResultActions saveFinding(
+      String mission, String finding, String subject, String role, java.util.Map<String, Object> body)
+      throws Exception {
+    var request =
+        finding == null
+            ? post("/missions/" + mission + "/findings")
+            : put("/missions/" + mission + "/findings/" + finding);
+    return mvc.perform(
+        request
+            .with(programJwt(subject, role))
+            .contentType("application/json")
+            .content(mapper.writeValueAsString(body)));
+  }
+
+  org.springframework.test.web.servlet.ResultActions moveFinding(
+      String mission, String finding, long version, String subject, String role, String action, String comment)
+      throws Exception {
+    var body = new java.util.HashMap<String, Object>();
+    body.put("version", version);
+    body.put("action", action);
+    body.put("comment", comment);
+    return mvc.perform(
+        put("/missions/" + mission + "/findings/" + finding + "/transition")
+            .with(programJwt(subject, role))
+            .contentType("application/json")
+            .content(mapper.writeValueAsString(body)));
+  }
+
+  String startedMissionWithNonConformingControl() throws Exception {
+    String id = create(), control = programControl(id);
+    jdbc.update(
+        "UPDATE missions SET status='IN_PROGRESS',planned_start_date=current_date,planned_end_date=current_date,started_at=now(),validator_subject='validator' WHERE id=?",
+        java.util.UUID.fromString(id));
+    recordControl(id, control, 2, "assigned", "AUDITOR", "NON_CONFORMING", "Doublon constaté")
+        .andExpect(status().isOk());
+    return id;
+  }
+
+  String firstControl(String mission) {
+    return jdbc.queryForObject(
+            "SELECT id FROM mission_controls WHERE mission_id=?",
+            java.util.UUID.class,
+            java.util.UUID.fromString(mission))
+        .toString();
+  }
+
+  String idOf(org.springframework.test.web.servlet.ResultActions actions) throws Exception {
+    return mapper.readTree(actions.andReturn().getResponse().getContentAsString()).get("id").asText();
+  }
+
+  @Test
+  void findingsFollowReviewLifecycleAndKeepAppendOnlyTrace() throws Exception {
+    String id = startedMissionWithNonConformingControl(), control = firstControl(id);
+    String finding =
+        idOf(
+            saveFinding(id, null, "assigned", "AUDITOR", findingBody(null, " ", null, "HIGH", control))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("reference").value(1))
+                .andExpect(jsonPath("status").value("DRAFT"))
+                .andExpect(jsonPath("version").value(0))
+                .andExpect(jsonPath("cause").isEmpty())
+                .andExpect(jsonPath("riskIds.length()").value(1))
+                .andExpect(jsonPath("inconsistentControls").value(false))
+                .andExpect(jsonPath("controls[0].outcome").value("NON_CONFORMING")));
+    moveFinding(id, finding, 0, "assigned", "AUDITOR", "SUBMIT", null)
+        .andExpect(status().isConflict());
+    saveFinding(id, finding, "assigned", "AUDITOR", findingBody(0L, "Contrôle absent", "Bloquer les doublons", "CRITICAL", control))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("version").value(1))
+        .andExpect(jsonPath("severity").value("CRITICAL"));
+    saveFinding(id, finding, "assigned", "AUDITOR", findingBody(0L, "Périmé", "Périmé", "LOW", control))
+        .andExpect(status().isConflict());
+    moveFinding(id, finding, 1, "assigned", "AUDITOR", "SUBMIT", null)
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("status").value("SUBMITTED"))
+        .andExpect(jsonPath("submittedBy").value("assigned"));
+    saveFinding(id, finding, "assigned", "AUDITOR", findingBody(2L, "Soumis", "Soumis", "LOW", control))
+        .andExpect(status().isConflict());
+    moveFinding(id, finding, 2, "assigned", "AUDITOR", "VALIDATE", null)
+        .andExpect(status().isForbidden());
+    moveFinding(id, finding, 2, "owner", "AUDIT_MANAGER", "RETURN", " ")
+        .andExpect(status().isBadRequest());
+    moveFinding(id, finding, 2, "owner", "AUDIT_MANAGER", "RETURN", "Préciser le montant")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("status").value("DRAFT"))
+        .andExpect(jsonPath("decisionComment").value("Préciser le montant"));
+    moveFinding(id, finding, 3, "assigned", "AUDITOR", "SUBMIT", null).andExpect(status().isOk());
+    moveFinding(id, finding, 4, "assigned", "AUDITOR", "WITHDRAW", null)
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("status").value("DRAFT"));
+    moveFinding(id, finding, 5, "assigned", "AUDITOR", "SUBMIT", null).andExpect(status().isOk());
+    moveFinding(id, finding, 6, "owner", "AUDIT_MANAGER", "VALIDATE", null)
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("status").value("VALIDATED"))
+        .andExpect(jsonPath("decidedBy").value("owner"));
+    moveFinding(id, finding, 7, "owner", "AUDIT_MANAGER", "REJECT", "Trop tard")
+        .andExpect(status().isConflict());
+    moveFinding(id, finding, 7, "owner", "AUDIT_MANAGER", "REOPEN", "Montant révisé")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("status").value("DRAFT"));
+    mvc.perform(delete("/missions/" + id + "/findings/" + finding + "?version=8").with(programJwt("assigned", "AUDITOR")))
+        .andExpect(status().isConflict());
+    mvc.perform(get("/missions/" + id + "/findings/" + finding + "/history").with(programJwt("validator", "AUDIT_VALIDATOR")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[*].action").value(org.hamcrest.Matchers.contains(
+            "CREATED", "UPDATED", "SUBMITTED", "RETURNED", "SUBMITTED", "WITHDRAWN", "SUBMITTED", "VALIDATED", "REOPENED")))
+        .andExpect(jsonPath("$[3].reason").value("Préciser le montant"));
+    org.junit.jupiter.api.Assertions.assertEquals(
+        "Contrôle absent",
+        jdbc.queryForObject(
+            "SELECT resulting_data->>'cause' FROM finding_change_log WHERE finding_id=? AND action='UPDATED'",
+            String.class,
+            java.util.UUID.fromString(finding)));
+    String draft =
+        idOf(saveFinding(id, null, "assigned", "AUDITOR", findingBody(null, null, null, "LOW", control))
+            .andExpect(jsonPath("reference").value(2)));
+    mvc.perform(delete("/missions/" + id + "/findings/" + draft + "?version=0").with(programJwt("assigned", "AUDITOR")))
+        .andExpect(status().isNoContent());
+    saveFinding(id, null, "assigned", "AUDITOR", findingBody(null, null, null, "LOW", control))
+        .andExpect(jsonPath("reference").value(3));
+    org.junit.jupiter.api.Assertions.assertEquals(
+        1,
+        jdbc.queryForObject(
+            "SELECT count(*) FROM finding_change_log WHERE finding_id=? AND action='DELETED' AND resulting_data IS NULL",
+            Integer.class,
+            java.util.UUID.fromString(draft)));
+    mvc.perform(get("/missions/" + id + "/findings").with(programJwt("owner", "AUDIT_MANAGER")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(2))
+        .andExpect(jsonPath("$[0].reference").value(1));
+  }
+
+  @Test
+  void findingsEnforcePermissionsSeparationAndMissionStatus() throws Exception {
+    String id = create(), control = programControl(id);
+    saveFinding(id, null, "assigned", "AUDITOR", findingBody(null, null, null, "LOW", control))
+        .andExpect(status().isConflict());
+    jdbc.update(
+        "UPDATE missions SET status='IN_PROGRESS',planned_start_date=current_date,planned_end_date=current_date,started_at=now(),validator_subject='validator' WHERE id=?",
+        java.util.UUID.fromString(id));
+    saveFinding(id, null, "stranger", "AUDITOR", findingBody(null, null, null, "LOW", control))
+        .andExpect(status().isNotFound());
+    mvc.perform(get("/missions/" + id + "/findings").with(programJwt("stranger", "AUDIT_MANAGER")))
+        .andExpect(status().isNotFound());
+    saveFinding(id, null, "owner", "AUDIT_MANAGER", findingBody(null, null, null, "LOW", control))
+        .andExpect(status().isForbidden());
+    saveFinding(id, null, "validator", "AUDIT_VALIDATOR", findingBody(null, null, null, "LOW", control))
+        .andExpect(status().isForbidden());
+    saveFinding(id, null, "assigned", "AUDITOR", findingBody(null, null, null, "SEVERE", control))
+        .andExpect(status().isBadRequest());
+    saveFinding(id, null, "assigned", "AUDITOR", findingBody(null, null, null, "LOW"))
+        .andExpect(status().isBadRequest());
+    String[] tooMany = new String[21];
+    for (int i = 0; i < tooMany.length; i++) tooMany[i] = java.util.UUID.randomUUID().toString();
+    saveFinding(id, null, "assigned", "AUDITOR", findingBody(null, null, null, "LOW", tooMany))
+        .andExpect(status().isBadRequest());
+    String other = create(), foreign = programControl(other);
+    saveFinding(id, null, "assigned", "AUDITOR", findingBody(null, null, null, "LOW", control, foreign))
+        .andExpect(status().isBadRequest());
+
+    String unchecked =
+        idOf(saveFinding(id, null, "assigned", "AUDITOR", findingBody(null, "Cause", "Recommandation", "LOW", control))
+            .andExpect(jsonPath("inconsistentControls").value(true)));
+    moveFinding(id, unchecked, 0, "assigned", "AUDITOR", "SUBMIT", null).andExpect(status().isConflict());
+    recordControl(id, control, 2, "assigned", "AUDITOR", "NON_CONFORMING", "Doublon").andExpect(status().isOk());
+
+    String byAdmin =
+        idOf(saveFinding(id, null, "administrator", "SUPER_ADMIN", findingBody(null, "Cause", "Recommandation", "MODERATE", control)));
+    moveFinding(id, byAdmin, 0, "administrator", "SUPER_ADMIN", "SUBMIT", null).andExpect(status().isOk());
+    moveFinding(id, byAdmin, 1, "administrator", "SUPER_ADMIN", "VALIDATE", null).andExpect(status().isForbidden());
+    moveFinding(id, byAdmin, 1, "owner", "AUDIT_MANAGER", "REJECT", null).andExpect(status().isBadRequest());
+    moveFinding(id, byAdmin, 1, "owner", "AUDIT_MANAGER", "REJECT", "Non fondé")
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("status").value("REJECTED"));
+    moveFinding(id, byAdmin, 2, "owner", "AUDIT_MANAGER", "REOPEN", "Revoir").andExpect(status().isConflict());
+
+    moveFinding(id, unchecked, 0, "assigned", "AUDITOR", "SUBMIT", null).andExpect(status().isOk());
+    moveFinding(id, unchecked, 1, "validator", "AUDIT_VALIDATOR", "VALIDATE", null).andExpect(status().isForbidden());
+    moveFinding(id, unchecked, 1, "administrator", "SUPER_ADMIN", "VALIDATE", null).andExpect(status().isOk());
+    org.junit.jupiter.api.Assertions.assertEquals(
+        java.util.List.of(true, true, false, true),
+        jdbc.queryForList(
+            "SELECT override FROM finding_change_log WHERE mission_id=? AND actor_subject IN ('administrator','owner') ORDER BY occurred_at,id",
+            Boolean.class,
+            java.util.UUID.fromString(id)));
+
+    mvc.perform(get("/missions/" + id + "/findings").with(programJwt("validator", "AUDIT_VALIDATOR")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(2));
+    jdbc.update("UPDATE missions SET status='PENDING_REVIEW',submitted_at=now() WHERE id=?", java.util.UUID.fromString(id));
+    saveFinding(id, null, "assigned", "AUDITOR", findingBody(null, null, null, "LOW", control))
+        .andExpect(status().isConflict());
+    moveFinding(id, unchecked, 2, "owner", "AUDIT_MANAGER", "REOPEN", "Revoir").andExpect(status().isConflict());
+    jdbc.update("UPDATE missions SET deleted_at=now() WHERE id=?", java.util.UUID.fromString(id));
+    mvc.perform(get("/missions/" + id + "/findings").with(programJwt("assigned", "AUDITOR")))
+        .andExpect(status().isNotFound());
+  }
 }

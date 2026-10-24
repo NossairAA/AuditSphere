@@ -10,7 +10,7 @@ Préalable terminé en local le 2026-10-20 : retrait de soumission et suppressio
 
 1. Risques et contrôles d’une mission, première tranche de F-003 vérifiée localement le 2026-10-20.
 2. Résultats des contrôles implémentés et vérifiés localement. Ajout et téléchargement des preuves vérifiés localement avec Garage, cycle de conservation à compléter.
-3. Constats et recommandations.
+3. Constats et recommandations, cadrés le 2026-10-24 avec une implémentation proposée dans audit-service.
 4. Actions correctives et vérification de leur résolution.
 5. Premier moteur d’audit continu sur une source et une règle versionnée, puis planification.
 

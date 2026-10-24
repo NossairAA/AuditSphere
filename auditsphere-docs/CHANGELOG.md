@@ -1,5 +1,20 @@
 # Journal des changements
 
+## 2026-10-24 : constats, lot 1
+
+- ADR-0021 accepté : constats hébergés par audit-service.
+- Migration V17 : constats, contrôles liés, séquence de références par mission et journal en ajout seul. Droits audit_runtime ajoutés dans `scripts/harden-databases.py`.
+- `FindingController` : liste, historique, création, modification et suppression de brouillon, transitions de soumission, retrait, validation, renvoi, rejet et réouverture. Séparation entre auteur de la soumission et décideur, dérogations tracées.
+- Deux tests d’intégration Java et un test des droits SQL ajoutés. 67 tests audit-service réussis. Le test a révélé la réattribution d’une référence supprimée, corrigée par la table de séquence.
+- Migration non appliquée à la base locale. Blocage de la soumission de mission, BFF et interface à réaliser. Détails dans le [guide des constats](docs/technique/26-constats.md). Aucun push.
+
+## 2026-10-24 : cadrage des constats
+
+- Tranche F-005 cadrée dans le [plan métier](docs/produit/04-plan-metier.md) : contenu, cycle Brouillon, Soumis, Validé ou Rejeté, permissions, interaction avec la mission, traçabilité et critères d’acceptation.
+- Implémentation proposée dans le [guide des constats](docs/technique/26-constats.md) : migration V17, API audit-service, blocage de la soumission de mission, BFF, interface et lots de tests.
+- [ADR-0021](docs/decisions/ADR-0021-constats-audit-service.md) proposé : constats dans audit-service, frontière réexaminée à F-006. Index des ADR complété de 0018 à 0021.
+- Statut des preuves corrigé dans l’ordre de livraison du plan métier. Documentation seulement, aucun code ni test exécuté.
+
 ## 2026-10-24 : tout marquer comme lu
 
 - Bouton Tout marquer comme lu sur la page Notifications. Le compteur et la liste sont rechargés après l’action.
