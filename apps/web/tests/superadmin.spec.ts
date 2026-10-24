@@ -93,7 +93,7 @@ test("superadmin : refus de sa propre approbation et dérogations sur une autre 
     expect((await admin.request.put(`/api/missions/${mission.id}/override`, {
       headers, data: { version: 1, action: "APPROVE", reason: "Autoapprobation refusée" },
     })).status()).toBe(409);
-    await expect(admin.locator('option[value="APPROVE"]')).toBeDisabled();
+    await expect(admin.locator('option[value="APPROVE"]')).toHaveJSProperty("disabled", true);
     mission = other;
     expect((await page.request.put(`/api/missions/${mission.id}/status`, {
       headers: managerHeaders, data: { version: 0, status: "IN_PROGRESS" },

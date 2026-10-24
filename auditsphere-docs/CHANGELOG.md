@@ -1,5 +1,9 @@
 # Journal des changements
 
+## 2026-10-23 : C6, vérification navigateur
+
+Parcours superadmin complet réussi : refus API409 de sa propre approbation, option HTML désactivée et dérogations autorisées sur une mission distincte. L’assertion cible la propriété native de l’option.
+
 ## 2026-10-23 : C12, vérification complémentaire
 
 Proxy CSP réservé aux pages, corps de pages bornés à 32768 octets et HSTS conservé sur toutes les routes au build HTTPS. Déconnexion autorisée vers la seule origine OIDC configurée. Cinq tests de primitives et parcours réel de déconnexion Keycloak réussis, build et TypeScript vérifiés.
