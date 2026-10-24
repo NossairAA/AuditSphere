@@ -1,5 +1,12 @@
 # Journal des changements
 
+## 2026-10-24 : CI, actions Node 24 et runner explicite
+
+- `actions/checkout` v7.0.1, `actions/setup-java` v6.1.0 et `actions/setup-node` v7.1.0, toujours épinglées par SHA complet. Elles tournent sous Node 24 et remplacent les v4 sous Node 20.
+- Runner `ubuntu-26.04` à la place de `ubuntu-latest`, dont la cible change à partir du 19 octobre 2026.
+- `test_image_pins.py` refuse désormais un runner en `-latest` et une action sans commentaire de version. Vingt tests Python réussis localement, dont un ignoré par conception.
+- Détails dans le [guide DevOps](docs/technique/02-devops.md). Résultat de la CI distante consigné dans la PR.
+
 ## 2026-10-24 : constats, correctif CI
 
 - Échec CI de `findings.spec.ts` expliqué : actions réactivées avant le rechargement de la liste, soumission envoyée avec une version périmée puis refusée en 409.

@@ -26,9 +26,15 @@ class ImagePinTest(unittest.TestCase):
 
     def test_ci_actions_and_scanner_are_immutable(self):
         source = (ROOT / ".github/workflows/ci.yml").read_text()
-        for action in re.findall(r"^\s*- uses:\s*(\S+)", source, re.MULTILINE):
+        for action, comment in re.findall(r"^\s*- uses:\s*(\S+)(.*)$", source, re.MULTILINE):
             with self.subTest(action=action.split("@")[0]):
                 self.assertRegex(action, GIT_SHA)
+                self.assertRegex(comment, r"^\s*# v\d+")
+        runners = re.findall(r"^\s*runs-on:\s*(\S+)", source, re.MULTILINE)
+        self.assertTrue(runners)
+        for runner in runners:
+            with self.subTest(runner=runner):
+                self.assertNotRegex(runner, r"-latest$")
         scanner = re.search(r"zricethezav/gitleaks:[^\s]+", source)
         self.assertIsNotNone(scanner)
         self.assertRegex(scanner.group(), SHA256)
