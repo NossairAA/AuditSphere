@@ -316,3 +316,69 @@ test("nouvelle notification en direct sur une liste déjà ouverte", async ({
     await outsider.close();
   }
 });
+test("tout marquer comme lu, protégé par CSRF et limité au destinataire", async ({
+  browser,
+}) => {
+  // A separate recipient keeps this scenario off the auditor's per-user gateway quota.
+  const manager = await browser.newContext();
+  const reader = await browser.newContext();
+  try {
+    const m = await manager.newPage();
+    await login(m, "manager");
+    const session = await (await manager.request.get("/api/session")).json();
+    const response = await manager.request.post("/api/missions", {
+      headers: {
+        Origin: "http://localhost:3000",
+        "x-csrf-token": session.csrf,
+      },
+      data: {
+        title: "Lecture groupée " + Date.now(),
+        description: "Test synthétique",
+        perimeter: "Tests",
+        assigneeSubjects: ["00000000-0000-0000-0000-000000000003"],
+      },
+    });
+    expect(response.status()).toBe(201);
+    const mission = await response.json();
+    recordMission(mission.id);
+    const a = await reader.newPage();
+    await login(a, "outsider");
+    const count = async () =>
+      (
+        await (
+          await reader.request.get("/api/notifications/unread-count")
+        ).json()
+      ).count;
+    await expect.poll(count).toBeGreaterThan(0);
+    expect(
+      (
+        await reader.request.put("/api/notifications/read-all", {
+          headers: { Origin: "http://localhost:3000" },
+        })
+      ).status(),
+    ).toBe(403);
+    expect(await count()).toBeGreaterThan(0);
+    await a.goto("/missions/notifications");
+    await expect(a.locator("tbody tr").first()).toBeVisible();
+    await expect(a.locator("header .notification-badge")).toBeVisible();
+    await a
+      .getByRole("button", { name: "Tout marquer comme lu", exact: true })
+      .click();
+    await expect(a.getByText(/^\d+ notifications? marquées? comme lues?\.$/)).toBeVisible();
+    await expect(a.locator("header .notification-badge")).toHaveCount(0);
+    await expect(a.getByText("Non lue", { exact: true })).toHaveCount(0);
+    expect(await count()).toBe(0);
+    await a.reload();
+    await expect(a.locator("tbody tr").first()).toBeVisible();
+    await expect(a.getByText("Non lue", { exact: true })).toHaveCount(0);
+    await a
+      .getByRole("button", { name: "Tout marquer comme lu", exact: true })
+      .click();
+    await expect(
+      a.getByText("Aucune notification non lue.", { exact: true }),
+    ).toBeVisible();
+  } finally {
+    await manager.close();
+    await reader.close();
+  }
+});

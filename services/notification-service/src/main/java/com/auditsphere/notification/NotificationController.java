@@ -92,4 +92,17 @@ class NotificationController {
     stream.changed(jwt.getSubject());
     return rows.getFirst();
   }
+
+  record ReadAll(int count) {}
+
+  @PutMapping("/read-all")
+  ReadAll markAllRead(@AuthenticationPrincipal Jwt jwt) {
+    // Earlier read dates are kept: only unread rows of this JWT subject are touched.
+    int count =
+        jdbc.update(
+            "UPDATE notifications SET read_at=now() WHERE recipient_subject=? AND read_at IS NULL",
+            jwt.getSubject());
+    if (count > 0) stream.changed(jwt.getSubject());
+    return new ReadAll(count);
+  }
 }

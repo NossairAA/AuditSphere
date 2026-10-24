@@ -85,7 +85,7 @@ Déplacement vers l’en-tête vérifié : compilation Next.js réussie, deux sc
 
 ## Notifications lues et non lues
 
-La migration V2 ajoute read_at nullable et un index partiel par destinataire pour les non-lues. Les notifications existantes sont conservées et initialement non lues. Ouvrir la liste ne change pas cet état. Cliquer sur le nom de mission dans une notification enregistre sa première date de lecture, actualise le compteur puis ouvre la mission. Consulter une mission depuis un autre écran ne marque pas ses notifications. Il n’existe pas encore d’action pour revenir à non lue ou tout marquer en une fois.
+La migration V2 ajoute read_at nullable et un index partiel par destinataire pour les non-lues. Les notifications existantes sont conservées et initialement non lues. Ouvrir la liste ne change pas cet état. Cliquer sur le nom de mission dans une notification enregistre sa première date de lecture, actualise le compteur puis ouvre la mission. Consulter une mission depuis un autre écran ne marque pas ses notifications. Il n’existe pas encore d’action pour revenir à non lue. Le marquage groupé est décrit dans la section Tout marquer comme lu.
 
 La cloche de l’en-tête affiche le nombre total de non-lues, toutes pages confondues. Le badge disparaît à zéro et affiche 99+ au-delà de 99, avec le nombre exact dans son libellé accessible. Il se rafraîchit toutes les 30 secondes lorsque la page est visible, au retour sur l’onglet, après chargement de la liste et après un clic ayant enregistré la lecture. En cas d’indisponibilité, le badge est masqué plutôt que d’annoncer zéro. Une erreur de marquage est affichée sans déclarer la notification lue.
 
@@ -126,3 +126,15 @@ Cette diffusion couvre l’instance locale actuelle. Les limites, le comportemen
 Validation : dix tests Java du service notifications, trois scénarios navigateur et compilation Next.js réussis. Le test de réception exige une mise à jour en moins de huit secondes, avant le rafraîchissement périodique. Les scénarios créent des données temporaires retirées après vérification, sans modifier les six missions de démonstration.
 
 La reconnexion se déclenche aussi lors du retour du réseau. Le chargement groupé des titres conserve le filtrage par droits et limite les appels lors des mises à jour en direct.
+
+## Tout marquer comme lu : 2026-10-24
+
+La page Notifications propose le bouton Tout marquer comme lu, à côté d’Actualiser. Il marque en une requête toutes les notifications non lues de l’utilisateur, toutes pages confondues. Un message indique le nombre de notifications marquées, ou l’absence de notification non lue. Le compteur de l’en-tête et la liste sont ensuite rechargés. Le bouton est désactivé pendant l’opération et pendant l’ouverture d’une notification.
+
+PUT /notifications/read-all filtre exclusivement par le sujet du JWT. Un paramètre recipientSubject est ignoré. La requête ne modifie que les lignes dont read_at est vide : les dates de première lecture déjà enregistrées sont conservées. Le service renvoie le nombre de lignes modifiées et émet le signal SSE uniquement si ce nombre est positif. Le BFF expose PUT /api/notifications/read-all avec la session, l’origine exacte et le jeton CSRF, sans corps transmis. Les droits PostgreSQL existants suffisent, aucune migration n’est nécessaire.
+
+Limite connue : le marquage groupé n’a pas d’annulation. Les notifications reçues après le clic restent non lues.
+
+Validation : onze tests du service notifications réussis, dont un test dédié qui vérifie le refus anonyme, l’isolation entre destinataires, l’idempotence et la conservation d’une date de lecture antérieure. Contrôle TypeScript réussi. Quatre scénarios navigateur de notifications réussis contre le frontend de développement et l’image notification-service reconstruite. Le nouveau scénario vérifie le refus sans jeton CSRF, le message de résultat, la disparition du badge et des mentions Non lue, la persistance après rechargement et le second clic sans effet. Rendu vérifié sur bureau et à 375 pixels de large. Le build Next.js n’a pas été relancé pour ne pas interférer avec le serveur de développement en cours.
+
+Le scénario utilise le compte outsider comme destinataire. Avec le compte auditor, déjà sollicité par les autres scénarios, la vérification de session échouait en fin de suite alors que le scénario seul réussissait. Cause probable : le quota gateway de 240 requêtes par minute et par utilisateur, atteint sur le serveur de développement qui double les requêtes en mode strict React. Aucun refus 429 n’a été observé directement, mais l’échec disparaît avec un destinataire distinct. Le nettoyage de fin de suite redémarre audit-service et workflow-worker. Une gateway redémarrée avant chaque passe, comme dans scripts/test-browser-isolated.sh, évite de cumuler les quotas entre passes.

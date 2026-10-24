@@ -3,7 +3,7 @@ import { json, session, validMutation } from "@/lib/auth";
 import { rateLimit, rateLimitAnonymous, rateLimitSession } from "@/lib/rate";
 export async function notificationRequest(
   request: Request,
-  resource?: "unread-count" | "read",
+  resource?: "unread-count" | "read" | "read-all",
   id?: string,
 ) {
   const rejection = rateLimit(request);
@@ -17,9 +17,12 @@ export async function notificationRequest(
     }
     const limitedSession = rateLimitSession(data);
     if (limitedSession) return limitedSession;
-    if (resource === "read") {
+    const mutation = resource === "read" || resource === "read-all";
+    if (mutation) {
       if (!validMutation(request, data, request.headers.get("x-csrf-token")))
         return json({ error: "Requête refusée" }, 403);
+    }
+    if (resource === "read") {
       if (
         !id ||
         !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
@@ -31,7 +34,9 @@ export async function notificationRequest(
     const url = new URL(
       resource === "read"
         ? `/notifications/${id}/read`
-        : resource === "unread-count"
+        : resource === "read-all"
+          ? "/notifications/read-all"
+          : resource === "unread-count"
           ? "/notifications/unread-count"
           : "/notifications",
       process.env.API_ORIGIN || "http://localhost:8080",
@@ -44,7 +49,7 @@ export async function notificationRequest(
       url.searchParams.set("size", "20");
     }
     const response = await fetch(url, {
-      method: resource === "read" ? "PUT" : "GET",
+      method: mutation ? "PUT" : "GET",
       headers: { Authorization: "Bearer " + data.accessToken },
       cache: "no-store",
       signal: AbortSignal.timeout(10000),
