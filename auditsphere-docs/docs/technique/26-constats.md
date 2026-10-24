@@ -106,7 +106,13 @@ Les dérogations APPROVE et CLOSE du superadministrateur appliquent le même com
 - Captures `.local/design/findings-desktop.png` et `findings-mobile.png` contrôlées, sans défilement horizontal à 390 pixels.
 - Nettoyage vérifié : `scripts/cleanup-test-data.py` supprime liens, constats et séquence des missions de test avant les missions, et conserve le journal comme pour le programme.
 - Non-régression : `lifecycle`, `withdrawal` et `validator` réussis. Lancés ensemble sur le serveur de développement, `withdrawal` et un test `validator` ont échoué sur des éléments absents, puis ont réussi seuls. Cause non confirmée, les quotas en mémoire partagés justifient déjà le lanceur isolé de la CI.
-- Non couvert par le navigateur : suppression d’un brouillon, rejet et réouverture, vérifiés uniquement par les tests Java. Suite navigateur complète et CI distante non exécutées.
+- Non couvert par le navigateur : suppression d’un brouillon, rejet et réouverture, vérifiés uniquement par les tests Java.
+
+## Correctif après la première CI
+
+La CI de la PR #3 a échoué sur `findings.spec.ts` : après l’enregistrement d’un brouillon, la soumission ne passait pas au statut Soumis. Le message Constat enregistré s’affichait avant le rechargement de la liste, les boutons restaient actifs avec l’ancienne version du constat et la soumission recevait 409. Le serveur local, plus rapide, masquait cette course.
+
+Le test retarde désormais de 1,5 seconde les lectures de la liste côté auditeur. Il reproduit l’échec de la CI avec l’ancien composant. Le composant recharge maintenant la liste avant de réactiver les actions et d’afficher le message. Le test retardé réussit localement, TypeScript aussi. La nouvelle CI reste à observer.
 
 ## Lots et vérifications prévues
 

@@ -104,6 +104,12 @@ test("constat rédigé par l’auditeur, renvoyé puis validé avant la soumissi
     });
     expect(result.ok()).toBe(true);
 
+    // A slow list reload must not leave stale versions behind enabled buttons.
+    await auditor.route(`**/api/missions/${mission.id}/findings`, async (route) => {
+      if (route.request().method() === "GET")
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      await route.continue();
+    });
     await auditor.goto(`/missions/${mission.id}?tab=findings`);
     const section = auditor.getByRole("region", { name: "Constats" });
     await section.getByRole("button", { name: "Nouveau constat" }).click();

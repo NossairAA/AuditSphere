@@ -1,5 +1,10 @@
 # Journal des changements
 
+## 2026-10-24 : constats, correctif CI
+
+- Échec CI de `findings.spec.ts` expliqué : actions réactivées avant le rechargement de la liste, soumission envoyée avec une version périmée puis refusée en 409.
+- La liste est rechargée avant la réactivation des actions. Le test retarde les lectures de liste et reproduisait l’échec avant correction. Réussi localement, nouvelle CI à observer.
+
 ## 2026-10-24 : constats, lot 4
 
 - Onglet Constats dans la fiche de mission : liste filtrée, saisie en panneau latéral, soumission, retrait, décisions avec commentaire, réouverture et historique.

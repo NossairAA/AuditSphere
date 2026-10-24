@@ -176,8 +176,15 @@ export default function MissionFindings({ mission }: { mission: Mission }) {
         signal: AbortSignal.timeout(10000),
       });
       if (!response.ok) throw new Error((await response.json()).error);
+      // Keep actions disabled until fresh versions replace the stale list.
+      const reload = await fetch(`/api/missions/${mission.id}/findings`, {
+        cache: "no-store",
+        signal: AbortSignal.timeout(10000),
+      });
+      const list = await reload.json();
+      if (!reload.ok) throw new Error(list.error);
+      setFindings(list);
       setHistory({});
-      setRetry((v) => v + 1);
       return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Action impossible.");
