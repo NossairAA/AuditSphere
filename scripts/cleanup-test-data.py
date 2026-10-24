@@ -55,3 +55,10 @@ try:
  print(f'Nettoyage : {len(ids)} identifiants de test, sauvegarde privée créée.')
 finally:
  if producers: compose('start',*producers)
+ # Callers chain suites right after cleanup: hand back a stack whose API answers again.
+ if 'audit-service' in producers:
+  probe='exec 3<>/dev/tcp/127.0.0.1/8081; printf "GET /actuator/health HTTP/1.0\\r\\n\\r\\n" >&3; head -1 <&3'
+  deadline=time.monotonic()+120
+  while ' 200' not in compose('exec','-T','audit-service','bash','-c',probe,check=False).stdout:
+   if time.monotonic()>deadline: raise RuntimeError('audit-service indisponible après nettoyage')
+   time.sleep(1)

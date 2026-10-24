@@ -9,20 +9,24 @@ import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
 import org.springframework.context.annotation.*;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import reactor.netty.http.client.HttpClient;
 
 @Configuration
 class GatewayConfig {
   @Bean
   HttpClientCustomizer serviceDns() {
-    // Docker can change a service address after a restart. Bound both DNS caches and connects.
-    return client ->
-        client
-            .resolver(
-                r ->
-                    r.cacheMinTimeToLive(Duration.ZERO)
-                        .cacheMaxTimeToLive(Duration.ofSeconds(5))
-                        .cacheNegativeTimeToLive(Duration.ZERO))
-            .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 3000);
+    return GatewayConfig::boundedDns;
+  }
+
+  /** Docker can change a service address after a restart. Bound both DNS caches and connects. */
+  static HttpClient boundedDns(HttpClient client) {
+    return client
+        .resolver(
+            r ->
+                r.cacheMinTimeToLive(Duration.ZERO)
+                    .cacheMaxTimeToLive(Duration.ofSeconds(5))
+                    .cacheNegativeTimeToLive(Duration.ZERO))
+        .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 3000);
   }
 
   @Bean

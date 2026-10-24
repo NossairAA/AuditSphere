@@ -1,5 +1,11 @@
 # Journal des changements
 
+## 2026-10-24 : CI, redémarrages d’audit-service
+
+- Le filtre de révocation de la gateway utilise le cache DNS borné des routes. Il ne vise plus l’ancienne adresse Docker d’audit-service après un redémarrage, cause de l’échec Temporal du commit 0871cbe.
+- Le nettoyage des données de test attend la santé d’audit-service avant de rendre la main, cause de l’échec du parcours `lifecycle` du commit 129393a.
+- Neuf tests gateway et quinze tests Python réussis. Scénario Temporal avec pannes réussi localement avec changement d’adresse. Suites navigateur non rejouées localement, CI distante à observer. Détails dans la [reprise DNS de la gateway](docs/technique/16-reprise-dns-gateway.md).
+
 ## 2026-10-24 : vérifications finales des correctifs de sécurité
 
 - Correctifs applicatifs C1 à C6 et C8 à C18 commités par constat. C7 reste un ADR proposé.

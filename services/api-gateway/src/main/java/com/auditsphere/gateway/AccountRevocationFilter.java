@@ -7,11 +7,13 @@ import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
+import reactor.netty.http.client.HttpClient;
 
 /** Checks the audit service's revocation ledger before forwarding an authenticated request. */
 @Component
@@ -19,7 +21,11 @@ class AccountRevocationFilter implements GlobalFilter, Ordered {
   private final WebClient audit;
 
   AccountRevocationFilter(@Value("${AUDIT_URL:http://localhost:8081}") String auditUrl) {
-    this.audit = WebClient.builder().baseUrl(auditUrl).build();
+    // Same bounded DNS as the routes: a restarted audit-service may get a new Docker address.
+    this.audit = WebClient.builder()
+        .clientConnector(new ReactorClientHttpConnector(GatewayConfig.boundedDns(HttpClient.create())))
+        .baseUrl(auditUrl)
+        .build();
   }
 
   @Override
