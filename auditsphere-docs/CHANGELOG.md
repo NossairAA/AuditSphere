@@ -1,5 +1,11 @@
 # Journal des changements
 
+## 2026-10-25 : publication GHCR vérifiée
+
+- Premier run sur `main` après la fusion de la phase 1 : quatre images sur cinq refusées par GHCR (`denied`) au push du manifeste. Seule audit-service était publiée. Les paquets n'existaient pas encore.
+- Jobs échoués relancés sans changement de code : run réussi. Les cinq images du commit `cb91e28` sont publiées et lisibles sans authentification.
+- Cause probable : création simultanée de paquets neufs par la matrice. Non confirmée, faute d'accès aux réglages des paquets. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-25 : migration vers Spring Boot 4
 
 - ADR-0024 accepté : Spring Boot 4.0.9, Spring Framework 7.0.10 et Spring Cloud 2025.1.4. Spring Boot 4.1 attendra la version stable de Spring Cloud 2026.0.0.

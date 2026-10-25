@@ -106,7 +106,7 @@ Décision prise le 2026-10-24 par [ADR-0023](../decisions/ADR-0023-hebergement-p
 | ID | Livrable | État |
 | --- | --- | --- |
 | HOST-000 | Préparation de l'hôte : mémoire vidéo, ports d'administration, réseau, nom neutre | En cours : port d'administration refermé et vérifié, autres réglages à faire |
-| HOST-001 | Images légères, Dockerfile web, réglages JVM, GHCR, Trivy, mémoire mesurée | Implémenté et mesuré localement, analyse bloquante depuis TECH-009, CI distante et publication GHCR en attente |
+| HOST-001 | Images légères, Dockerfile web, réglages JVM, GHCR, Trivy, mémoire mesurée | Implémenté et mesuré localement, analyse bloquante depuis TECH-009, CI distante et publication GHCR vérifiées sur `main` le 2026-10-25 |
 | HOST-002 | k3s à un nœud, API et entrée par Tailscale uniquement | Proposé |
 | HOST-003 | PostgreSQL unique, Kafka, Temporal, Garage hors cluster | Proposé |
 | HOST-004 | Charts Helm, Keycloak, frontend, Traefik derrière l'entrée Tailscale | Proposé |
