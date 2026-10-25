@@ -296,6 +296,36 @@ Limites :
 
 Sortie : smoke réussi par l'URL HTTPS du tailnet, scénarios de pannes réussis sur le cluster.
 
+Choix du 2026-10-25, faits par l'utilisateur : profil de démonstration avec comptes synthétiques, noms du tailnet `app` pour le frontend et `auth` pour Keycloak. La phase est découpée en cinq lots : A services Spring, B Keycloak, C frontend et Traefik, D configuration de Keycloak, Garage et données de démonstration, E smoke, pannes et mesure.
+
+#### Lot A : services Spring
+
+Statut : implémenté et vérifié le 2026-10-25.
+
+- Chart générique [infra/helm/spring-service](../../../infra/helm/spring-service) et un fichier de valeurs par release dans `infra/helm/values` : audit-service, notification-service, remediation-service, workflow-worker et api-gateway, dans le namespace `auditsphere` au niveau Pod Security `restricted`.
+- Images GHCR du commit `294a0ff` de `main`, tirées par empreinte. Le code applicatif est identique à celui du dernier commit de `main`.
+- Conteneurs non root, système de fichiers en lecture seule avec `/tmp` en mémoire, aucun jeton de compte de service monté, variables de liens de service désactivées. Sondes de démarrage, de disponibilité et de vivacité sur les points de santé Actuator.
+- Avant chaque installation ou mise à jour, un Job Helm exécute Flyway avec le rôle de migration du service, puis applique les droits minimaux du rôle d'exécution avec le même rôle propriétaire. Les droits reprennent ceux de `scripts/harden-databases.py` : journaux et notes en ajout seul.
+- `scripts/k3s-deploy-services.sh` installe les cinq releases depuis le poste avec Helm 4.3.1, installé par Homebrew. Les valeurs propres au tailnet, origine OIDC et adresse de Garage, viennent de `.local/k3s.env`, ignoré par Git.
+- Secrets créés dans le cluster sans affichage : mots de passe SQL copiés depuis `data`, secrets des clients Keycloak provisoires jusqu'au lot D.
+- Bucket Garage `auditsphere-evidence-k3s` et clé dédiée au cluster, en lecture et écriture sur ce seul bucket. Le développement local garde son bucket et sa clé.
+
+Vérifications :
+
+- Flyway applique 18 migrations à audit, puis celles de notification et de remediation. Les cinq services démarrent sans erreur.
+- Huit contrôles de droits réussis : lecture des missions, refus de suppression ou de modification des journaux, refus de lecture de l'historique Flyway pour le rôle d'exécution.
+- Le worker interroge la file Temporal `audit-review-v1`.
+- La gateway répond 401 sans jeton.
+- Un second déploiement est idempotent : aucune migration à appliquer, droits réappliqués, pods conservés.
+- `test_image_pins.py` vérifie aussi les empreintes des valeurs Helm. Une empreinte vidée fait échouer le test.
+- Mémoire : audit-service 354 Mio, notification-service 182 Mio, api-gateway 176 Mio, remediation-service 159 Mio, worker 106 Mio. Charge du nœud : 4,0 Gio.
+
+Limites :
+
+- Keycloak n'est pas encore déployé. Les jetons ne peuvent pas encore être émis ni validés de bout en bout.
+- La marge mémoire devient faible : Keycloak, le frontend et Traefik ajoutent environ 0,9 Gio de limites. À mesurer au lot E.
+- Le worker ne journalise rien après le démarrage de la JVM. Sa connexion est vérifiée côté Temporal.
+
 ### Phase 5 : GitOps
 
 - Argo CD en installation minimale, sans Dex, notifications ni ApplicationSet. Interface démarrée à la demande.

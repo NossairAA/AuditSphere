@@ -1,5 +1,12 @@
 # Journal des changements
 
+## 2026-10-25 : services Spring dans k3s, phase 4 lot A
+
+- Chart Helm générique `infra/helm/spring-service` et valeurs pour cinq releases. Images GHCR épinglées, conteneurs non root en lecture seule, namespace `auditsphere` au niveau `restricted`.
+- Migrations Flyway et droits SQL minimaux dans un Job Helm exécuté avant chaque déploiement, avec le rôle propriétaire de chaque base.
+- Bucket et clé Garage dédiés au cluster. Valeurs du tailnet dans `.local/k3s.env`, hors dépôt.
+- Vérifié : 18 migrations audit, huit contrôles de droits, worker connecté à Temporal, gateway à 401 sans jeton, second déploiement idempotent. Nœud à 4,0 Gio. Keycloak et le frontend restent à déployer. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-25 : couche de données dans k3s
 
 - PostgreSQL 17.9, Kafka 4.0.2 et Temporal 1.32.1 déployés dans le namespace `data`, manifestes dans `deploy/k3s/data`, images épinglées.

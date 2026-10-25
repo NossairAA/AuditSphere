@@ -1,0 +1,38 @@
+# Valeurs par défaut. Chaque service les complète dans infra/helm/values/<service>.yaml.
+image:
+  repository: ""
+  tag: ""
+  # Obligatoire : l'image est toujours tirée par empreinte.
+  digest: ""
+
+# Port HTTP du service. 0 pour un processus sans HTTP, comme le worker Temporal.
+port: 0
+
+# Variables d'environnement en clair.
+env: {}
+
+# Variables lues dans des secrets : - {name, secret, key}
+secretEnv: []
+
+oidc:
+  enabled: false
+  # Origine publique de Keycloak, vue par le navigateur. Passée à l'installation, jamais versionnée.
+  origin: ""
+  jwks: http://keycloak.auditsphere.svc.cluster.local:8080/realms/auditsphere/protocol/openid-connect/certs
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 256Mi
+  limits:
+    memory: 320Mi
+
+migration:
+  enabled: false
+  database: ""
+  # Rôle propriétaire du schéma, utilisé pour Flyway puis pour les droits.
+  user: ""
+  # Instructions SQL exécutées par le propriétaire après Flyway, idempotentes.
+  grants: ""
+  psqlImage: postgres:17.9@sha256:2a0d0fe14825b0939f78a8cad5cd4e6aa68bf94d0e5dd96e24b6d23af4315545
+  databaseHost: postgres.data.svc.cluster.local

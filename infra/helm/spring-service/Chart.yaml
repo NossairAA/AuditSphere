@@ -1,0 +1,5 @@
+apiVersion: v2
+name: spring-service
+description: Service Spring Boot d'AuditSphere, migrations Flyway et droits SQL compris (ADR-0023, phase 4).
+type: application
+version: 0.1.0
