@@ -107,14 +107,15 @@ Décision prise le 2026-10-24 par [ADR-0023](../decisions/ADR-0023-hebergement-p
 | --- | --- | --- |
 | HOST-000 | Préparation de l'hôte : mémoire vidéo, ports d'administration, réseau, nom neutre | En cours : port d'administration refermé et vérifié, nom neutre appliqué et vérifié le 2026-10-25, mémoire vidéo non réglable dans le BIOS. Liaison réseau à faire |
 | HOST-001 | Images légères, Dockerfile web, réglages JVM, GHCR, Trivy, mémoire mesurée | Implémenté et mesuré localement, analyse bloquante depuis TECH-009, CI distante et publication GHCR vérifiées sur `main` le 2026-10-25 |
-| HOST-002 | k3s à un nœud, API et entrée par Tailscale uniquement | En cours : k3s `v1.36.5+k3s1` installé et vérifié le 2026-10-25, API joignable par Tailscale seulement, redémarrage réussi. Opérateur Tailscale à installer |
+| HOST-002 | k3s à un nœud, API et entrée par Tailscale uniquement | Implémenté et vérifié le 2026-10-25 : k3s `v1.36.5+k3s1`, API joignable par Tailscale seulement, redémarrage réussi, opérateur Tailscale avec entrée HTTPS testée |
 | HOST-003 | PostgreSQL unique, Kafka, Temporal, Garage hors cluster | Proposé |
 | HOST-004 | Charts Helm, Keycloak, frontend, Traefik derrière l'entrée Tailscale | Proposé |
 | HOST-005 | GitOps Argo CD minimal et Sealed Secrets | Proposé |
 | HOST-006 | Observabilité par paliers et alertes | Proposé |
 | HOST-007 | Sauvegardes hors machine et restauration vérifiée | Proposé |
 | HOST-008 | Sécurité C7 sur le cluster selon ADR-0020 | Proposé |
-| HOST-009 | Second nœud, essai AKS ou EKS, accès public éventuel | Proposé |
+| HOST-009 | Second nœud, essai AKS ou EKS. Accès public déplacé vers HOST-010 | Proposé |
+| HOST-010 | Exposition publique par Cloudflare Tunnel selon ADR-0025, domaine délégué à Cloudflare | Proposé, après HOST-004, HOST-006, HOST-007 et HOST-008 |
 
 ## Avancement fonctionnel du jalon 1
 
