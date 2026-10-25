@@ -1,6 +1,6 @@
 package com.auditsphere.audit;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.LoggerFactory;

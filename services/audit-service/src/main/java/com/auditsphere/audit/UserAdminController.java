@@ -224,8 +224,8 @@ class UserAdminController {
     fields.put("roles", new TreeSet<>(input.roles()));
     if(input.username()!=null) fields.put("username",input.username());
     try {
-      jdbc.update("UPDATE user_admin_log SET requested_changes=?::jsonb WHERE id=?",new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(fields),operation);
-    } catch(com.fasterxml.jackson.core.JsonProcessingException e) { throw new IllegalStateException("Invalid administrative profile"); }
+      jdbc.update("UPDATE user_admin_log SET requested_changes=?::jsonb WHERE id=?",new tools.jackson.databind.json.JsonMapper().writeValueAsString(fields),operation);
+    } catch(tools.jackson.core.JacksonException e) { throw new IllegalStateException("Invalid administrative profile"); }
   }
 
   private UUID begin(Jwt jwt, String target, String action, String reason) {

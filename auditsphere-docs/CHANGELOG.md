@@ -1,5 +1,14 @@
 # Journal des changements
 
+## 2026-10-25 : migration vers Spring Boot 4
+
+- ADR-0024 accepté : Spring Boot 4.0.9, Spring Framework 7.0.10 et Spring Cloud 2025.1.4. Spring Boot 4.1 attendra la version stable de Spring Cloud 2026.0.0.
+- Starters modulaires : `spring-boot-starter-webmvc`, `spring-boot-starter-kafka`, `spring-boot-starter-flyway` et `spring-boot-starter-security-oauth2-resource-server`. Tests MockMvc par `spring-boot-starter-webmvc-test`, Testcontainers 2.0.
+- Code passé à Jackson 3, paquet `tools.jackson`, sans changement du JSON produit.
+- `lz4-java` forcé en 1.11.4 dans le parent Maven. Image finale sur `eclipse-temurin:21-jre-noble`, sans le binaire `pebble` vulnérable.
+- Analyse Trivy bloquante dans la CI sur les vulnérabilités hautes et critiques corrigeables, après production du rapport et du SBOM.
+- Vérifié localement : `./mvnw -B verify` avec 108 tests, pile relancée, smoke, pannes Kafka et Temporal, aucun arrêt OOM, 30 parcours Playwright, Trivy sans vulnérabilité corrigeable sur les quatre images Java. CI distante non exécutée. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-24 : hébergement privé, phases 0 et 1
 
 - Phase 0 démarrée : un port d'administration local joignable par le tailnet écoute désormais sur 127.0.0.1, vérifié depuis le tailnet. Mémoire vidéo, nom neutre et liaison réseau restent à faire.

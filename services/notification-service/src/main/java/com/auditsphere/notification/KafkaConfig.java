@@ -1,6 +1,6 @@
 package com.auditsphere.notification;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
+import tools.jackson.core.JacksonException;
 import java.time.Duration;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.context.annotation.*;
@@ -23,7 +23,7 @@ class KafkaConfig {
     var handler = new DefaultErrorHandler(recoverer,
         new FixedBackOff(2000L, FixedBackOff.UNLIMITED_ATTEMPTS));
     handler.addNotRetryableExceptions(IllegalArgumentException.class,
-        JsonProcessingException.class, DeserializationException.class);
+        JacksonException.class, DeserializationException.class);
     return handler;
   }
 }
