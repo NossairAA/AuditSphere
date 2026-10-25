@@ -18,6 +18,18 @@ class ImagePinTest(unittest.TestCase):
                 with self.subTest(file=filename, image=image.split("@")[0]):
                     self.assertRegex(image, SHA256)
 
+    def test_k3s_manifest_images_are_digest_pinned(self):
+        manifests = sorted((ROOT / "deploy/k3s").rglob("*.yaml"))
+        self.assertTrue(manifests)
+        for path in manifests:
+            source = path.read_text()
+            for image in re.findall(r"^[ \t]*(?:-[ \t]+)?image:[ \t]*(\S+)", source, re.MULTILINE):
+                with self.subTest(file=str(path.relative_to(ROOT)), image=image.split("@")[0]):
+                    self.assertRegex(image, SHA256)
+            for digest in re.findall(r"^[ \t]*(?:-[ \t]+)?digest:[ \t]*(\S+)", source, re.MULTILINE):
+                with self.subTest(file=str(path.relative_to(ROOT)), digest=digest):
+                    self.assertRegex(digest, r"^sha256:[0-9a-f]{64}$")
+
     def test_dockerfile_base_images_are_digest_pinned(self):
         for filename in ("Dockerfile", "apps/web/Dockerfile"):
             source = (ROOT / filename).read_text()

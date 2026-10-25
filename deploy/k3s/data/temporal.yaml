@@ -1,0 +1,199 @@
+# Temporal en processus unique, persistant dans PostgreSQL (ADR-0023, phase 3).
+# Le mode start-dev reste interdit selon ADR-0020. Le mot de passe vient du secret postgres-roles.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: temporal-schema
+  namespace: data
+spec:
+  backoffLimit: 5
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: schema
+          image: temporalio/admin-tools:1.32.1@sha256:9ef0dc5b063bf4ffd5c1512de72e0e73e225bd2c7006a18ce69bd592a8862a83
+          command:
+            - sh
+            - -ec
+            - |
+              schema=/etc/temporal/schema/postgresql/v12
+              tool() { temporal-sql-tool --plugin postgres12 --ep postgres.data.svc.cluster.local -p 5432 -u temporal --db "$1" "$2" "$3" "$4"; }
+              # La mise à jour échoue sur une base vierge : le schéma initial est alors posé une seule fois.
+              for pair in temporal:temporal temporal_visibility:visibility; do
+                db=${pair%%:*} dir=${pair##*:}
+                tool "$db" update-schema -d "$schema/$dir/versioned" \
+                  || { tool "$db" setup-schema -v 0.0 && tool "$db" update-schema -d "$schema/$dir/versioned"; }
+              done
+          env:
+            - name: SQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-roles
+                  key: temporal
+          resources:
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+---
+# Configuration dynamique attendue par l'image, vide tant qu'aucun réglage n'est justifié.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: temporal-dynamic-config
+  namespace: data
+data:
+  docker.yaml: |
+    {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: temporal
+  namespace: data
+spec:
+  selector:
+    app: temporal
+  ports:
+    - name: frontend
+      port: 7233
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: temporal
+  namespace: data
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: temporal
+  template:
+    metadata:
+      labels:
+        app: temporal
+    spec:
+      enableServiceLinks: false
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: temporal
+          image: temporalio/server:1.32.1@sha256:acecbab5b0b8ae9cf4012b508866ca97feda3709577bf157b537239f40029049
+          env:
+            - name: DB
+              value: postgres12
+            - name: POSTGRES_SEEDS
+              value: postgres.data.svc.cluster.local
+            - name: DB_PORT
+              value: "5432"
+            - name: POSTGRES_USER
+              value: temporal
+            - name: POSTGRES_PWD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-roles
+                  key: temporal
+            - name: SQL_MAX_CONNS
+              value: "10"
+            - name: SQL_MAX_IDLE_CONNS
+              value: "5"
+            - name: SQL_VIS_MAX_CONNS
+              value: "5"
+            - name: SQL_VIS_MAX_IDLE_CONNS
+              value: "2"
+            # Fixé à la création du cluster Temporal, il ne peut plus changer ensuite.
+            - name: NUM_HISTORY_SHARDS
+              value: "4"
+            - name: BIND_ON_IP
+              value: 0.0.0.0
+            - name: TEMPORAL_BROADCAST_ADDRESS
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: GOMEMLIMIT
+              value: 320MiB
+          ports:
+            - name: frontend
+              containerPort: 7233
+          readinessProbe:
+            tcpSocket:
+              port: 7233
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 7233
+            initialDelaySeconds: 60
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 384Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: dynamic-config
+              mountPath: /etc/temporal/config/dynamicconfig
+              readOnly: true
+      volumes:
+        - name: dynamic-config
+          configMap:
+            name: temporal-dynamic-config
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: temporal-namespace
+  namespace: data
+spec:
+  backoffLimit: 10
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: namespace
+          image: temporalio/admin-tools:1.32.1@sha256:9ef0dc5b063bf4ffd5c1512de72e0e73e225bd2c7006a18ce69bd592a8862a83
+          command:
+            - sh
+            - -ec
+            - |
+              until temporal operator cluster health >/dev/null 2>&1; do sleep 3; done
+              temporal operator namespace describe --namespace default >/dev/null 2>&1 \
+                || temporal operator namespace create --namespace default --retention 7d
+              temporal operator namespace describe --namespace default
+          env:
+            - name: TEMPORAL_ADDRESS
+              value: temporal.data.svc.cluster.local:7233
+          resources:
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]

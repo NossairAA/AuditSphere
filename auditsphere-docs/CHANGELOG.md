@@ -1,5 +1,14 @@
 # Journal des changements
 
+## 2026-10-25 : couche de données dans k3s
+
+- PostgreSQL 17.9, Kafka 4.0.2 et Temporal 1.32.1 déployés dans le namespace `data`, manifestes dans `deploy/k3s/data`, images épinglées.
+- Sept bases et leurs rôles créés par un Job idempotent. Isolation vérifiée par douze contrôles. Mots de passe générés et stockés en secrets, jamais affichés.
+- Temporal sans mode start-dev, persistant dans PostgreSQL, namespace `default` à sept jours. Kafka avec huit topics et conservation plafonnée.
+- Redémarrage complet de l'hôte : données PostgreSQL, Kafka et Temporal retrouvées.
+- Garage était injoignable depuis le redémarrage de la phase 2 : Docker démarrait avant l'adresse Tailscale. Docker attend désormais cette adresse. Garage vérifié joignable depuis le poste et depuis les pods après un nouveau redémarrage.
+- `test_image_pins.py` couvre `deploy/k3s`, vérifié par deux mutations. HOST-003 terminé. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-25 : exposition publique décidée
 
 - ADR-0025 accepté : AuditSphere sera ouvert à tout visiteur sous un domaine personnel, par Cloudflare Tunnel. Aucun port entrant, adresse du domicile masquée, zone DNS déléguée à Cloudflare, enregistrement conservé chez Namecheap.

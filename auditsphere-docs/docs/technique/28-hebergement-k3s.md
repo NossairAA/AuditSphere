@@ -243,7 +243,7 @@ Limites :
 
 - Chaque entrée publie son nom dans les journaux Certificate Transparency. Le nom du service de test est neutre. Les noms des futures entrées doivent l'être aussi.
 - L'accès depuis un réseau extérieur au tailnet n'est pas testé directement. Il découle de l'absence de port exposé sur l'hôte et de l'adressage du tailnet, non routable depuis Internet.
-- `test_image_pins.py` ne couvre pas encore les manifestes de `deploy/k3s`. L'épinglage y est vérifié à la relecture seulement.
+- `test_image_pins.py` couvre les manifestes de `deploy/k3s` depuis la phase 3, y compris les images écrites en élément de liste. Deux mutations, image non épinglée et empreinte vide, font échouer le test.
 
 ### Phase 3 : couche de données
 
@@ -254,6 +254,37 @@ Limites :
 - Volumes local-path sur la partition ext4.
 
 Sortie : reprise des données après redémarrage du nœud, isolation des comptes SQL vérifiée.
+
+#### Exécution du 2026-10-25
+
+Statut : implémentée et vérifiée le 2026-10-25. Manifestes dans [deploy/k3s/data](../../../deploy/k3s/data), namespace `data`, images épinglées par empreinte.
+
+- `postgres.yaml` : PostgreSQL 17.9 en StatefulSet, volume local-path de 10 Gio, mémoire limitée à 256 Mio, `shared_buffers` à 32 Mo, 80 connexions au plus, utilisateur non root.
+- `postgres-bootstrap.yaml` : Job idempotent qui crée sept bases et leurs rôles. Pour audit, notification, remediation et web : un rôle de migration propriétaire et un rôle d'exécution qui peut seulement se connecter et utiliser le schéma, avec délais de requête et de verrou. Keycloak et Temporal ont chacun un rôle propriétaire, Temporal possède `temporal` et `temporal_visibility`. Les droits sur les tables viendront après les migrations Flyway, en phase 4.
+- `kafka.yaml` : Kafka 4.0.2 à un broker KRaft, tas de 256 Mio, conservation de sept jours et de 256 Mio au plus par partition. Un Job crée les huit topics de `compose.yaml`. `enableServiceLinks` est désactivé : Kubernetes injecte sinon des variables `KAFKA_*` pour le service `kafka`, que l'image lirait comme des réglages du broker.
+- `temporal.yaml` : Temporal 1.32.1 en processus unique, persistant dans PostgreSQL, sans mode start-dev. Un Job pose et met à jour les schémas avec `temporal-sql-tool`, un autre crée le namespace `default` avec sept jours de rétention. Quatre shards d'historique, valeur définitive. L'image attend un fichier de configuration dynamique, fourni vide par une ConfigMap. Sans lui, le serveur s'arrête au démarrage.
+- Mots de passe générés aléatoirement depuis le poste et écrits directement dans les secrets `postgres-superuser` et `postgres-roles`. Ils ne sont ni affichés ni versionnés.
+
+Vérifications :
+
+- Isolation SQL : douze contrôles réussis. Un rôle d'exécution ne se connecte qu'à sa base et ne crée pas de table. Un rôle de migration ne joint pas les autres bases. Aucun rôle applicatif ne crée de rôle.
+- Le Job de préparation relancé ne change rien et réussit.
+- Message Kafka produit puis relu, workflow Temporal démarré puis retrouvé.
+- Après un redémarrage complet de l'hôte : ligne témoin PostgreSQL, message Kafka et workflow Temporal retrouvés. Temporal échoue une fois au démarrage, PostgreSQL n'acceptant pas encore de connexion, puis Kubernetes le relance avec succès.
+- Mémoire relevée après redémarrage : PostgreSQL 79 Mio, Kafka 416 Mio, Temporal 67 Mio. Charge totale du nœud : 2,7 Gio.
+
+Garage :
+
+- Le refus constaté en phase 2 venait de l'hôte. Au démarrage, Docker démarrait avant que Tailscale n'ait son adresse. La publication du port de Garage sur cette adresse échouait et le conteneur restait sans réseau, joignable par personne, poste compris.
+- Correctif appliqué par l'utilisateur avec `sudo` : Docker démarre après Tailscale et attend au plus 60 s son adresse par `/usr/local/sbin/wait-tailscale-ip.sh`, appelé depuis un fichier complémentaire de l'unité systemd. Le conteneur a été recréé une fois, ses données restant dans les répertoires de l'hôte.
+- Vérifié après redémarrage complet : port publié seul, Garage joignable depuis le poste et depuis un pod, réponse S3 403 sans identifiants.
+
+Limites :
+
+- Kafka occupe 416 Mio sur 512. La marge est faible, à surveiller en phase 6.
+- Aucune NetworkPolicy : tout pod du cluster joint PostgreSQL, Kafka et Temporal. Le frontal Temporal n'a ni TLS ni authentification. À traiter en phase 8.
+- Les règles Docker de l'hôte autorisent encore un ancien sous-réseau local. Sans effet tant que Garage n'écoute que sur l'adresse Tailscale, à nettoyer.
+- Pas de sauvegarde de ces volumes avant la phase 7.
 
 ### Phase 4 : application avec Helm
 
@@ -342,5 +373,6 @@ Sortie : application servie en HTTPS sur le domaine, aucun port entrant ouvert s
 - Non vérifié : parcours Playwright locaux non relancés, car un serveur de développement occupait le port 3000. Ils sont exécutés par la CI. Publication GHCR non vérifiée avant la fusion dans `main`, vérifiée ensuite.
 - Publication GHCR, le 2026-10-25 sur `main` après la fusion de la phase 1 : premier run, quatre images sur cinq refusées par GHCR avec `denied` au push du manifeste, alors que les couches étaient déjà poussées. Seule audit-service était publiée. Les jobs échoués, relancés sans changement de code, ont réussi. Les cinq images du commit `cb91e28` répondent en HTTP 200 sans authentification. Cause probable : création simultanée de paquets neufs par la matrice. Non confirmée, faute d'accès aux réglages des paquets.
 - TECH-009, le 2026-10-25 en local : `./mvnw -B verify` réussi avec 108 tests Java. Pile relancée par `start-local.sh`, puis smoke, pannes Kafka et Temporal réussis. Aucun arrêt OOM ni redémarrage sous les limites existantes. Mémoire relevée après les scénarios : audit-service 369 Mio sur 448, gateway 188 Mio sur 384, notification-service 206 Mio sur 320, remediation-service 172 Mio sur 320, worker 109 Mio sur 256. Analyse Trivy bloquante réussie sur les quatre images Java. `test-browser-isolated.sh` réussi : 13 suites, 30 parcours Playwright.
+- Phase 3, le 2026-10-25 sur le serveur : couche de données, isolation SQL, redémarrage complet et correctif de Garage. Détails dans l'exécution de la phase 3.
 - Phase 2, le 2026-10-25 sur le serveur : installation de k3s, contrôle des ports depuis le réseau local, pod de test et redémarrage complet. Détails dans l'exécution du 2026-10-25 ci-dessus. Opérateur Tailscale installé, entrée HTTPS testée par le tailnet.
 - TECH-009, le 2026-10-25 sur `main` : CI distante réussie sur `2743acb` après la fusion. Job `verify` et cinq jobs `images` réussis, analyse Trivy bloquante comprise. Aucun job relancé.
