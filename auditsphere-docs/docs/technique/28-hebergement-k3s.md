@@ -1,7 +1,7 @@
 # Hébergement privé avec k3s
 
 **Date :** 2026-10-24
-**Statut :** proposé. Relevé matériel vérifié, aucune installation ni modification du serveur.
+**Statut :** phase 0 en cours, phase 1 implémentée et mesurée localement. Aucune installation de Kubernetes sur le serveur.
 **Décision :** [ADR-0023](../decisions/ADR-0023-hebergement-prive-k3s.md)
 
 ## Objectif
@@ -32,7 +32,7 @@ Points à confirmer par l'utilisateur, car ils demandent sudo ou le BIOS :
 
 ## Budget mémoire
 
-Estimations à mesurer en phase 1. Une réplique par composant.
+Limites ajustées après les mesures locales de la phase 1. Les lignes de PostgreSQL, Temporal, k3s et Tailscale restent des estimations jusqu'aux phases 2 et 3. Une réplique par composant.
 
 | Composant | Limite visée |
 | --- | --- |
@@ -41,7 +41,10 @@ Estimations à mesurer en phase 1. Une réplique par composant.
 | Kafka, un broker KRaft, tas de 256 Mio | 512 Mio |
 | Temporal, processus unique persistant dans PostgreSQL | 384 Mio |
 | Keycloak, tas réglé | 640 Mio |
-| audit-service, api-gateway, notification-service, remediation-service, workflow-worker | 5 × 320 Mio |
+| audit-service | 448 Mio |
+| api-gateway | 384 Mio |
+| notification-service, remediation-service | 2 × 320 Mio |
+| workflow-worker | 256 Mio |
 | Frontend Next.js | 192 Mio |
 | Opérateur Tailscale | environ 100 Mio |
 | **Application et socle** | **environ 4,2 Gio** |
@@ -69,14 +72,49 @@ Chaque phase passe à vérifié uniquement avec ses critères de sortie prouvés
 
 Sortie : mémoire visible relevée après réglage, aucun port d'administration joignable hors de l'hôte, nom de machine neutre.
 
+Avancement au 2026-10-24 : un port d'administration local d'un outil de protection de l'hôte écoutait sur toutes les interfaces. Le pare-feu le bloquait sur le réseau local, mais il restait joignable par le tailnet. Il écoute désormais sur 127.0.0.1 uniquement. Vérifié depuis le poste d'administration : port fermé par le tailnet, service local actif. SSH et Garage restent joignables par le tailnet seulement. Le réglage de la mémoire vidéo, le relevé des emplacements mémoire, le nom neutre et la liaison réseau restent à faire.
+
 ### Phase 1 : images légères
 
 - Créer un Dockerfile pour `apps/web` en sortie standalone, utilisateur non root, image de base épinglée par digest.
-- Régler les JVM : `-XX:+UseSerialGC -XX:MaxRAMPercentage=70 -Xss512k`, pool HikariCP de 5 connexions, 50 threads Tomcat au plus. Limiter le tas de Keycloak.
+- Régler les JVM : `-XX:+UseSerialGC -XX:MaxRAMPercentage=60 -Xss512k`, pool HikariCP de 5 connexions, 50 threads Tomcat au plus. Limiter le tas de Keycloak. La valeur de 70 % prévue au départ laissait trop peu de place hors du tas.
 - Publier les images dans GHCR avec un tag par SHA de commit, analyse Trivy et SBOM.
 - Mesurer la mémoire réelle de chaque service sous limites avec Compose avant tout déploiement sur le serveur.
 
 Sortie : tableau des mémoires mesurées, images publiées et analysées par la CI.
+
+#### Réalisation
+
+- `apps/web/Dockerfile` : trois étapes sur `node:24.22.1-alpine` épinglé par digest, sortie `standalone`, utilisateur 10001, aucun secret dans l'image. npm et corepack sont retirés de l'image finale, car le serveur ne les exécute pas et leurs dépendances embarquées portaient des vulnérabilités. Les en-têtes de sécurité sont calculés au build : l'argument `APP_ORIGIN` vaut une origine HTTPS par défaut pour émettre HSTS.
+- `Dockerfile` des services Java : `JAVA_TOOL_OPTIONS` porte les réglages JVM. Kubernetes pourra les surcharger par variable d'environnement.
+- audit-service, notification-service et remediation-service : pool HikariCP de 5 connexions et 50 threads Tomcat. Les flux SSE de notification-service sont asynchrones et ne gardent pas de thread. La gateway est réactive, sans Tomcat ni pool SQL.
+- Compose : `mem_limit` sur les cinq processus Java et Keycloak. Keycloak reçoit `JAVA_OPTS_KC_HEAP` avec un tas à 55 % de sa limite. Le développement local et la CI tournent donc sous les mêmes limites que la cible.
+- CI : job `images` après `verify`, en matrice sur les cinq images. Construction taguée par SHA de commit, analyse Trivy 0.75.0 épinglée par digest, SBOM CycloneDX en artefact. Les pull requests construisent et analysent. Seul un push sur `main` publie dans GHCR.
+
+#### Mesures
+
+Mesures du 2026-10-24 sur Docker Desktop arm64, après le smoke et les scénarios de pannes Kafka et Temporal. La mémoire anonyme exclut le cache de fichiers récupérable. Le serveur est en x86 : les valeurs y seront proches mais restent à confirmer en phase 4.
+
+| Conteneur | Avant réglage | Limite | Mémoire anonyme | Pic cgroup |
+| --- | --- | --- | --- | --- |
+| audit-service | 636 Mio | 448 Mio | 396 Mio | 422 Mio |
+| api-gateway | 428 Mio | 384 Mio | 302 Mio | 308 Mio |
+| notification-service | 385 Mio | 320 Mio | 259 Mio | 264 Mio |
+| remediation-service | 343 Mio | 320 Mio | 228 Mio | 233 Mio |
+| workflow-worker | 347 Mio | 256 Mio | 178 Mio | 183 Mio |
+| Keycloak, mode développement | 654 Mio | 640 Mio | 479 Mio | 640 Mio, cache compris |
+| Frontend, conteneur | non mesuré | 192 Mio | 63 Mio | 173 Mio, cache compris |
+| Kafka, inchangé | 508 Mio | aucune | 373 Mio | 516 Mio |
+
+La colonne avant réglage provient de `docker stats` sans limite, avec G1 et un tas maximal au quart de la mémoire de la VM. Les services Java sans limite totalisaient 2,1 Gio. Ils occupent 1,33 Gio sous limites. Aucun arrêt OOM n'a été relevé.
+
+Un premier essai à 320 Mio et 70 % de tas a passé les tests, mais audit-service atteignait 295 Mio de mémoire anonyme et touchait sa limite 432 fois. Il lui faut environ 140 Mio hors du tas pour Hibernate, Kafka, Temporal et le client S3. Avec un tas à 60 %, un tas série finit par occuper son plafond : la mémoire anonyme d'audit-service suit donc sa limite, avec environ 50 Mio de marge.
+
+#### Analyse des vulnérabilités
+
+Trivy relève des vulnérabilités hautes et critiques corrigeables dans les quatre images Java : Tomcat 10.1.55, Netty 4.1.135, Jackson 2.21.4, pilote PostgreSQL 42.7.11, BouncyCastle dans la gateway et le binaire `pebble` de l'image de base. Spring Framework 6.2.19 porte des vulnérabilités critiques corrigées uniquement en 7.0.9. Spring Boot 3.5.16 et Spring Framework 6.2.19 sont les dernières versions libres de leurs branches. La correction complète passe par la migration vers Spring Boot 4, suivie par TECH-009.
+
+L'analyse reste donc en mode rapport dans la CI. Le tableau est écrit dans le résumé du job et le rapport JSON accompagne le SBOM. Le blocage sur les vulnérabilités corrigeables sera activé après TECH-009. L'image du frontend ne présente aucune vulnérabilité haute ou critique corrigeable.
 
 ### Phase 2 : installation de k3s
 
@@ -161,3 +199,6 @@ Sortie : tous les critères d'ADR-0020 vérifiés. Aucune donnée réelle avant 
 - Relevé matériel et logiciel du serveur par SSH le 2026-10-24, sans sudo ni modification.
 - Tarifs cloud relevés le 2026-10-24 pour l'arbitrage d'ADR-0023. Ils ne sont pas vérifiés sur les pages officielles d'AWS et d'Azure.
 - Aucune installation, aucun déploiement et aucun test sur le serveur.
+- Phase 0 : port d'administration local refermé sur 127.0.0.1 le 2026-10-24, vérifié depuis le tailnet. Commande de configuration exécutée par l'utilisateur avec sudo.
+- Phase 1, le 2026-10-24 en local : smoke, scénarios de pannes Kafka et Temporal réussis sous limites, aucun arrêt OOM. Build Next.js et typecheck réussis avec la sortie standalone. Conteneur frontend démarré en utilisateur 10001, pages servies et HSTS présent. Analyse Trivy locale des cinq images. Tests Python d'épinglage étendus et réussis.
+- Non vérifié : parcours Playwright locaux non relancés, car un serveur de développement occupait le port 3000. Ils sont exécutés par la CI. Publication GHCR non vérifiée avant la fusion dans `main`.

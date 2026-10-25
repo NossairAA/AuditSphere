@@ -29,6 +29,7 @@ services:
       timeout: 5s
       retries: 30
   workflow-worker:
+    mem_limit: 256m
     image: auditsphere-audit-service:local
     environment:
       WORKFLOW_WORKER_ONLY: "true"
@@ -94,6 +95,7 @@ services:
       interval: 5s
       retries: 20
   notification-service:
+    mem_limit: 320m
     build:
       context: .
       args: {SERVICE: notification-service}
@@ -122,6 +124,7 @@ services:
       interval: 5s
       retries: 20
   remediation-service:
+    mem_limit: 320m
     build:
       context: .
       args: {SERVICE: remediation-service}
@@ -184,6 +187,7 @@ services:
       - realm-import:/target
     restart: "no"
   keycloak:
+    mem_limit: 640m
     image: quay.io/keycloak/keycloak:26.8.0@sha256:27b3230fbabb8c9ff3c66c864cf09dcd8a41aca82e5100679d109ef0eeb05741
     command: [start-dev, --import-realm]
     ports: ["127.0.0.1:8180:8080"]
@@ -195,11 +199,15 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Run init-local}
       KC_HOSTNAME: http://localhost:8180
+      # Leaves room for metaspace and threads under the 640m limit.
+      JAVA_OPTS_KC_HEAP: -XX:MaxRAMPercentage=55 -XX:InitialRAMPercentage=25
     volumes: [realm-import:/opt/keycloak/data/import:ro]
     depends_on:
       keycloak-db: {condition: service_healthy}
       keycloak-import: {condition: service_completed_successfully}
   audit-service:
+    # Hibernate, Kafka, Temporal and the S3 client need about 140 MiB outside the heap.
+    mem_limit: 448m
     image: auditsphere-audit-service:local
     build:
       context: .
@@ -229,6 +237,7 @@ services:
       audit-db: {condition: service_healthy}
       keycloak: {condition: service_started}
   api-gateway:
+    mem_limit: 384m
     build:
       context: .
       args: {SERVICE: api-gateway}
