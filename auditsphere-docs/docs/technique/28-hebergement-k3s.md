@@ -350,6 +350,32 @@ Limites :
 - La console d'administration répond sur le nom `auth` du tailnet. Elle devra être refusée sur le nom public selon ADR-0025.
 - L'administrateur d'amorçage est temporaire. Le lot D doit créer un administrateur permanent avec OTP puis le retirer.
 
+#### Lot C : frontend et Traefik
+
+Statut : implémenté et vérifié le 2026-10-26, sauf la connexion complète, qui attend le client `auditsphere-web` du lot D.
+
+- [deploy/k3s/coredns-tailnet.yaml](../../../deploy/k3s/coredns-tailnet.yaml) fait résoudre `ts.net` par MagicDNS. Le BFF fait la découverte OIDC et lit les clés de Keycloak côté serveur, par l'origine HTTPS du tailnet. Sans ce renvoi, les pods ne résolvaient pas ces noms. Appliqué à la main avec `kubectl apply`, CoreDNS redémarré une fois.
+- Chart [infra/helm/web](../../../infra/helm/web) : BFF Next.js du commit `294a0ff`, Traefik v3.7.16 en bordure et entrée Tailscale `app`. `scripts/k3s-deploy-services.sh` l'installe en dernier.
+- Un Job Helm applique le schéma des sessions de `apps/web/db` avec `web_migrator`, puis donne au seul rôle `web_runtime` les droits de lecture et d'écriture sur `web_sessions`.
+- Clé de chiffrement des sessions et secret provisoire du client OIDC dans le secret `web-secrets`, générés sans affichage.
+- Traefik écrase `X-Real-Ip`, limite le débit à 50 requêtes par seconde en moyenne avec une rafale de 100, et ajoute HSTS, `nosniff`, le refus des cadres et la politique de référent. Le BFF ajoute sa propre CSP avec nonce.
+- Deux NetworkPolicy : le BFF n'accepte que Traefik, Traefik n'accepte que le proxy de l'entrée Tailscale. Un autre pod ne peut donc pas forger `X-Real-Ip`.
+- Conteneurs non root, système de fichiers en lecture seule, cache de Next.js en mémoire.
+
+Vérifications :
+
+- `GET /` par le tailnet répond 200 avec HSTS, CSP, `nosniff`, `X-Frame-Options` et `Referrer-Policy`.
+- `/auth/login` redirige vers Keycloak sur l'origine `auth`, avec PKCE S256 et le retour attendu. La découverte OIDC fonctionne donc depuis le pod.
+- Une route d'API répond 401 sans session, et non 503 : l'en-tête posé par Traefik arrive au BFF.
+- Depuis un autre namespace, le BFF et Traefik sont injoignables. La gateway reste joignable, comme prévu jusqu'à la phase 8.
+- `test_image_pins.py` vérifie aussi les valeurs par défaut des charts. Une image psql non épinglée et une empreinte remplacée par `latest` font échouer le test.
+- Mémoire : BFF 51 Mio, Traefik 17 Mio, proxy de l'entrée 19 Mio. Demandes du nœud à 57 % de l'allouable, limites à 77 %. L'hôte garde 2,7 Gio disponibles.
+
+Limites :
+
+- Traefik voit l'adresse du proxy Tailscale, pas celle de l'utilisateur. La limitation de débit s'applique donc à tous les utilisateurs ensemble.
+- Le renvoi DNS couvre tout `ts.net`, pas seulement le tailnet, pour ne pas versionner son nom.
+
 ### Phase 5 : GitOps
 
 - Argo CD en installation minimale, sans Dex, notifications ni ApplicationSet. Interface démarrée à la demande.

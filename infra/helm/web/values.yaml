@@ -1,0 +1,43 @@
+image:
+  repository: ghcr.io/nossairaa/auditsphere-web
+  tag: 294a0ff6efb6bb7b304e82ccfeb6fe937b28660b
+  digest: sha256:689399e20db2a50ea2a0c62fa37bde4800dc4a9e35f87121debd2e57b9787468
+
+# Origines HTTPS du tailnet, passées à l'installation depuis .local/k3s.env.
+appOrigin: ""
+oidcOrigin: ""
+oidcClientId: auditsphere-web
+apiOrigin: http://api-gateway.auditsphere.svc.cluster.local:8080
+
+# Schéma des sessions, passé par --set-file depuis apps/web/db.
+sessionsSql: ""
+encryptedSessionsSql: ""
+database:
+  host: postgres.data.svc.cluster.local
+  name: web
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 192Mi
+
+edge:
+  image:
+    repository: traefik
+    tag: v3.7.16
+    digest: sha256:c8a121e4bb1347e8fd52657fab12f2cb70b68f8a018895e2068f92c9e519b9c2
+  # Nom de l'entrée Tailscale. Il devient public dans les journaux Certificate Transparency.
+  ingressHost: app
+  # Requêtes par seconde et rafale, par adresse source vue par Traefik.
+  rateAverage: 50
+  rateBurst: 100
+  resources:
+    requests:
+      cpu: 20m
+      memory: 48Mi
+    limits:
+      memory: 96Mi
+
+psqlImage: postgres:17.9@sha256:2a0d0fe14825b0939f78a8cad5cd4e6aa68bf94d0e5dd96e24b6d23af4315545

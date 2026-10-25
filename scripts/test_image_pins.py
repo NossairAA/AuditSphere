@@ -39,6 +39,20 @@ class ImagePinTest(unittest.TestCase):
                 self.assertRegex(source, r"(?m)^[ \t]*digest:[ \t]*sha256:[0-9a-f]{64}$")
                 self.assertNotRegex(source, r"(?m)^[ \t]*digest:[ \t]*(\"\"|'')?[ \t]*$")
 
+    def test_helm_chart_defaults_are_digest_pinned(self):
+        charts = sorted((ROOT / "infra/helm").glob("*/values.yaml"))
+        self.assertTrue(charts)
+        for path in charts:
+            source = path.read_text()
+            name = str(path.relative_to(ROOT))
+            # Une empreinte vide n'est admise que si le template la rend obligatoire au rendu.
+            for digest in re.findall(r"(?m)^[ \t]*digest:[ \t]*(\S*)", source):
+                with self.subTest(file=name, digest=digest):
+                    self.assertRegex(digest, r'^(sha256:[0-9a-f]{64}|""|\'\')$')
+            for image in re.findall(r"(?m)^[ \t]*\w*[iI]mage:[ \t]*(\S+)", source):
+                with self.subTest(file=name, image=image.split("@")[0]):
+                    self.assertRegex(image, SHA256)
+
     def test_dockerfile_base_images_are_digest_pinned(self):
         for filename in ("Dockerfile", "apps/web/Dockerfile"):
             source = (ROOT / filename).read_text()

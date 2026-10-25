@@ -1,0 +1,114 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  selector:
+    app.kubernetes.io/name: web
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  labels:
+    app.kubernetes.io/name: web
+    app.kubernetes.io/part-of: auditsphere
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: web
+        app.kubernetes.io/part-of: auditsphere
+    spec:
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      securityContext:
+        {{- include "web.podSecurity" . | nindent 8 }}
+      containers:
+        - name: web
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}@{{ required "image.digest est obligatoire" .Values.image.digest }}
+          env:
+            - name: APP_ORIGIN
+              value: {{ required "appOrigin est obligatoire" .Values.appOrigin | quote }}
+            - name: OIDC_ISSUER
+              value: {{ printf "%s/realms/auditsphere" (required "oidcOrigin est obligatoire" .Values.oidcOrigin) | quote }}
+            - name: OIDC_CLIENT_ID
+              value: {{ .Values.oidcClientId | quote }}
+            - name: OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: web-secrets
+                  key: OIDC_CLIENT_SECRET
+            - name: SESSION_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: web-secrets
+                  key: SESSION_ENCRYPTION_KEY
+            - name: API_ORIGIN
+              value: {{ .Values.apiOrigin | quote }}
+            # Traefik écrase cet en-tête, et la NetworkPolicy refuse tout accès direct au BFF.
+            - name: TRUSTED_PROXY_IP_HEADER
+              value: x-real-ip
+            - name: WEB_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: web_runtime
+            - name: SESSION_DATABASE_URL
+              value: {{ printf "postgresql://web_runtime:$(WEB_DB_PASSWORD)@%s:5432/%s" .Values.database.host .Values.database.name | quote }}
+          ports:
+            - name: http
+              containerPort: 3000
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            {{- include "web.containerSecurity" . | nindent 12 }}
+          volumeMounts:
+            - name: cache
+              mountPath: /app/.next/cache
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: cache
+          emptyDir:
+            sizeLimit: 128Mi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+---
+# Le BFF n'accepte que Traefik : l'en-tête x-real-ip ne peut pas être forgé par un autre pod.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: web-only-from-edge
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: web
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: edge
+      ports:
+        - port: 3000
