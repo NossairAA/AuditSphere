@@ -1,0 +1,46 @@
+image:
+  repository: ghcr.io/nossairaa/auditsphere-audit-service
+  tag: 294a0ff6efb6bb7b304e82ccfeb6fe937b28660b
+  digest: sha256:22f86f5586b1ba1bbf77f7be2866e895d0bc8c85b8ae4fa2bff66f3533361dfb
+port: 8081
+oidc:
+  enabled: true
+env:
+  DB_URL: jdbc:postgresql://postgres.data.svc.cluster.local:5432/audit
+  DB_USER: audit_runtime
+  SPRING_FLYWAY_ENABLED: "false"
+  OUTBOX_ENABLED: "true"
+  TEMPORAL_ENABLED: "true"
+  TEMPORAL_TARGET: temporal.data.svc.cluster.local:7233
+  KAFKA_BOOTSTRAP_SERVERS: kafka.data.svc.cluster.local:9092
+  DIRECTORY_URL: http://keycloak.auditsphere.svc.cluster.local:8080
+  # Profil de démonstration : pas de serveur de messagerie.
+  USER_ADMIN_LOCAL_EMAIL_FALLBACK: "true"
+  EVIDENCE_S3_REGION: garage
+  EVIDENCE_S3_BUCKET: auditsphere-evidence-k3s
+  EVIDENCE_S3_PATH_STYLE: "true"
+  # EVIDENCE_S3_ENDPOINT est passé à l'installation depuis .local/k3s.env.
+secretEnv:
+  - {name: DB_PASSWORD, secret: db-credentials, key: audit_runtime}
+  - {name: DIRECTORY_CLIENT_SECRET, secret: app-secrets, key: DIRECTORY_CLIENT_SECRET}
+  - {name: USER_ADMIN_CLIENT_SECRET, secret: app-secrets, key: USER_ADMIN_CLIENT_SECRET}
+  - {name: EVIDENCE_S3_ACCESS_KEY, secret: evidence-s3, key: EVIDENCE_S3_ACCESS_KEY}
+  - {name: EVIDENCE_S3_SECRET_KEY, secret: evidence-s3, key: EVIDENCE_S3_SECRET_KEY}
+# Hibernate, Kafka, Temporal et le client S3 demandent environ 140 Mio hors du tas.
+resources:
+  requests:
+    cpu: 100m
+    memory: 384Mi
+  limits:
+    memory: 448Mi
+migration:
+  enabled: true
+  database: audit
+  user: audit_migrator
+  # Mêmes droits que scripts/harden-databases.py : journaux en ajout seul pour le rôle d'exécution.
+  grants: |
+    REVOKE ALL ON ALL TABLES IN SCHEMA public FROM audit_runtime;
+    GRANT SELECT, INSERT, UPDATE (outcome, completed_at, target_subject, requested_changes) ON user_admin_log TO audit_runtime;
+    GRANT SELECT, INSERT, UPDATE ON account_revocations TO audit_runtime;
+    GRANT SELECT, INSERT ON control_evidence, mission_action_log, program_change_log, finding_change_log TO audit_runtime;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON missions, mission_assignments, assignment_outbox, review_workflow_outbox, findings_issue_outbox, mission_risks, mission_controls, mission_control_risks, mission_findings, mission_finding_controls, mission_finding_sequences TO audit_runtime;

@@ -1,0 +1,15 @@
+# Worker Temporal seul, même image qu'audit-service, sans HTTP ni base.
+image:
+  repository: ghcr.io/nossairaa/auditsphere-audit-service
+  tag: 294a0ff6efb6bb7b304e82ccfeb6fe937b28660b
+  digest: sha256:22f86f5586b1ba1bbf77f7be2866e895d0bc8c85b8ae4fa2bff66f3533361dfb
+port: 0
+env:
+  WORKFLOW_WORKER_ONLY: "true"
+  TEMPORAL_TARGET: temporal.data.svc.cluster.local:7233
+resources:
+  requests:
+    cpu: 20m
+    memory: 192Mi
+  limits:
+    memory: 256Mi

@@ -1,0 +1,28 @@
+image:
+  repository: ghcr.io/nossairaa/auditsphere-notification-service
+  tag: 294a0ff6efb6bb7b304e82ccfeb6fe937b28660b
+  digest: sha256:f6bfcc6d80f4792025dd0749972038b5555d8d4d5313e846f6be0aafa1c9a023
+port: 8082
+oidc:
+  enabled: true
+env:
+  AUDIT_URL: http://audit-service.auditsphere.svc.cluster.local:8081
+  DB_URL: jdbc:postgresql://postgres.data.svc.cluster.local:5432/notification
+  DB_USER: notification_runtime
+  KAFKA_BOOTSTRAP_SERVERS: kafka.data.svc.cluster.local:9092
+secretEnv:
+  - {name: DB_PASSWORD, secret: db-credentials, key: notification_runtime}
+resources:
+  requests:
+    cpu: 50m
+    memory: 256Mi
+  limits:
+    memory: 320Mi
+migration:
+  enabled: true
+  database: notification
+  user: notification_migrator
+  grants: |
+    REVOKE ALL ON ALL TABLES IN SCHEMA public FROM notification_runtime;
+    GRANT SELECT, INSERT ON notifications TO notification_runtime;
+    GRANT UPDATE (read_at) ON notifications TO notification_runtime;

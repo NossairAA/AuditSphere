@@ -1,0 +1,78 @@
+{{- if .Values.migration.enabled }}
+{{- $db := required "migration.database est obligatoire" .Values.migration.database }}
+{{- $user := required "migration.user est obligatoire" .Values.migration.user }}
+# Flyway avec le rôle propriétaire, puis droits minimaux du rôle d'exécution, avant chaque installation ou mise à jour.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-migration
+  labels:
+    {{- include "spring-service.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        {{- include "spring-service.labels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      securityContext:
+        {{- include "spring-service.podSecurity" . | nindent 8 }}
+      initContainers:
+        - name: flyway
+          image: {{ include "spring-service.image" . }}
+          env:
+            - name: MIGRATION_ONLY
+              value: "true"
+            - name: DB_URL
+              value: {{ printf "jdbc:postgresql://%s:5432/%s" .Values.migration.databaseHost $db | quote }}
+            - name: DB_USER
+              value: {{ $user }}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: {{ $user }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            {{- include "spring-service.containerSecurity" . | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      containers:
+        - name: grants
+          image: {{ .Values.migration.psqlImage }}
+          command:
+            - sh
+            - -ec
+            - printf '%s\n' "$GRANTS_SQL" | psql -X -q -v ON_ERROR_STOP=1 && echo "droits appliqués"
+          env:
+            - name: PGHOST
+              value: {{ .Values.migration.databaseHost }}
+            - name: PGDATABASE
+              value: {{ $db }}
+            - name: PGUSER
+              value: {{ $user }}
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: {{ $user }}
+            - name: GRANTS_SQL
+              value: {{ .Values.migration.grants | quote }}
+          resources:
+            limits:
+              memory: 64Mi
+          securityContext:
+            {{- include "spring-service.containerSecurity" . | nindent 12 }}
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+{{- end }}

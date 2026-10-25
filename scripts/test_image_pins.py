@@ -30,6 +30,15 @@ class ImagePinTest(unittest.TestCase):
                 with self.subTest(file=str(path.relative_to(ROOT)), digest=digest):
                     self.assertRegex(digest, r"^sha256:[0-9a-f]{64}$")
 
+    def test_helm_values_images_are_digest_pinned(self):
+        values = sorted((ROOT / "infra/helm/values").glob("*.yaml"))
+        self.assertTrue(values)
+        for path in values:
+            source = path.read_text()
+            with self.subTest(file=str(path.relative_to(ROOT))):
+                self.assertRegex(source, r"(?m)^[ \t]*digest:[ \t]*sha256:[0-9a-f]{64}$")
+                self.assertNotRegex(source, r"(?m)^[ \t]*digest:[ \t]*(\"\"|'')?[ \t]*$")
+
     def test_dockerfile_base_images_are_digest_pinned(self):
         for filename in ("Dockerfile", "apps/web/Dockerfile"):
             source = (ROOT / filename).read_text()

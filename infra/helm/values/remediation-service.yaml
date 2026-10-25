@@ -1,0 +1,28 @@
+image:
+  repository: ghcr.io/nossairaa/auditsphere-remediation-service
+  tag: 294a0ff6efb6bb7b304e82ccfeb6fe937b28660b
+  digest: sha256:7176caa69acbb31458f275b636567c5fdd29d26aa927622834bef9da0b1f526d
+port: 8083
+oidc:
+  enabled: true
+env:
+  AUDIT_URL: http://audit-service.auditsphere.svc.cluster.local:8081
+  DB_URL: jdbc:postgresql://postgres.data.svc.cluster.local:5432/remediation
+  DB_USER: remediation_runtime
+secretEnv:
+  - {name: DB_PASSWORD, secret: db-credentials, key: remediation_runtime}
+resources:
+  requests:
+    cpu: 50m
+    memory: 256Mi
+  limits:
+    memory: 320Mi
+migration:
+  enabled: true
+  database: remediation
+  user: remediation_migrator
+  # Journal et notes d'avancement en ajout seul pour le rôle d'exécution.
+  grants: |
+    REVOKE ALL ON ALL TABLES IN SCHEMA public FROM remediation_runtime;
+    GRANT SELECT, INSERT ON remediation_change_log, action_progress_notes TO remediation_runtime;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON mission_scopes, mission_scope_auditors, finding_follow_ups, action_sequences, corrective_actions, action_attachments, processed_events, remediation_outbox TO remediation_runtime;
