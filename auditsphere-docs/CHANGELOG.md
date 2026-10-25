@@ -1,5 +1,16 @@
 # Journal des changements
 
+## 2026-10-25 : hébergement privé, suite de la phase 0 et installation de k3s
+
+- CI distante réussie sur `main` après la fusion de TECH-009 (`2743acb`) : job `verify` et cinq jobs `images`, analyse Trivy bloquante comprise, aucun job relancé.
+- Relevé du serveur en lecture seule : mémoire vidéo toujours à 1 Gio, Wi-Fi seul, fichier d'échange de 4 Gio actif. Aucun composant Kubernetes installé.
+- Le BIOS ne permet pas de réduire la mémoire vidéo. Réservation de 1 Gio conservée, budget mémoire inchangé. Deux modules de 4 Gio relevés.
+- Machine renommée `auditsphere` par l'utilisateur côté système, dans `/etc/hosts` et côté Tailscale. Nom DNS vérifié sans suffixe après correction d'un conflit avec le poste d'administration.
+- Phase 2 exécutée : k3s `v1.36.5+k3s1` à un nœud, sans Traefik ni servicelb, secrets chiffrés, réservations du kubelet. Procédure et résultats dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+- Règles du pare-feu 80 et 443 ouvertes à toute origine, héritées d'un ancien Traefik, supprimées.
+- Vérifié : nœud `Ready`, `kubectl` par le tailnet, ports 6443 et 10250 fermés depuis le réseau local, DNS et sortie Internet des pods, nœud rétabli seul après redémarrage complet. 5,2 Gio allouables.
+- Non fait : opérateur Tailscale, qui demande un client OAuth. Les pods ne joignent pas encore Garage, point reporté à la phase 3.
+
 ## 2026-10-25 : publication GHCR vérifiée
 
 - Premier run sur `main` après la fusion de la phase 1 : quatre images sur cinq refusées par GHCR (`denied`) au push du manifeste. Seule audit-service était publiée. Les paquets n'existaient pas encore.
