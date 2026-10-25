@@ -97,7 +97,7 @@ Pour chaque user story ajoutée, utiliser [le modèle de fonctionnalité](../tem
 | TECH-006 | Workflow Temporal | Validation durable et reprise du worker, expiration à ajouter | Implémenté localement, échéances proposées |
 | TECH-007 | Observabilité | Trace corrélée HTTP/Kafka et métriques consultables | Proposé |
 | TECH-008 | CI/CD et Kubernetes | Image analysée, déploiement Helm/GitOps et rollback testés | En cours : images analysées en CI par HOST-001, cible k3s par ADR-0023 |
-| TECH-009 | Migration vers Spring Boot 4 | Spring Framework 7, dépendances à jour, analyse Trivy bloquante sans vulnérabilité haute ou critique corrigeable | Implémenté et vérifié localement par [ADR-0024](../decisions/ADR-0024-migration-spring-boot-4.md) : Spring Boot 4.0.9, Spring Cloud 2025.1.4, Trivy sans vulnérabilité corrigeable sur les quatre images Java, parcours Playwright réussis. CI distante en attente |
+| TECH-009 | Migration vers Spring Boot 4 | Spring Framework 7, dépendances à jour, analyse Trivy bloquante sans vulnérabilité haute ou critique corrigeable | Implémenté et vérifié localement par [ADR-0024](../decisions/ADR-0024-migration-spring-boot-4.md) : Spring Boot 4.0.9, Spring Cloud 2025.1.4, Trivy sans vulnérabilité corrigeable sur les quatre images Java, parcours Playwright réussis. CI distante réussie sur `main` le 2026-10-25 (`2743acb`), analyse bloquante comprise, cinq images publiées |
 
 ## Hébergement privé avec k3s
 
@@ -105,9 +105,9 @@ Décision prise le 2026-10-24 par [ADR-0023](../decisions/ADR-0023-hebergement-p
 
 | ID | Livrable | État |
 | --- | --- | --- |
-| HOST-000 | Préparation de l'hôte : mémoire vidéo, ports d'administration, réseau, nom neutre | En cours : port d'administration refermé et vérifié, autres réglages à faire |
+| HOST-000 | Préparation de l'hôte : mémoire vidéo, ports d'administration, réseau, nom neutre | En cours : port d'administration refermé et vérifié, nom neutre appliqué et vérifié le 2026-10-25, mémoire vidéo non réglable dans le BIOS. Liaison réseau à faire |
 | HOST-001 | Images légères, Dockerfile web, réglages JVM, GHCR, Trivy, mémoire mesurée | Implémenté et mesuré localement, analyse bloquante depuis TECH-009, CI distante et publication GHCR vérifiées sur `main` le 2026-10-25 |
-| HOST-002 | k3s à un nœud, API et entrée par Tailscale uniquement | Proposé |
+| HOST-002 | k3s à un nœud, API et entrée par Tailscale uniquement | En cours : k3s `v1.36.5+k3s1` installé et vérifié le 2026-10-25, API joignable par Tailscale seulement, redémarrage réussi. Opérateur Tailscale à installer |
 | HOST-003 | PostgreSQL unique, Kafka, Temporal, Garage hors cluster | Proposé |
 | HOST-004 | Charts Helm, Keycloak, frontend, Traefik derrière l'entrée Tailscale | Proposé |
 | HOST-005 | GitOps Argo CD minimal et Sealed Secrets | Proposé |
