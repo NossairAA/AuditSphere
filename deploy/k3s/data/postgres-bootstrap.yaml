@@ -1,0 +1,106 @@
+# Création idempotente des bases et des rôles, une base par service.
+# Les droits sur les tables sont accordés après les migrations Flyway, en phase 4.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-bootstrap
+  namespace: data
+data:
+  bootstrap.sh: |
+    set -eu
+    export PGHOST=postgres PGUSER=postgres
+    until pg_isready -q; do sleep 2; done
+
+    sql() { psql -X -q -v ON_ERROR_STOP=1 "$@"; }
+
+    # Rôle de connexion, mot de passe lu dans le secret monté, jamais affiché.
+    role() {
+      printf '%s\n' \
+        "SELECT 'CREATE ROLE $1' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '$1')\\gexec" \
+        "ALTER ROLE $1 LOGIN PASSWORD :'pw' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;" \
+        | sql -d postgres -v pw="$(cat "/roles/$1")"
+    }
+
+    # Base possédée par le rôle de migration, seul le rôle d'exécution peut s'y connecter en plus.
+    database() {
+      db=$1 owner=$2 runtime=${3:-}
+      printf '%s\n' \
+        "SELECT 'CREATE DATABASE $db OWNER $owner' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$db')\\gexec" \
+        "ALTER DATABASE $db OWNER TO $owner;" \
+        "REVOKE ALL ON DATABASE $db FROM PUBLIC;" \
+        | sql -d postgres
+      printf '%s\n' \
+        "ALTER SCHEMA public OWNER TO $owner;" \
+        "REVOKE CREATE ON SCHEMA public FROM PUBLIC;" \
+        | sql -d "$db"
+      if [ -n "$runtime" ]; then
+        printf '%s\n' \
+          "GRANT CONNECT ON DATABASE $db TO $runtime;" \
+          "GRANT USAGE ON SCHEMA public TO $runtime;" \
+          "ALTER ROLE $runtime IN DATABASE $db SET statement_timeout = '5s';" \
+          "ALTER ROLE $runtime IN DATABASE $db SET lock_timeout = '2s';" \
+          | sql -d "$db"
+      fi
+    }
+
+    for name in audit notification remediation web; do
+      role "${name}_migrator"
+      role "${name}_runtime"
+      database "$name" "${name}_migrator" "${name}_runtime"
+    done
+    role keycloak
+    database keycloak keycloak
+    role temporal
+    database temporal temporal
+    database temporal_visibility temporal
+    echo "bases et rôles à jour"
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-bootstrap
+  namespace: data
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: bootstrap
+          image: postgres:17.9@sha256:2a0d0fe14825b0939f78a8cad5cd4e6aa68bf94d0e5dd96e24b6d23af4315545
+          command: [sh, /scripts/bootstrap.sh]
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-superuser
+                  key: password
+          resources:
+            limits:
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+            - name: roles
+              mountPath: /roles
+              readOnly: true
+      volumes:
+        - name: scripts
+          configMap:
+            name: postgres-bootstrap
+        - name: roles
+          secret:
+            secretName: postgres-roles
+            defaultMode: 0440
