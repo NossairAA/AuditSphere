@@ -1,0 +1,26 @@
+image:
+  repository: quay.io/keycloak/keycloak
+  tag: 26.8.0
+  digest: sha256:27b3230fbabb8c9ff3c66c864cf09dcd8a41aca82e5100679d109ef0eeb05741
+
+# Origine publique vue par le navigateur, par exemple https://auth.<tailnet>.ts.net. Passée à l'installation.
+origin: ""
+
+# Nom de l'entrée Tailscale. Il devient public dans les journaux Certificate Transparency.
+ingressHost: auth
+
+database:
+  url: jdbc:postgresql://postgres.data.svc.cluster.local:5432/keycloak
+  user: keycloak
+  passwordSecret: db-credentials
+  passwordKey: keycloak
+
+# Royaume importé au premier démarrage seulement, passé par --set-file realm=...
+realm: ""
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+  limits:
+    memory: 640Mi

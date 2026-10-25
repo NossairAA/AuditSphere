@@ -19,6 +19,11 @@ deploy() {
     --wait --wait-for-jobs --timeout 10m "$@"
 }
 
+# Keycloak d'abord : les services valident les jetons qu'il émet.
+helm upgrade --install keycloak "$root/infra/helm/keycloak" --namespace auditsphere \
+  --set-string origin="$OIDC_ORIGIN" --set-file realm="$root/deploy/keycloak/production-realm.json" \
+  --wait --timeout 10m
+
 # audit-service porte les migrations dont dépendent les autres services, il passe en premier.
 deploy audit-service --set-string env.EVIDENCE_S3_ENDPOINT="$GARAGE_ENDPOINT"
 deploy notification-service
