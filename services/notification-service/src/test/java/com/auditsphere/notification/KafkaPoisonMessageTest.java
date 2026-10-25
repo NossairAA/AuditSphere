@@ -49,7 +49,7 @@ class KafkaPoisonMessageTest {
   @Test
   void nullPayloadsAreClassifiedAsInvalidInsteadOfRetriedForever() {
     var consumer = new AssignmentConsumer(mock(org.springframework.jdbc.core.JdbcTemplate.class),
-        new com.fasterxml.jackson.databind.ObjectMapper(), mock(NotificationStream.class));
+        new tools.jackson.databind.json.JsonMapper(), mock(NotificationStream.class));
     assertThrows(IllegalArgumentException.class, () -> consumer.receive(null));
     assertThrows(IllegalArgumentException.class, () -> consumer.receive("null"));
   }

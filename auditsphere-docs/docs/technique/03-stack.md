@@ -34,7 +34,7 @@ Redis, Elasticsearch, Eureka et Spring Config Server ne sont pas nécessaires au
 
 ## Politique de versions
 
-Java 21 et PostgreSQL 17 constituent les bases proposées. À l’initialisation, sélectionner une ligne Spring Boot stable et maintenue avec le release train Spring Cloud compatible, puis figer les versions exactes dans le parent Maven/BOM. Vérifier aussi le SDK Temporal, les clients Kafka et la documentation OpenAPI. Spring Boot 3.5.16 / Spring Cloud 2025.0.3 ont été compilés et testés pour le socle API. Les intégrations Kafka/Temporal restent à vérifier. Utiliser les wrappers, le lockfile frontend et des images versionnées, aucun tag `latest` dans les déploiements reproductibles.
+Java 21 et PostgreSQL 17 constituent les bases proposées. À l’initialisation, sélectionner une ligne Spring Boot stable et maintenue avec le release train Spring Cloud compatible, puis figer les versions exactes dans le parent Maven/BOM. Vérifier aussi le SDK Temporal, les clients Kafka et la documentation OpenAPI. Depuis [ADR-0024](../decisions/ADR-0024-migration-spring-boot-4.md), les services utilisent Spring Boot 4.0.9, Spring Framework 7.0.10 et Spring Cloud 2025.1.4. Spring Boot 4.1 sera adopté quand Spring Cloud 2026.0.0 sera publié en version stable. Utiliser les wrappers, le lockfile frontend et des images versionnées, aucun tag `latest` dans les déploiements reproductibles.
 
 ## Découpage et propriété
 

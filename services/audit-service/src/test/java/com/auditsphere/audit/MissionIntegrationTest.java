@@ -4,15 +4,15 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.*;
 
 @SpringBootTest(properties = {"spring.flyway.enabled=true", "EVIDENCE_MISSION_QUOTA_BYTES=10485770"})
@@ -20,7 +20,7 @@ import org.testcontainers.junit.jupiter.*;
 @Testcontainers
 class MissionIntegrationTest {
   @Container @ServiceConnection
-  static PostgreSQLContainer<?> db = new PostgreSQLContainer<>("postgres@sha256:2a0d0fe14825b0939f78a8cad5cd4e6aa68bf94d0e5dd96e24b6d23af4315545");
+  static PostgreSQLContainer db = new PostgreSQLContainer("postgres@sha256:2a0d0fe14825b0939f78a8cad5cd4e6aa68bf94d0e5dd96e24b6d23af4315545");
 
   @org.springframework.test.context.bean.override.mockito.MockitoBean AuditorDirectory directory;
 

@@ -70,7 +70,7 @@ jobs:
           else
             docker build --label "$label" --build-arg SERVICE="$IMAGE_NAME" -t "$image" .
           fi
-      # Report only until the Spring Boot 4 migration: the fixes for Spring 6.2 are not published as open source.
+      # The report and SBOM are uploaded first, so a blocked image still leaves its evidence.
       - name: Report fixable high and critical vulnerabilities
         run: |
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v trivy-cache:/root/.cache/trivy -v "$PWD:/out" "$TRIVY" image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --format json --output "/out/vulns-$IMAGE_NAME.json" --no-progress "$IMAGE"
@@ -83,6 +83,8 @@ jobs:
           path: |
             sbom-${{ matrix.image }}.cdx.json
             vulns-${{ matrix.image }}.json
+      - name: Block on fixable high and critical vulnerabilities
+        run: docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v trivy-cache:/root/.cache/trivy "$TRIVY" image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --skip-db-update --exit-code 1 --no-progress -q "$IMAGE"
       - name: Publish to GHCR
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
