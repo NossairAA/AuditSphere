@@ -326,6 +326,30 @@ Limites :
 - La marge mémoire devient faible : Keycloak, le frontend et Traefik ajoutent environ 0,9 Gio de limites. À mesurer au lot E.
 - Le worker ne journalise rien après le démarrage de la JVM. Sa connexion est vérifiée côté Temporal.
 
+#### Lot B : Keycloak
+
+Statut : implémenté et vérifié le 2026-10-25, sauf l'émission d'un jeton par un vrai client, prévue au lot D.
+
+- Chart [infra/helm/keycloak](../../../infra/helm/keycloak) : Keycloak 26.8.0 épinglé, mode `start` de production, base `keycloak` de la phase 3, mémoire limitée à 640 Mio. `scripts/k3s-deploy-services.sh` l'installe avant les services.
+- Le royaume `deploy/keycloak/production-realm.json` est importé au premier démarrage seulement : royaume, rôles et `sslRequired` à `all`. Clients et comptes de démonstration viendront au lot D.
+- Entrée Tailscale `auth`. Le proxy Tailscale termine le TLS. `KC_HOSTNAME` porte l'origine HTTPS du tailnet, lue dans `.local/k3s.env`, et `KC_HOSTNAME_BACKCHANNEL_DYNAMIC` laisse les services joindre `keycloak:8080` en interne.
+- Administrateur d'amorçage dans le secret `keycloak-admin`, généré sans affichage.
+- Sondes sur le port de gestion 9000, conteneur non root sans privilège.
+
+Vérifications :
+
+- Royaume `auditsphere` importé, découverte OIDC en HTTPS par le tailnet, émetteur égal à l'origine HTTPS, points d'autorisation en HTTPS.
+- Keycloak reconnaît le HTTPS derrière l'entrée : la page de compte s'affiche sans erreur « HTTPS required ».
+- Les clés publiques du royaume sont lisibles depuis un pod par l'adresse interne, celle utilisée par les services pour valider les jetons.
+- Une demande de jeton par l'adresse interne HTTP reçoit un refus du client inconnu, pas un refus HTTPS.
+- Mémoire : Keycloak 573 Mio, proxy d'entrée 65 Mio. Demandes mémoire du nœud à 54 % de l'allouable, limites à 71 %. L'hôte garde 2,8 Gio disponibles.
+
+Limites :
+
+- Les pods ne résolvent pas les noms du tailnet. Les services doivent garder l'adresse interne de Keycloak.
+- La console d'administration répond sur le nom `auth` du tailnet. Elle devra être refusée sur le nom public selon ADR-0025.
+- L'administrateur d'amorçage est temporaire. Le lot D doit créer un administrateur permanent avec OTP puis le retirer.
+
 ### Phase 5 : GitOps
 
 - Argo CD en installation minimale, sans Dex, notifications ni ApplicationSet. Interface démarrée à la demande.

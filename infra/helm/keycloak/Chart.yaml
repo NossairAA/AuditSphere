@@ -1,0 +1,5 @@
+apiVersion: v2
+name: keycloak
+description: Keycloak d'AuditSphere en mode production derrière l'entrée Tailscale (ADR-0023, phase 4).
+type: application
+version: 0.1.0

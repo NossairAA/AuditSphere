@@ -1,0 +1,17 @@
+# Entrée HTTPS du tailnet. Le TLS est terminé par le proxy Tailscale, Keycloak reçoit du HTTP interne.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: keycloak
+  labels:
+    {{- include "keycloak.labels" . | nindent 4 }}
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: keycloak
+      port:
+        number: 8080
+  tls:
+    - hosts:
+        - {{ .Values.ingressHost }}

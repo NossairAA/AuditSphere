@@ -1,5 +1,11 @@
 # Journal des changements
 
+## 2026-10-25 : Keycloak dans k3s, phase 4 lot B
+
+- Chart `infra/helm/keycloak` : Keycloak 26.8.0 épinglé en mode production, base PostgreSQL de la phase 3, royaume de production importé une seule fois, entrée Tailscale `auth`.
+- Vérifié : découverte OIDC en HTTPS avec l'émetteur attendu, HTTPS reconnu derrière l'entrée, clés publiques lisibles en interne par les services.
+- Les pods ne résolvent pas les noms du tailnet : les services gardent l'adresse interne. Jeton d'un vrai client à vérifier au lot D. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-25 : services Spring dans k3s, phase 4 lot A
 
 - Chart Helm générique `infra/helm/spring-service` et valeurs pour cinq releases. Images GHCR épinglées, conteneurs non root en lecture seule, namespace `auditsphere` au niveau `restricted`.
