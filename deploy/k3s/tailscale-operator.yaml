@@ -1,0 +1,33 @@
+# Opérateur Tailscale, installé par le contrôleur Helm intégré à k3s (ADR-0023).
+# Le secret tailscale/operator-oauth (client_id, client_secret) est créé à la main
+# avant l'application de ce fichier et n'est jamais versionné.
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: tailscale-operator
+  namespace: kube-system
+spec:
+  repo: https://pkgs.tailscale.com/helmcharts
+  chart: tailscale-operator
+  version: 1.104.2
+  targetNamespace: tailscale
+  valuesContent: |-
+    operatorConfig:
+      hostname: tailscale-operator
+      image:
+        repository: tailscale/k8s-operator
+        digest: sha256:9cddfcbe75a7eab2b46d610966d519a28699a5e38235a2cb3aec960487c4aa48
+        pullPolicy: IfNotPresent
+      resources:
+        requests:
+          cpu: 20m
+          memory: 64Mi
+        limits:
+          memory: 128Mi
+    proxyConfig:
+      image:
+        repository: tailscale/tailscale
+        digest: sha256:b11583ad2e93e4671128538c88cf11f460444a5d7e449311dd1933a400ab849d
+      defaultTags: "tag:k8s"
+    apiServerProxyConfig:
+      mode: "false"

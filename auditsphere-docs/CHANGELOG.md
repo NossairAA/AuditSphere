@@ -1,5 +1,17 @@
 # Journal des changements
 
+## 2026-10-25 : exposition publique décidée
+
+- ADR-0025 accepté : AuditSphere sera ouvert à tout visiteur sous un domaine personnel, par Cloudflare Tunnel. Aucun port entrant, adresse du domicile masquée, zone DNS déléguée à Cloudflare, enregistrement conservé chez Namecheap.
+- Seuls le frontend et Keycloak auront un nom public. Console Keycloak, gateway et services internes restent sur le tailnet. Données de démonstration uniquement.
+- Phase 10 ajoutée au [guide d'hébergement](docs/technique/28-hebergement-k3s.md), HOST-010 au backlog. Ouverture conditionnée aux phases 4, 6, 7 et 8. Rien n'est configuré.
+
+## 2026-10-25 : opérateur Tailscale
+
+- Opérateur Tailscale `1.104.2` installé par une ressource `HelmChart` de k3s, dans [deploy/k3s/tailscale-operator.yaml](../deploy/k3s/tailscale-operator.yaml). Chart et images épinglés, opérateur limité à 128 Mio.
+- Console Tailscale préparée par l'utilisateur : HTTPS, étiquettes `tag:k8s-operator` et `tag:k8s`, client OAuth à droits restreints. Secret saisi en masqué, hors dépôt.
+- Vérifié : entrée de test servie en HTTPS par le tailnet avec un certificat valide, ports 80 et 443 fermés depuis le réseau local, appareil retiré du tailnet à la suppression. HOST-002 terminé. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-25 : hébergement privé, suite de la phase 0 et installation de k3s
 
 - CI distante réussie sur `main` après la fusion de TECH-009 (`2743acb`) : job `verify` et cinq jobs `images`, analyse Trivy bloquante comprise, aucun job relancé.

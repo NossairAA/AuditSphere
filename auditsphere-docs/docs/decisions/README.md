@@ -52,6 +52,8 @@ Utiliser le modèle dans [`docs/templates/adr.md`](../templates/adr.md).
 
 - [ADR-0024 : migration vers Spring Boot 4](ADR-0024-migration-spring-boot-4.md), accepté
 
+- [ADR-0025 : exposition publique par Cloudflare Tunnel](ADR-0025-exposition-publique-cloudflare-tunnel.md), accepté, non implémenté
+
 - [ADR-0018 : séparation validateur et auditeur](ADR-0018-separation-validateur-auditeur.md).
 - [ADR-0019 : sessions et accès web](ADR-0019-sessions-et-acces-web.md).
 - [ADR-0020 : déploiement interne sécurisé](ADR-0020-deploiement-interne-securise.md), proposé.

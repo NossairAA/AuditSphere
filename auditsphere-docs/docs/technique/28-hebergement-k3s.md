@@ -141,7 +141,7 @@ Sortie : API et entrée injoignables hors du tailnet, nœud stable après redém
 
 #### Procédure proposée
 
-Statut : exécutée et vérifiée le 2026-10-25, sauf l'opérateur Tailscale. Les commandes `sudo` sont lancées par l'utilisateur, qui saisit lui-même son mot de passe. Les valeurs entre chevrons restent hors du dépôt.
+Statut : exécutée et vérifiée le 2026-10-25, opérateur Tailscale compris. Les commandes `sudo` sont lancées par l'utilisateur, qui saisit lui-même son mot de passe. Les valeurs entre chevrons restent hors du dépôt.
 
 Version retenue : `v1.36.5+k3s1`, canal stable au 2026-10-25. La branche 1.37 est trop récente pour un premier cluster.
 
@@ -193,7 +193,7 @@ Points à vérifier après l'installation :
 - Les ports 6443 et 10250 sont injoignables depuis le réseau local.
 - Le nœud revient `Ready` après un redémarrage complet de l'hôte.
 
-L'opérateur Tailscale est installé ensuite par Helm, une fois le nœud validé.
+L'opérateur Tailscale est installé ensuite, une fois le nœud validé. Voir la section dédiée ci-dessous.
 
 #### Exécution du 2026-10-25
 
@@ -216,8 +216,34 @@ Résultats :
 Limites et suites :
 
 - Un pod ne joint pas Garage : connexion refusée sur son port publié. Le refus vient probablement des règles Docker propres à l'hôte, non lisibles sans `sudo`. À traiter en phase 3, avant d'utiliser Garage depuis le cluster.
-- L'opérateur Tailscale demande un client OAuth créé dans la console Tailscale par l'utilisateur. Il n'est pas installé. Le critère « entrée injoignable hors du tailnet » reste donc à vérifier.
 - Liaison réseau toujours en Wi-Fi.
+
+#### Opérateur Tailscale
+
+Statut : installé et vérifié le 2026-10-25.
+
+Préparation dans la console Tailscale, faite par l'utilisateur :
+
+- HTTPS activé avec MagicDNS.
+- Étiquettes déclarées dans la politique du tailnet : `tag:k8s-operator` sans propriétaire humain, `tag:k8s` détenue par `tag:k8s-operator`.
+- Client OAuth limité aux droits d'écriture sur les appareils, les clés d'authentification et les services, avec l'étiquette `tag:k8s-operator`. Il n'expire pas, contrairement à une clé d'API.
+- Secret `tailscale/operator-oauth`, clés `client_id` et `client_secret`, créé depuis le poste par une saisie masquée. Il n'apparaît ni dans le dépôt, ni dans l'historique du shell, ni dans les comptes rendus.
+
+Installation : [deploy/k3s/tailscale-operator.yaml](../../../deploy/k3s/tailscale-operator.yaml) déclare une ressource `HelmChart` lue par le contrôleur Helm intégré à k3s. Aucun binaire Helm n'est nécessaire sur le poste. Le chart `1.104.2` est épinglé, ainsi que les images de l'opérateur et du proxy par empreinte. L'opérateur est limité à 128 Mio. Le proxy du serveur d'API reste désactivé : `kubectl` passe par l'API directement joignable sur le tailnet. Argo CD reprendra ce fichier en phase 5.
+
+Vérifications :
+
+- L'opérateur rejoint le tailnet comme appareil étiqueté et crée la classe d'entrée `tailscale`.
+- Un service de test exposé par une entrée `tailscale` obtient sa propre adresse du tailnet et un certificat Let's Encrypt valide. HTTPS répond 200 depuis le poste par le tailnet.
+- Ports 80 et 443 fermés depuis le réseau local. Aucun service `NodePort` ni `LoadBalancer` dans le cluster.
+- Mémoire mesurée : 24 Mio pour l'opérateur, 19 Mio par proxy d'entrée. L'estimation de 100 Mio du budget couvre l'opérateur et quelques proxys.
+- À la suppression du service de test, son proxy et son appareil du tailnet disparaissent.
+
+Limites :
+
+- Chaque entrée publie son nom dans les journaux Certificate Transparency. Le nom du service de test est neutre. Les noms des futures entrées doivent l'être aussi.
+- L'accès depuis un réseau extérieur au tailnet n'est pas testé directement. Il découle de l'absence de port exposé sur l'hôte et de l'adressage du tailnet, non routable depuis Internet.
+- `test_image_pins.py` ne couvre pas encore les manifestes de `deploy/k3s`. L'épinglage y est vérifié à la relecture seulement.
 
 ### Phase 3 : couche de données
 
@@ -279,6 +305,26 @@ Sortie : tous les critères d'ADR-0020 vérifiés. Aucune donnée réelle avant 
 - Images natives GraalVM envisageables plus tard, en tenant compte des contraintes de Hibernate, Kafka et Temporal.
 - Aucun accès public avant la vérification des phases 6, 7 et 8.
 
+### Phase 10 : exposition publique
+
+Décidée par [ADR-0025](../decisions/ADR-0025-exposition-publique-cloudflare-tunnel.md). Statut : proposée le 2026-10-25, rien n'est configuré.
+
+Préparation possible dès maintenant, par l'utilisateur :
+
+- Ajouter le domaine à Cloudflare, offre gratuite, et vérifier que les enregistrements DNS existants sont recopiés.
+- Remplacer les serveurs de noms chez Namecheap par ceux indiqués par Cloudflare, puis attendre l'activation de la zone.
+- Créer un tunnel géré à distance dans Cloudflare Zero Trust, sans nom public, et conserver son jeton hors du dépôt.
+
+Mise en œuvre, après les phases 4, 6, 7 et 8 :
+
+- `cloudflared` dans le namespace `cloudflared`, image épinglée, jeton dans un secret créé par saisie masquée.
+- Deux noms publics : l'application vers le service du frontend, l'identité vers le service de Keycloak.
+- Console d'administration de Keycloak sur un nom du tailnet, chemins `/admin` refusés sur le nom public.
+- Règles Cloudflare : TLS 1.2 minimum, HSTS, règles gérées du pare-feu applicatif, limitation de débit sur la connexion.
+- Keycloak : inscription désactivée, détection de force brute, MFA pour les administrateurs.
+
+Sortie : application servie en HTTPS sur le domaine, aucun port entrant ouvert sur l'hôte ni sur la box, gateway et services internes injoignables depuis Internet, console Keycloak refusée sur le nom public.
+
 ## Limites connues
 
 - Pas de haute disponibilité. Un reboot interrompt le service.
@@ -296,5 +342,5 @@ Sortie : tous les critères d'ADR-0020 vérifiés. Aucune donnée réelle avant 
 - Non vérifié : parcours Playwright locaux non relancés, car un serveur de développement occupait le port 3000. Ils sont exécutés par la CI. Publication GHCR non vérifiée avant la fusion dans `main`, vérifiée ensuite.
 - Publication GHCR, le 2026-10-25 sur `main` après la fusion de la phase 1 : premier run, quatre images sur cinq refusées par GHCR avec `denied` au push du manifeste, alors que les couches étaient déjà poussées. Seule audit-service était publiée. Les jobs échoués, relancés sans changement de code, ont réussi. Les cinq images du commit `cb91e28` répondent en HTTP 200 sans authentification. Cause probable : création simultanée de paquets neufs par la matrice. Non confirmée, faute d'accès aux réglages des paquets.
 - TECH-009, le 2026-10-25 en local : `./mvnw -B verify` réussi avec 108 tests Java. Pile relancée par `start-local.sh`, puis smoke, pannes Kafka et Temporal réussis. Aucun arrêt OOM ni redémarrage sous les limites existantes. Mémoire relevée après les scénarios : audit-service 369 Mio sur 448, gateway 188 Mio sur 384, notification-service 206 Mio sur 320, remediation-service 172 Mio sur 320, worker 109 Mio sur 256. Analyse Trivy bloquante réussie sur les quatre images Java. `test-browser-isolated.sh` réussi : 13 suites, 30 parcours Playwright.
-- Phase 2, le 2026-10-25 sur le serveur : installation de k3s, contrôle des ports depuis le réseau local, pod de test et redémarrage complet. Détails dans l'exécution du 2026-10-25 ci-dessus. Opérateur Tailscale non installé.
+- Phase 2, le 2026-10-25 sur le serveur : installation de k3s, contrôle des ports depuis le réseau local, pod de test et redémarrage complet. Détails dans l'exécution du 2026-10-25 ci-dessus. Opérateur Tailscale installé, entrée HTTPS testée par le tailnet.
 - TECH-009, le 2026-10-25 sur `main` : CI distante réussie sur `2743acb` après la fusion. Job `verify` et cinq jobs `images` réussis, analyse Trivy bloquante comprise. Aucun job relancé.
