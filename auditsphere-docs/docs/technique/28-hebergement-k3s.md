@@ -636,6 +636,31 @@ Limites :
 - Le socket local reste en confiance : quiconque peut lancer `kubectl exec` dans le pod est superutilisateur. C'était déjà le cas avant ce lot.
 - Les clients ne présentent pas de certificat : l'authentification reste SCRAM par mot de passe.
 
+#### Lot C2 : Temporal en mTLS
+
+Statut : C2a implémenté et testé localement le 2026-10-26. C2b, configuration du cluster, à faire après la publication des images.
+
+C2a, client Java :
+
+- `TemporalConnection` construit les options du client Temporal pour le publieur d'audit-service et pour workflow-worker. mTLS est activé quand `TEMPORAL_TLS_CA_FILE`, `TEMPORAL_TLS_CERT_FILE` et `TEMPORAL_TLS_KEY_FILE` sont définis. Sans aucune de ces variables, la connexion reste en clair, pour Compose et les tests.
+- Configuration partielle, fichier illisible ou clé invalide : le service refuse de démarrer. Il ne retombe jamais en clair.
+- La clé doit être au format PKCS#8. Le nom du serveur est vérifié contre l'hôte de `TEMPORAL_TARGET`.
+- `TemporalConnectionTest` : cinq cas, dont un certificat EC généré par `keytool` pendant le test. Aucune clé n'est versionnée.
+
+C2b, prévu :
+
+- Certificate du serveur Temporal avec usages serveur et client, noms du service. Le trafic interne du processus unique vérifie ce nom au lieu de l'adresse du pod, par `TEMPORAL_TLS_INTERNODE_SERVER_NAME`.
+- Certificat client par appelant : audit-service, workflow-worker, Job `temporal-namespace` et pod de CLI. Clé PKCS#8, usage client seul.
+- `TEMPORAL_TLS_REQUIRE_CLIENT_AUTH` actif. Seuls les certificats de l'autorité interne avec l'usage client sont admis. Le certificat de PostgreSQL, à usage serveur seul, est refusé.
+- La CLI prend `TEMPORAL_TLS_CLIENT_CERT_PATH`, `TEMPORAL_TLS_CLIENT_KEY_PATH` et `TEMPORAL_TLS_SERVER_CA_CERT_PATH`.
+
+Vérifications, le 2026-10-26 en local : `./mvnw -B verify` réussi, tests d'intégration compris. Le chemin mTLS complet n'est pas encore vérifié contre un serveur Temporal.
+
+Limites prévues :
+
+- Le client Java charge ses certificats au démarrage. Un renouvellement demande un redémarrage du pod, à traiter au lot E.
+- mTLS authentifie l'appelant mais ne restreint pas ses droits : tout certificat client de l'autorité interne est admis. Une autorisation par nom de certificat reste à décider.
+
 ### Phase 9 : extension
 
 - Second nœud agent k3s joint par Tailscale, puis HPA si une mesure le justifie.

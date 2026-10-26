@@ -11,8 +11,8 @@ public final class ReviewWorker {
   public static void run() {
     var service =
         WorkflowServiceStubs.newServiceStubs(
-            WorkflowServiceStubsOptions.newBuilder()
-                .setTarget(System.getenv().getOrDefault("TEMPORAL_TARGET", "temporal:7233"))
+            TemporalConnection.options(
+                    System.getenv().getOrDefault("TEMPORAL_TARGET", "temporal:7233"), System.getenv())
                 .build());
     var client =
         WorkflowClient.newInstance(

@@ -1,6 +1,7 @@
 package com.auditsphere.audit;
 
 import com.auditsphere.audit.workflow.ReviewWorkflow;
+import com.auditsphere.audit.workflow.TemporalConnection;
 import io.temporal.api.enums.v1.WorkflowIdReusePolicy;
 import io.temporal.client.*;
 import io.temporal.serviceclient.*;
@@ -30,8 +31,7 @@ class ReviewWorkflowPublisher {
     this.jdbc = jdbc;
     service =
         WorkflowServiceStubs.newServiceStubs(
-            WorkflowServiceStubsOptions.newBuilder()
-                .setTarget(target)
+            TemporalConnection.options(target, System.getenv())
                 .setRpcTimeout(Duration.ofSeconds(3))
                 .setRpcRetryOptions(RpcRetryOptions.newBuilder().setMaximumAttempts(1).build())
                 .setRpcLongPollTimeout(Duration.ofSeconds(5))
