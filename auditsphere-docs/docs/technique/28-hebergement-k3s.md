@@ -464,7 +464,7 @@ Sortie : déploiement d'un commit et retour arrière vérifiés depuis Git seul.
 
 - Prometheus permanent avec rétention de deux jours et collecte toutes les 60 secondes.
 - Grafana, Loki et Tempo démarrés à la demande, mis à zéro réplique ensuite.
-- Alertes : disque, mémoire des JVM, retard Kafka, messages en DLT, workflows bloqués, erreurs 5xx, expiration des certificats. Envoi vers le téléphone de l'utilisateur.
+- Alertes : disque, mémoire des JVM, retard Kafka, messages en DLT, workflows bloqués, erreurs 5xx, expiration des certificats. Envoi vers le téléphone de l'utilisateur par un sujet ntfy.sh au nom aléatoire, gardé dans un secret Kubernetes, choix de l'utilisateur du 2026-10-27.
 
 Sortie : une alerte de test reçue, une requête tracée de la gateway au service.
 
@@ -788,12 +788,12 @@ Revue documentaire du 2026-10-27, à partir des preuves des lots A à E. Aucun n
 
 Points de la proposition d'ADR-0020 hors critères de sortie, relevés par la revue :
 
-- Autorisations Temporal : aucun autoriseur n'est configuré. Tout certificat client de l'autorité interne peut agir sur tous les namespaces. Le cluster n'en a qu'un, `default`, mais la limitation au namespace de l'application n'est pas faite.
-- Chiffrement des volumes de preuves sur l'hôte : non vérifié. Les copies restic du poste sont chiffrées, avec une clé hors du serveur.
+- Autorisations Temporal : aucun autoriseur n'est configuré. Tout certificat client de l'autorité interne peut agir sur tous les namespaces. Le cluster n'en a qu'un, `default`, mais la limitation au namespace de l'application n'est pas faite. Limite acceptée par l'utilisateur le 2026-10-27 : un seul namespace, un certificat par service émis sous la racine hors ligne.
+- Chiffrement des volumes de preuves sur l'hôte : absent, constaté en lecture seule par SSH le 2026-10-27. Le système de fichiers racine, qui porte les volumes de k3s et de Garage, est en ext4 sans couche de chiffrement. Acceptable tant que les données sont synthétiques. À traiter avant toute donnée réelle. Les copies restic du poste sont chiffrées, avec une clé hors du serveur.
 - Réplication de Kafka : broker unique, facteur 1. Limite déjà documentée au lot D, acceptée pour un hôte unique.
 - Fenêtre de maintenance et anciens volumes conservés : chaque bascule a été précédée d'une sauvegarde tirée sur le poste. Exception documentée au lot E1 : la copie à froid de Garage n'a pas été faite.
 
-Conclusion : C7 n'est pas clos. Il reste le lot E2b et la phase 6. L'autoriseur Temporal et le chiffrement des volumes sont à arbitrer par l'utilisateur avant l'ouverture publique.
+Conclusion : C7 n'est pas clos. Il reste le lot E2b et la phase 6.
 
 ### Phase 9 : extension
 

@@ -4,7 +4,7 @@
 
 - `ReloadingKeyManager` : le client Java de Temporal relit son certificat et sa clé à chaque négociation TLS et bascule quand leur contenu change. Plus de redémarrage d'audit-service ni de workflow-worker après un renouvellement par cert-manager.
 - Fichiers renouvelés invalides : la paire courante reste en service. Fichiers invalides au démarrage : refus de démarrer, comme avant.
-- Revue des critères de sortie d'ADR-0020 : trois remplis, rotation partielle jusqu'au lot E2b, supervision non remplie. Autoriseur Temporal absent et chiffrement des volumes de preuves non vérifié, à arbitrer.
+- Revue des critères de sortie d'ADR-0020 : trois remplis, rotation partielle jusqu'au lot E2b, supervision non remplie. Autoriseur Temporal absent, limite acceptée. Disque de l'hôte non chiffré, constaté, à traiter avant toute donnée réelle. Alertes de la phase 6 envoyées par ntfy.sh.
 - Vérifié par tests unitaires, dont deux négociations TLS réelles avec rotation entre les deux. Déploiement et rotation dans le cluster à faire au lot E2b. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
 
 ## 2026-10-26 : Garage en HTTPS et rotation des certificats, phase 8 lot E1
