@@ -178,6 +178,44 @@ spec:
             - name: jaas
               mountPath: /etc/kafka/jaas
               readOnly: true
+        # Kafka ne relit pas son magasin de clés quand cert-manager le renouvelle (phase 8, lot E).
+        # Ce conteneur redéclare le même chemin par reconfiguration dynamique, ce qui force sa relecture.
+        - name: reload
+          image: apache/kafka:4.0.2@sha256:836cafdad9f4825880d7cf1d5a21202915ae2527bd0ef1c3600c526ed7814d1f
+          command:
+            - sh
+            - -c
+            - |
+              store=/etc/kafka/secrets/keystore.p12
+              last=$(sha256sum < "$store")
+              while sleep 60; do
+                now=$(sha256sum < "$store")
+                [ "$now" = "$last" ] && continue
+                if /opt/kafka/bin/kafka-configs.sh --bootstrap-server 127.0.0.1:9094 --entity-type brokers \
+                    --entity-name 1 --alter --add-config "listener.name.sasl_ssl.ssl.keystore.location=$store" >/dev/null 2>&1; then
+                  last=$now
+                  echo "magasin de clés rechargé"
+                else
+                  echo "rechargement du magasin de clés refusé, nouvel essai dans 60 s"
+                fi
+              done
+          env:
+            - name: KAFKA_HEAP_OPTS
+              value: -Xmx64m
+          resources:
+            requests:
+              cpu: 5m
+              memory: 16Mi
+            limits:
+              memory: 192Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: secrets
+              mountPath: /etc/kafka/secrets
+              readOnly: true
       volumes:
         - name: secrets
           projected:

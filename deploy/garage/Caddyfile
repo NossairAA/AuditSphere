@@ -1,0 +1,11 @@
+# Proxy TLS de Garage (phase 8, lot E). Le nom vient de .env sur l'hôte, jamais du dépôt.
+# Pour un nom en .ts.net, Caddy demande le certificat à Tailscale au lieu de l'ACME public.
+{
+	admin off
+	auto_https disable_redirects
+}
+
+{$GARAGE_TLS_NAME}:3900 {
+	# L'en-tête Host d'origine est transmis : la signature S3 des clients reste valide.
+	reverse_proxy garage:3900
+}

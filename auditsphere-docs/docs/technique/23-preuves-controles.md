@@ -32,7 +32,9 @@ Les variables utilisées sont EVIDENCE_S3_ENDPOINT, EVIDENCE_S3_REGION, EVIDENCE
 
 Installation réalisée dans un dossier dédié du serveur privé. Le port 3900 est lié à l’adresse Tailscale du serveur. Les fichiers et métadonnées Garage résident dans les répertoires data et meta de cette installation. Le Mac accède au serveur par Tailscale, l’application Docker utilise cet endpoint privé.
 
-Le modèle réutilisable se trouve dans deploy/garage/compose.yaml. Définir GARAGE_BIND_IP avec une adresse privée appropriée, copier scripts/setup-garage.py dans le répertoire scripts de l’installation et créer un .env privé avant son exécution. Ne pas réutiliser les secrets de production en CI.
+Depuis le lot E de la phase 8, le port 3900 est servi en HTTPS par un proxy Caddy du même projet Compose, avec le certificat du nom de l’hôte dans le tailnet. Garage n’est plus publié directement. Décision et limites dans [ADR-0028](../decisions/ADR-0028-garage-https-caddy-tailscale.md).
+
+Le modèle réutilisable se trouve dans deploy/garage/compose.yaml, avec deploy/garage/Caddyfile. Définir GARAGE_BIND_IP avec une adresse privée appropriée et GARAGE_TLS_NAME avec le nom de l’hôte dans le tailnet, copier scripts/setup-garage.py dans le répertoire scripts de l’installation et créer un .env privé avant son exécution. Ne pas réutiliser les secrets de production en CI.
 
 La tentative de sauvegarde distante n’a pas abouti car sudo exige une authentification interactive. Aucune sauvegarde Garage n’est donc confirmée à ce stade. Le script demande désormais cette authentification avant d’arrêter le service. La connexion a été revérifiée après rétablissement du lien Tailscale : SSH et Garage répondent, dépôt, lecture et suppression authentifiés réussissent. L’accès anonyme reste refusé.
 
