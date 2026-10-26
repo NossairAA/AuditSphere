@@ -1,0 +1,9 @@
+# Émetteur des certificats internes, adossé à l'intermédiaire chargée par scripts/k3s-internal-ca.sh (ADR-0026).
+# Le secret internal-ca vit dans le namespace de cert-manager, où il est lu par la ClusterIssuer.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: auditsphere-internal-ca
+spec:
+  ca:
+    secretName: internal-ca

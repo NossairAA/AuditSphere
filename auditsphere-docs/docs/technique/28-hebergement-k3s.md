@@ -534,6 +534,29 @@ Limites :
 - Les règles de `data` sont appliquées par `kubectl apply`, hors Helm. Leur application a été faite par l'utilisateur.
 - Cause du 503 non établie : les journaux ont été perdus au redémarrage des pods par le test. Hypothèse : le contrôle de révocation de la gateway, borné à 2 secondes, a expiré vers audit-service. Les règles ne sont pas en cause, ce flux est autorisé et le second essai réussit. À suivre avec la supervision de la phase 6.
 
+#### Lot B : cert-manager et autorité interne
+
+Statut : implémenté et vérifié le 2026-10-26. Décision de structure : [ADR-0026](../decisions/ADR-0026-autorite-interne-racine-hors-ligne.md), racine hors ligne.
+
+- [deploy/k3s/cert-manager.yaml](../../../deploy/k3s/cert-manager.yaml) : cert-manager v1.21.3 installé par le contrôleur Helm de k3s depuis le registre OCI de l'éditeur. Images épinglées par empreinte, solveur ACME compris. Namespace au niveau Pod Security `restricted`, refus par défaut des entrées. Job de contrôle de démarrage et métriques Prometheus désactivés.
+- [scripts/k3s-internal-ca.sh](../../../scripts/k3s-internal-ca.sh), lancé par l'utilisateur dans son terminal : racine ECDSA P-384 chiffrée dans `.local/ca`, intermédiaire ECDSA P-256 avec `pathlen:0`, secret `cert-manager/internal-ca`, puis ClusterIssuer. La clé de l'intermédiaire n'existe plus sur le poste après le chargement. Le script refuse de remplacer un secret existant.
+- [deploy/k3s/internal-ca-issuer.yaml](../../../deploy/k3s/internal-ca-issuer.yaml) : ClusterIssuer `auditsphere-internal-ca`.
+- `enableCertificateOwnerRef` : supprimer un Certificate supprime son secret.
+
+Vérifications, le 2026-10-26 :
+
+- Les trois pods de cert-manager sont prêts. Un essai côté serveur passe par le webhook malgré le refus par défaut : l'API de k3s le joint depuis le nœud.
+- Racine valable jusqu'en 2036, intermédiaire jusqu'en 2028, chaîne vérifiée avec OpenSSL. Clé racine chiffrée, fichiers en mode 600, dossier ignoré par Git.
+- ClusterIssuer prête. Certificat de test émis dans `data` : chaîne vérifiée jusqu'à la racine du poste, `ca.crt` identique à cette racine, SAN, usage serveur seul et `CA:FALSE` attendus. Son secret disparaît avec lui.
+- Mémoire : cert-manager 24 Mio, cainjector 16 Mio, webhook 11 Mio. Nœud : 2,67 Gio disponibles. Limites des pods à 83 % de la mémoire allouable, demandes à 59 %.
+
+Limites :
+
+- Premier lancement du script interrompu en apparence : il attendait la troisième saisie de la phrase secrète. Le fichier de l'intermédiaire existe vide pendant cette attente.
+- La copie hors ligne de la clé racine et le rangement de la phrase secrète sont à la charge de l'utilisateur. Ils ne sont pas vérifiables par l'agent.
+- Aucun service n'utilise encore ces certificats : la bascule en TLS commence au lot C.
+- Le renouvellement automatique et la rotation de l'intermédiaire sont testés au lot E.
+
 ### Phase 9 : extension
 
 - Second nœud agent k3s joint par Tailscale, puis HPA si une mesure le justifie.
@@ -600,3 +623,4 @@ Seule la phase 7 pourrait être reportée, puisque l'instance publique ne porte 
 - TECH-009, le 2026-10-25 sur `main` : CI distante réussie sur `2743acb` après la fusion. Job `verify` et cinq jobs `images` réussis, analyse Trivy bloquante comprise. Aucun job relancé.
 - Phase 4 lot E, le 2026-10-26 sur le serveur : smoke du BFF et de l'API, pannes Kafka et Temporal réussis dans le cluster, nettoyage des données de test, mesure mémoire sans OOM. Détails dans le lot E.
 - Phase 8 lot A, le 2026-10-26 sur le serveur : NetworkPolicy en entrée, refus constatés depuis des pods non autorisés, smoke et pannes Kafka réussis sous les règles, pannes Temporal réussies au second essai après un 503 isolé. Détails dans le lot A.
+- Phase 8 lot B, le 2026-10-26 sur le serveur : cert-manager installé, autorité intermédiaire chargée par l'utilisateur, certificat de test émis et vérifié jusqu'à la racine hors ligne, mémoire mesurée. Détails dans le lot B.

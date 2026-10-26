@@ -113,7 +113,7 @@ Décision prise le 2026-10-24 par [ADR-0023](../decisions/ADR-0023-hebergement-p
 | HOST-005 | GitOps Argo CD minimal et Sealed Secrets | Proposé |
 | HOST-006 | Observabilité par paliers et alertes | Proposé |
 | HOST-007 | Sauvegardes hors machine et restauration vérifiée | Proposé |
-| HOST-008 | Sécurité C7 sur le cluster selon ADR-0020 | En cours : lot A, NetworkPolicy en entrée avec refus par défaut, implémenté et vérifié le 2026-10-26. Lots B à E à faire, sauvegarde préalable à décider avant le lot C |
+| HOST-008 | Sécurité C7 sur le cluster selon ADR-0020 | En cours : lot A, NetworkPolicy en entrée avec refus par défaut, implémenté et vérifié le 2026-10-26. Lot B, cert-manager et autorité intermédiaire sous racine hors ligne selon ADR-0026, vérifié le même jour. Lots C à E à faire, sauvegarde préalable à décider avant le lot C |
 | HOST-009 | Second nœud, essai AKS ou EKS. Accès public déplacé vers HOST-010 | Proposé |
 | HOST-010 | Exposition publique par Cloudflare Tunnel selon ADR-0025, domaine délégué à Cloudflare | Proposé, après HOST-004, HOST-006, HOST-007 et HOST-008 |
 
