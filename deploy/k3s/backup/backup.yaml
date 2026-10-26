@@ -39,6 +39,8 @@ data:
     set -eu
     umask 077
     export PGHOST=postgres.data.svc.cluster.local PGUSER=backup PGDATABASE=postgres
+    # TLS vérifié contre la racine hors ligne (phase 8, lot C).
+    export PGSSLMODE=verify-full PGSSLROOTCERT=/etc/auditsphere/ca/ca.crt
     # Les règles réseau n'admettent un nouveau pod qu'après quelques secondes : attendre au plus 60 s.
     for _ in $(seq 30); do pg_isready -q && break; sleep 2; done
     stamp=$(date -u +%Y%m%dT%H%M%SZ)
@@ -125,6 +127,9 @@ spec:
                   mountPath: /scripts
                 - name: staging
                   mountPath: /backup
+                - name: internal-ca
+                  mountPath: /etc/auditsphere/ca
+                  readOnly: true
           containers:
             - name: garage
               image: rclone/rclone:1.75.2@sha256:2687085f718d3c628f7fdfb77c52a1d344332aed543110bb88088f2c70d43eb5
@@ -185,3 +190,6 @@ spec:
             - name: tmp
               emptyDir:
                 sizeLimit: 64Mi
+            - name: internal-ca
+              configMap:
+                name: internal-ca

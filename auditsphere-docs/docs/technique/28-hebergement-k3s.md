@@ -599,6 +599,43 @@ Limites :
 - Aucun service n'utilise encore ces certificats : la bascule en TLS commence au lot C.
 - Le renouvellement automatique et la rotation de l'intermédiaire sont testés au lot E.
 
+#### Lot C1 : PostgreSQL en TLS vérifié
+
+Statut : implémenté et vérifié le 2026-10-26. C2, Temporal en mTLS, reste à faire.
+
+Le lot C est découpé en deux. C1 bascule PostgreSQL et ne demande que de la configuration. C2, Temporal en mTLS, demande un changement du client Java, donc de nouvelles images publiées par la CI après fusion.
+
+- [deploy/k3s/data/postgres.yaml](../../../deploy/k3s/data/postgres.yaml) : Certificate `postgres-tls` émis par `auditsphere-internal-ca`, ECDSA P-256, 90 jours, renouvelé 30 jours avant l'échéance, nouvelle clé à chaque renouvellement. Noms : `postgres`, `postgres.data`, `postgres.data.svc` et le nom complet du service.
+- `ssl=on`, TLS 1.2 au minimum. `pg_hba.conf` vient de la ConfigMap `postgres-hba` : socket local en confiance pour les sondes et `kubectl exec`, `hostssl` avec SCRAM, refus de toute connexion réseau en clair. Les règles en confiance sur la boucle locale de l'image sont retirées.
+- Conteneur `reload` dans le pod : toutes les 60 secondes, il compare l'empreinte du certificat et de `pg_hba.conf`, et demande `pg_reload_conf()` par le socket local si elles changent. PostgreSQL ne relit ni l'un ni l'autre sans ce rechargement.
+- [scripts/k3s-ca-bundle.sh](../../../scripts/k3s-ca-bundle.sh) publie la racine hors ligne dans la ConfigMap `internal-ca` des namespaces `data`, `auditsphere` et `backup`. La source est la copie locale de la racine, jamais un certificat lu dans le cluster.
+- Clients en `verify-full` contre cette racine, montée en `/etc/auditsphere/ca` : audit, notification et remediation et leurs Jobs de migration par l'option `internalCa` du chart `spring-service`, Keycloak, BFF et Job `web-schema`, Temporal et son Job de schéma, `postgres-bootstrap`, CronJob de sauvegarde.
+
+Bascule, selon ADR-0020 :
+
+1. Sauvegarde fraîche tirée sur le poste, jeu `20261026T143600Z`.
+2. Racine publiée, puis PostgreSQL redémarré avec TLS et une règle de transition qui admet encore le clair.
+3. Clients de `data` et de `backup` basculés, puis Keycloak, services et BFF redéployés par `scripts/k3s-deploy-services.sh`.
+4. Contrôle de `pg_stat_ssl`, puis règle définitive appliquée et rechargée sans redémarrage.
+
+Vérifications, le 2026-10-26 :
+
+- Certificate prête. PostgreSQL redémarré une fois, `ssl` actif, aucune erreur dans les règles chargées.
+- Depuis un pod de test autorisé : `verify-full` réussi en TLS 1.3, connexion par adresse IP refusée car le nom ne correspond pas, connexion refusée avec les seules autorités du système.
+- Après les smokes, `pg_stat_ssl` montre toutes les connexions réseau en TLS 1.3 : audit, notification, remediation, BFF, Keycloak et Temporal. Aucune connexion en clair.
+- Règle définitive rechargée par le conteneur `reload`, sans redémarrage. Connexion en clair refusée avec `pg_hba.conf rejects connection ... no encryption`.
+- Smoke de l'API et smoke du BFF réussis. Jeu de sauvegarde par TLS, tirage et exercice de restauration réussis : sept bases, deux preuves sur deux avec le même SHA-256.
+- Pannes Kafka et Temporal réussies avec PostgreSQL en TLS. Quatre missions de test nettoyées par `cleanup-test-data.py`, sauvegarde privée préalable. Restent 40 missions de démonstration, dont 7 en attente de revue, et les deux preuves témoins.
+- Mémoire du nœud après les scénarios : 79 %. Aucun pod en échec.
+
+Incident pendant la bascule : le Job `web-schema` a échoué trois fois avec `Connection refused`, ce qui a fait échouer la mise à jour Helm du BFF. Même cause que le premier essai de sauvegarde : la règle réseau n'admet un nouveau pod qu'après environ deux secondes. Le Job et le conteneur `grants` des migrations attendent désormais PostgreSQL 60 secondes au plus. Seconde mise à jour réussie. Le BFF déjà en service n'a pas été interrompu.
+
+Limites :
+
+- Le conteneur `reload` relit la configuration au renouvellement, mais le renouvellement réel n'est testé qu'au lot E.
+- Le socket local reste en confiance : quiconque peut lancer `kubectl exec` dans le pod est superutilisateur. C'était déjà le cas avant ce lot.
+- Les clients ne présentent pas de certificat : l'authentification reste SCRAM par mot de passe.
+
 ### Phase 9 : extension
 
 - Second nœud agent k3s joint par Tailscale, puis HPA si une mesure le justifie.
@@ -666,4 +703,5 @@ Seule la phase 7 pourrait être reportée, puisque l'instance publique ne porte 
 - Phase 4 lot E, le 2026-10-26 sur le serveur : smoke du BFF et de l'API, pannes Kafka et Temporal réussis dans le cluster, nettoyage des données de test, mesure mémoire sans OOM. Détails dans le lot E.
 - Phase 8 lot A, le 2026-10-26 sur le serveur : NetworkPolicy en entrée, refus constatés depuis des pods non autorisés, smoke et pannes Kafka réussis sous les règles, pannes Temporal réussies au second essai après un 503 isolé. Détails dans le lot A.
 - Phase 7, le 2026-10-26 sur le serveur et le poste : dumps et copie Garage, tirage restic chiffré sur le poste, restauration isolée réussie avec contrôle d'empreinte des preuves. Détails dans l'exécution de la phase 7.
+- Phase 8 lot C1, le 2026-10-26 sur le serveur : PostgreSQL en TLS vérifié pour tous ses clients, clair refusé, smokes, pannes, sauvegarde et restauration réussis. Détails dans le lot C1.
 - Phase 8 lot B, le 2026-10-26 sur le serveur : cert-manager installé, autorité intermédiaire chargée par l'utilisateur, certificat de test émis et vérifié jusqu'à la racine hors ligne, mémoire mesurée. Détails dans le lot B.

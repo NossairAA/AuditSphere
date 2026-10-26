@@ -16,6 +16,11 @@ database:
   host: postgres.data.svc.cluster.local
   name: web
 
+# Racine hors ligne (ADR-0026), montée en /etc/auditsphere/ca. Le BFF et le Job de schéma
+# joignent PostgreSQL en TLS vérifié (phase 8, lot C).
+internalCa:
+  configMap: internal-ca
+
 resources:
   requests:
     cpu: 50m

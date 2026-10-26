@@ -1,5 +1,6 @@
 # PostgreSQL unique de la couche de données (ADR-0023, phase 3).
 # Les secrets postgres-superuser et postgres-roles sont créés hors dépôt.
+# Phase 8, lot C : TLS obligatoire hors socket local, certificat émis par l'autorité interne (ADR-0026).
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -19,6 +20,43 @@ spec:
   ports:
     - name: postgres
       port: 5432
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: postgres-tls
+  namespace: data
+spec:
+  secretName: postgres-tls
+  issuerRef:
+    name: auditsphere-internal-ca
+    kind: ClusterIssuer
+  dnsNames:
+    - postgres
+    - postgres.data
+    - postgres.data.svc
+    - postgres.data.svc.cluster.local
+  duration: 2160h
+  renewBefore: 720h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  usages:
+    - server auth
+---
+# Le socket local reste en confiance : seuls les processus du pod y accèdent, sondes et kubectl exec compris.
+# Toute connexion réseau doit passer en TLS, une connexion en clair est refusée avant l'authentification.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-hba
+  namespace: data
+data:
+  pg_hba.conf: |
+    local   all  all        trust
+    hostssl all  all  all   scram-sha-256
+    host    all  all  all   reject
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -59,6 +97,16 @@ spec:
             - effective_cache_size=128MB
             - -c
             - password_encryption=scram-sha-256
+            - -c
+            - hba_file=/etc/postgresql/hba/pg_hba.conf
+            - -c
+            - ssl=on
+            - -c
+            - ssl_cert_file=/tls/tls.crt
+            - -c
+            - ssl_key_file=/tls/tls.key
+            - -c
+            - ssl_min_protocol_version=TLSv1.2
           env:
             - name: POSTGRES_PASSWORD
               valueFrom:
@@ -94,9 +142,60 @@ spec:
               mountPath: /var/lib/postgresql/data
             - name: run
               mountPath: /var/run/postgresql
+            - name: hba
+              mountPath: /etc/postgresql/hba
+              readOnly: true
+            - name: tls
+              mountPath: /tls
+              readOnly: true
+        # PostgreSQL ne relit son certificat et pg_hba.conf qu'au rechargement de sa configuration.
+        # Ce conteneur le demande par le socket local quand cert-manager renouvelle le certificat ou que la règle change.
+        - name: reload
+          image: postgres:17.9@sha256:2a0d0fe14825b0939f78a8cad5cd4e6aa68bf94d0e5dd96e24b6d23af4315545
+          command:
+            - sh
+            - -c
+            - |
+              state() { cat /tls/tls.crt /etc/postgresql/hba/pg_hba.conf | sha256sum; }
+              last=$(state)
+              while sleep 60; do
+                now=$(state)
+                if [ "$now" != "$last" ] && psql -X -q -h /var/run/postgresql -U postgres -c 'SELECT pg_reload_conf()' >/dev/null; then
+                  last=$now
+                  echo "configuration TLS rechargée"
+                fi
+              done
+          resources:
+            requests:
+              cpu: 5m
+              memory: 8Mi
+            limits:
+              memory: 32Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: run
+              mountPath: /var/run/postgresql
+            - name: hba
+              mountPath: /etc/postgresql/hba
+              readOnly: true
+            - name: tls
+              mountPath: /tls
+              readOnly: true
       volumes:
         - name: run
           emptyDir: {}
+        - name: hba
+          configMap:
+            name: postgres-hba
+        # Clé lisible par le groupe 999 seulement : PostgreSQL accepte une clé de root en 0640 au plus.
+        - name: tls
+          secret:
+            secretName: postgres-tls
+            defaultMode: 0440
   volumeClaimTemplates:
     - metadata:
         name: data

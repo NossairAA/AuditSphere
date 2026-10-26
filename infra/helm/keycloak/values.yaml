@@ -10,10 +10,15 @@ origin: ""
 ingressHost: auth
 
 database:
-  url: jdbc:postgresql://postgres.data.svc.cluster.local:5432/keycloak
+  # TLS vérifié contre la racine hors ligne (phase 8, lot C).
+  url: jdbc:postgresql://postgres.data.svc.cluster.local:5432/keycloak?sslmode=verify-full&sslrootcert=/etc/auditsphere/ca/ca.crt
   user: keycloak
   passwordSecret: db-credentials
   passwordKey: keycloak
+
+# Racine hors ligne (ADR-0026), montée en /etc/auditsphere/ca.
+internalCa:
+  configMap: internal-ca
 
 # Pods du namespace qui lisent les clés publiques ou demandent un jeton de service.
 allowFrom:
