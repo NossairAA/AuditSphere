@@ -1,0 +1,73 @@
+# Exercice de restauration isolé (phase 7), créé et supprimé par scripts/k3s-restore-test.sh.
+# PostgreSQL vide en mémoire de travail éphémère, joint seulement par kubectl exec. Rien n'y entre par le réseau.
+# Le secret restore-postgres est généré par le script à chaque exercice.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: restore-test
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-all
+  namespace: restore-test
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: postgres
+  namespace: restore-test
+  labels:
+    app.kubernetes.io/name: restore-postgres
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  securityContext:
+    runAsUser: 999
+    runAsGroup: 999
+    fsGroup: 999
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: postgres
+      image: postgres:17.9@sha256:2a0d0fe14825b0939f78a8cad5cd4e6aa68bf94d0e5dd96e24b6d23af4315545
+      args: [-c, shared_buffers=32MB, -c, max_connections=20]
+      env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: restore-postgres
+              key: password
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+      readinessProbe:
+        exec:
+          command: [pg_isready, -U, postgres]
+        periodSeconds: 5
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          memory: 256Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: [ALL]
+      volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql/data
+        - name: run
+          mountPath: /var/run/postgresql
+  volumes:
+    - name: data
+      emptyDir:
+        sizeLimit: 2Gi
+    - name: run
+      emptyDir: {}

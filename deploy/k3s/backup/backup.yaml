@@ -1,0 +1,187 @@
+# Sauvegardes locales du cluster (phase 7, ADR-0027). Le poste d'administration les tire ensuite par
+# scripts/k3s-backup.sh pull et les chiffre avec restic : aucune clé de chiffrement n'est sur le serveur.
+# Les secrets postgres-backup et garage-backup sont créés par scripts/k3s-backup-setup.sh, hors dépôt.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: backup
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: backup
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backup-staging
+  namespace: backup
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backup-scripts
+  namespace: backup
+data:
+  postgres.sh: |
+    set -eu
+    umask 077
+    export PGHOST=postgres.data.svc.cluster.local PGUSER=backup PGDATABASE=postgres
+    # Les règles réseau n'admettent un nouveau pod qu'après quelques secondes : attendre au plus 60 s.
+    for _ in $(seq 30); do pg_isready -q && break; sleep 2; done
+    stamp=$(date -u +%Y%m%dT%H%M%SZ)
+    work=/backup/postgres/.partial-$stamp
+    mkdir -p "$work"
+    # Le rôle backup lit toutes les données par pg_read_all_data, sans pouvoir écrire.
+    # Affectation séparée : un échec dans une liste de boucle n'arrêterait pas le script.
+    dbs=$(psql -X -At -v ON_ERROR_STOP=1 -c "SELECT datname FROM pg_database WHERE NOT datistemplate AND datname <> 'postgres' ORDER BY 1")
+    [ -n "$dbs" ]
+    for db in $dbs; do
+      pg_dump -Fc -d "$db" -f "$work/$db.dump"
+    done
+    # Rôles sans mots de passe, pour référence : postgres-bootstrap les recrée.
+    pg_dumpall --globals-only --no-role-passwords -f "$work/globals.sql"
+    (cd "$work" && sha256sum -- *.dump globals.sql > SHA256SUMS)
+    mv "$work" "/backup/postgres/$stamp"
+    # Le marqueur n'avance qu'après un jeu complet. Le poste tire toujours le jeu qu'il désigne.
+    printf '%s\n' "$stamp" > /backup/postgres/LATEST.tmp
+    mv /backup/postgres/LATEST.tmp /backup/postgres/LATEST
+    find /backup/postgres -mindepth 1 -maxdepth 1 -type d -mtime +7 -exec rm -rf {} +
+    echo "postgres : $stamp"
+  garage.sh: |
+    set -eu
+    umask 077
+    # Copie sans suppression : une preuve retirée du bucket reste dans la copie et dans restic.
+    # --immutable refuse de remplacer un objet déjà copié dont le contenu aurait changé.
+    rclone copy "garage:$BUCKET" "/backup/garage/$BUCKET" --immutable --checksum --s3-no-check-bucket
+    date -u +%Y%m%dT%H%M%SZ > /backup/garage/LATEST
+    echo "garage : $(cat /backup/garage/LATEST)"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: backup
+  namespace: backup
+spec:
+  schedule: "30 2 * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 1800
+      ttlSecondsAfterFinished: 604800
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: backup
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            fsGroup: 999
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          initContainers:
+            - name: postgres
+              image: postgres:17.9@sha256:2a0d0fe14825b0939f78a8cad5cd4e6aa68bf94d0e5dd96e24b6d23af4315545
+              command: [sh, /scripts/postgres.sh]
+              env:
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-backup
+                      key: password
+              resources:
+                requests:
+                  cpu: 20m
+                  memory: 32Mi
+                limits:
+                  memory: 128Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              volumeMounts:
+                - name: scripts
+                  mountPath: /scripts
+                - name: staging
+                  mountPath: /backup
+          containers:
+            - name: garage
+              image: rclone/rclone:1.75.2@sha256:2687085f718d3c628f7fdfb77c52a1d344332aed543110bb88088f2c70d43eb5
+              command: [sh, /scripts/garage.sh]
+              env:
+                - name: HOME
+                  value: /tmp
+                - name: BUCKET
+                  value: auditsphere-evidence-k3s
+                - name: RCLONE_CONFIG_GARAGE_TYPE
+                  value: s3
+                - name: RCLONE_CONFIG_GARAGE_PROVIDER
+                  value: Other
+                - name: RCLONE_CONFIG_GARAGE_REGION
+                  value: garage
+                - name: RCLONE_CONFIG_GARAGE_FORCE_PATH_STYLE
+                  value: "true"
+                - name: RCLONE_CONFIG_GARAGE_ENDPOINT
+                  valueFrom:
+                    secretKeyRef:
+                      name: garage-backup
+                      key: endpoint
+                - name: RCLONE_CONFIG_GARAGE_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: garage-backup
+                      key: access-key
+                - name: RCLONE_CONFIG_GARAGE_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: garage-backup
+                      key: secret-key
+              resources:
+                requests:
+                  cpu: 20m
+                  memory: 32Mi
+                limits:
+                  memory: 128Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              volumeMounts:
+                - name: scripts
+                  mountPath: /scripts
+                - name: staging
+                  mountPath: /backup
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: scripts
+              configMap:
+                name: backup-scripts
+            - name: staging
+              persistentVolumeClaim:
+                claimName: backup-staging
+            - name: tmp
+              emptyDir:
+                sizeLimit: 64Mi

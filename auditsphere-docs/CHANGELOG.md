@@ -1,5 +1,12 @@
 # Journal des changements
 
+## 2026-10-26 : sauvegardes du cluster, phase 7
+
+- Phase 7 avancée avant le lot C de la phase 8, choix de l'utilisateur. ADR-0027 accepté : le poste tire les sauvegardes et les chiffre avec restic, Garage est copié à chaud par S3 avec une clé en lecture seule.
+- `deploy/k3s/backup/backup.yaml` : namespace `backup` restreint, CronJob quotidien de `pg_dump` par un rôle `backup` en lecture seule, puis copie rclone du bucket des preuves. Rôle ajouté à `postgres-bootstrap`, règle d'entrée de PostgreSQL étendue.
+- `scripts/k3s-backup-setup.sh`, `scripts/k3s-backup.sh`, `scripts/k3s-restore-test.sh` et `scripts/seed-backup-evidence.py` : identités, tirage restic, exercice de restauration isolé avec contrôle d'empreinte des preuves, preuves synthétiques.
+- Vérifié : rôle sans droit d'écriture, clé Garage en lecture seule, jeu complet tiré dans restic, restauration isolée de sept bases réussie, deux preuves sur deux avec le même SHA-256. Non vérifié : détection d'une preuve altérée. Agent launchd quotidien pas encore installé. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-26 : autorité interne dans k3s, phase 8 lot B
 
 - ADR-0026 accepté : racine hors ligne, choix de l'utilisateur. Racine ECDSA P-384 chiffrée sur le poste, intermédiaire ECDSA P-256 chargée dans cert-manager.
