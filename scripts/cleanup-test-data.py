@@ -29,7 +29,7 @@ try:
  # Drain existing Kafka records before removing their notifications. Never reset shared offsets.
  deadline=time.monotonic()+45
  while True:
-  output=target.kafka('kafka-consumer-groups.sh','--bootstrap-server','localhost:9092','--describe','--group','notification-service-v1').stdout
+  output=target.kafka('kafka-consumer-groups.sh','--bootstrap-server',target.KAFKA_BOOTSTRAP,'--describe','--group','notification-service-v1').stdout
   if offsets_drained(output): break
   if time.monotonic()>deadline: raise RuntimeError('Kafka non vidé, nettoyage abandonné sans suppression')
   time.sleep(1)

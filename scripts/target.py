@@ -16,6 +16,8 @@ TOKEN_URL = OIDC_BASE + '/realms/auditsphere/protocol/openid-connect/token'
 WAIT = int(os.environ.get('AUDITSPHERE_WAIT', '120'))
 _accounts = Path(os.environ.get('AUDITSPHERE_ACCOUNTS_FILE', ROOT / '.env'))
 _env = dict(line.split('=', 1) for line in _accounts.read_text().splitlines() if '=' in line)
+# Kafka CLI tools run inside the broker. In k3s only the loopback listener accepts them without SASL.
+KAFKA_BOOTSTRAP = 'localhost:9094' if K3S else 'localhost:9092'
 # PostgreSQL is a single instance in k3s: one database cannot be stopped alone.
 WORKLOADS = {'kafka': ('data', 'statefulset/kafka'), 'temporal': ('data', 'deployment/temporal')}
 

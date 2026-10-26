@@ -1,5 +1,13 @@
 # Journal des changements
 
+## 2026-10-26 : Kafka en SASL_SSL avec ACL dans k3s, phase 8 lot D
+
+- Broker : seule l'écoute SASL_SSL, SCRAM-SHA-512 et certificat de l'autorité interne, est joignable par le réseau. Contrôleur et écoute des outils limités à la boucle locale du pod. Autorisation active, accès anonyme réseau refusé.
+- `scripts/k3s-kafka-security.sh` remplace le Job `kafka-topics` : topics, comptes SCRAM, ACL et secrets clients, sans afficher de mot de passe. audit-service écrit ses quatre topics, notification-service lit ses deux topics et son groupe et écrit leurs DLT.
+- audit-service et notification-service configurés par `SPRING_KAFKA_PROPERTIES_*`. Les scripts de vérification passent par l'écoute locale dans k3s.
+- Incident : un message d'erreur de `kafka-configs` a affiché un mot de passe généré, avant création du compte. Secret régénéré, script corrigé.
+- Vérifié : refus du clair, d'un mauvais mot de passe, d'un nom faux et des topics non autorisés. Pannes Kafka, DLT et smoke réussis. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-26 : Temporal en mTLS dans k3s, phase 8 lot C2
 
 - `deploy/k3s/data/temporal-tls.yaml` : certificats du serveur Temporal, de l'administration et de chaque appelant Java. Serveur avec authentification cliente obligatoire, nom du service vérifié pour le trafic interne, certificats relus toutes les 10 minutes.
