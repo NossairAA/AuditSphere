@@ -1,5 +1,11 @@
 # Journal des changements
 
+## 2026-10-26 : Temporal en mTLS dans k3s, phase 8 lot C2
+
+- `deploy/k3s/data/temporal-tls.yaml` : certificats du serveur Temporal, de l'administration et de chaque appelant Java. Serveur avec authentification cliente obligatoire, nom du service vérifié pour le trafic interne, certificats relus toutes les 10 minutes.
+- Chart `spring-service` : option `temporalTls.secret` et `fsGroup`. audit-service et workflow-worker passent à l'image `9af0ebb`, qui contient `TemporalConnection`. Job `temporal-namespace` et pod de CLI en mTLS. `k3s-check.sh` attend que Temporal réponde.
+- Vérifié : certificat admis, refus du clair, de l'absence de certificat, d'un nom faux et d'un certificat à usage serveur. Pannes Temporal et smokes réussis, sept workflows de revue intacts. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-26 : client Temporal capable de mTLS, phase 8 lot C2a
 
 - `TemporalConnection` : mTLS du publieur d'audit-service et de workflow-worker quand les trois fichiers TLS sont configurés. Configuration partielle ou matériel invalide : arrêt au démarrage, jamais de repli en clair. Sans configuration, comportement inchangé.

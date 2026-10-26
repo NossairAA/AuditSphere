@@ -35,6 +35,15 @@ spec:
               value: {{ .Values.oidc.jwks | quote }}
             {{- end }}
             {{- include "spring-service.secretEnv" . | nindent 12 }}
+            {{- if .Values.temporalTls.secret }}
+            {{- if not .Values.internalCa.enabled }}{{ fail "temporalTls exige internalCa.enabled" }}{{ end }}
+            - name: TEMPORAL_TLS_CA_FILE
+              value: /etc/auditsphere/ca/ca.crt
+            - name: TEMPORAL_TLS_CERT_FILE
+              value: /etc/auditsphere/temporal/tls.crt
+            - name: TEMPORAL_TLS_KEY_FILE
+              value: /etc/auditsphere/temporal/tls.key
+            {{- end }}
           {{- if gt (int .Values.port) 0 }}
           ports:
             - name: http
@@ -68,6 +77,11 @@ spec:
               mountPath: /etc/auditsphere/ca
               readOnly: true
             {{- end }}
+            {{- if .Values.temporalTls.secret }}
+            - name: temporal-tls
+              mountPath: /etc/auditsphere/temporal
+              readOnly: true
+            {{- end }}
       volumes:
         - name: tmp
           emptyDir:
@@ -76,4 +90,10 @@ spec:
         - name: internal-ca
           configMap:
             name: {{ .Values.internalCa.configMap }}
+        {{- end }}
+        {{- if .Values.temporalTls.secret }}
+        - name: temporal-tls
+          secret:
+            secretName: {{ .Values.temporalTls.secret }}
+            defaultMode: 0440
         {{- end }}

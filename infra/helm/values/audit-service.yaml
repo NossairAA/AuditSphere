@@ -1,7 +1,7 @@
 image:
   repository: ghcr.io/nossairaa/auditsphere-audit-service
-  tag: 294a0ff6efb6bb7b304e82ccfeb6fe937b28660b
-  digest: sha256:22f86f5586b1ba1bbf77f7be2866e895d0bc8c85b8ae4fa2bff66f3533361dfb
+  tag: 9af0ebbe1b66f6456ee4367d9682104a36e87770
+  digest: sha256:25ac1d785e20dbc882a3af7a5d18fdc9471fda843d655cf3e0a44d5629ad22de
 port: 8081
 allowFrom:
   - api-gateway
@@ -40,6 +40,9 @@ resources:
     memory: 448Mi
 internalCa:
   enabled: true
+
+temporalTls:
+  secret: temporal-client-audit-service
 
 migration:
   enabled: true

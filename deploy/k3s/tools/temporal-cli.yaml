@@ -1,5 +1,5 @@
 # CLI Temporal éphémère pour les scripts de vérification, créé et supprimé par scripts/k3s-check.sh.
-# L'image du serveur ne contient pas la CLI. Aucun secret : Temporal n'a pas encore d'authentification (phase 8).
+# L'image du serveur ne contient pas la CLI. mTLS avec le certificat d'administration (phase 8, lot C2).
 apiVersion: v1
 kind: Pod
 metadata:
@@ -13,6 +13,7 @@ spec:
   securityContext:
     runAsUser: 1000
     runAsGroup: 1000
+    fsGroup: 1000
     runAsNonRoot: true
     seccompProfile:
       type: RuntimeDefault
@@ -23,6 +24,13 @@ spec:
       env:
         - name: TEMPORAL_ADDRESS
           value: temporal.data.svc.cluster.local:7233
+        # mTLS avec le certificat d'administration (phase 8, lot C2).
+        - name: TEMPORAL_TLS_SERVER_CA_CERT_PATH
+          value: /etc/auditsphere/ca/ca.crt
+        - name: TEMPORAL_TLS_CLIENT_CERT_PATH
+          value: /etc/auditsphere/temporal/tls.crt
+        - name: TEMPORAL_TLS_CLIENT_KEY_PATH
+          value: /etc/auditsphere/temporal/tls.key
       resources:
         requests:
           memory: 32Mi
@@ -32,3 +40,18 @@ spec:
         allowPrivilegeEscalation: false
         capabilities:
           drop: [ALL]
+      volumeMounts:
+        - name: internal-ca
+          mountPath: /etc/auditsphere/ca
+          readOnly: true
+        - name: tls
+          mountPath: /etc/auditsphere/temporal
+          readOnly: true
+  volumes:
+    - name: internal-ca
+      configMap:
+        name: internal-ca
+    - name: tls
+      secret:
+        secretName: temporal-admin-tls
+        defaultMode: 0440

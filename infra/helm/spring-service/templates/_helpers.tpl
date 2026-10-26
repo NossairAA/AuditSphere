@@ -12,6 +12,8 @@ app.kubernetes.io/part-of: auditsphere
 runAsNonRoot: true
 runAsUser: 10001
 runAsGroup: 10001
+# Les secrets montés en 0440 restent lisibles par le processus seulement.
+fsGroup: 10001
 seccompProfile:
   type: RuntimeDefault
 {{- end -}}
