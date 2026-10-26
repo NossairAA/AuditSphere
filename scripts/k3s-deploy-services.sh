@@ -30,4 +30,12 @@ deploy notification-service
 deploy remediation-service
 deploy workflow-worker
 deploy api-gateway
+
+# Frontend et Traefik en bordure, derrière l'entrée Tailscale app.
+: "${APP_ORIGIN:?}"
+helm upgrade --install web "$root/infra/helm/web" --namespace auditsphere \
+  --set-string appOrigin="$APP_ORIGIN" --set-string oidcOrigin="$OIDC_ORIGIN" \
+  --set-file sessionsSql="$root/apps/web/db/001-sessions.sql" \
+  --set-file encryptedSessionsSql="$root/apps/web/db/002-encrypted-sessions.sql" \
+  --wait --wait-for-jobs --timeout 10m
 kubectl --namespace auditsphere get pods

@@ -1,5 +1,12 @@
 # Journal des changements
 
+## 2026-10-26 : frontend et Traefik dans k3s, phase 4 lot C
+
+- Chart `infra/helm/web` : BFF Next.js, Traefik v3.7.16 en bordure et entrée Tailscale `app`. Schéma des sessions et droits appliqués par un Job Helm.
+- Renvoi DNS de `ts.net` vers MagicDNS pour que le BFF joigne Keycloak en HTTPS depuis le pod.
+- NetworkPolicy : BFF joignable par Traefik seulement, Traefik par le proxy Tailscale seulement.
+- Vérifié : page servie en HTTPS avec les en-têtes de sécurité, redirection OIDC avec PKCE, en-tête d'adresse transmis au BFF, accès direct refusé depuis un autre namespace. Connexion complète au lot D. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-25 : Keycloak dans k3s, phase 4 lot B
 
 - Chart `infra/helm/keycloak` : Keycloak 26.8.0 épinglé en mode production, base PostgreSQL de la phase 3, royaume de production importé une seule fois, entrée Tailscale `auth`.

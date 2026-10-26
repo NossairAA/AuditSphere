@@ -1,0 +1,14 @@
+# Les pods résolvent les noms du tailnet par MagicDNS, pour que le BFF joigne l'émetteur OIDC en HTTPS.
+# k3s importe les blocs *.server de cette ConfigMap dans la configuration de CoreDNS.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-custom
+  namespace: kube-system
+data:
+  tailnet.server: |
+    ts.net:53 {
+        errors
+        cache 30
+        forward . 100.100.100.100
+    }

@@ -1,0 +1,51 @@
+# Schéma des sessions appliqué par le rôle propriétaire, puis droits du rôle d'exécution.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: web-schema
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      securityContext:
+        {{- include "web.podSecurity" . | nindent 8 }}
+      containers:
+        - name: schema
+          image: {{ .Values.psqlImage }}
+          command:
+            - sh
+            - -ec
+            - |
+              printf '%s\n%s\n%s\n' "$SESSIONS_SQL" "$ENCRYPTED_SQL" "$GRANTS_SQL" | psql -X -q -v ON_ERROR_STOP=1
+              echo "schéma et droits appliqués"
+          env:
+            - name: PGHOST
+              value: {{ .Values.database.host }}
+            - name: PGDATABASE
+              value: {{ .Values.database.name }}
+            - name: PGUSER
+              value: web_migrator
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: web_migrator
+            - name: SESSIONS_SQL
+              value: {{ required "sessionsSql est obligatoire" .Values.sessionsSql | quote }}
+            - name: ENCRYPTED_SQL
+              value: {{ required "encryptedSessionsSql est obligatoire" .Values.encryptedSessionsSql | quote }}
+            - name: GRANTS_SQL
+              value: |
+                REVOKE ALL ON ALL TABLES IN SCHEMA public FROM web_runtime;
+                GRANT SELECT, INSERT, UPDATE, DELETE ON web_sessions TO web_runtime;
+          resources:
+            limits:
+              memory: 64Mi
+          securityContext:
+            {{- include "web.containerSecurity" . | nindent 12 }}
