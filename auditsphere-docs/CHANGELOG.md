@@ -1,5 +1,11 @@
 # Journal des changements
 
+## 2026-10-26 : client Temporal capable de mTLS, phase 8 lot C2a
+
+- `TemporalConnection` : mTLS du publieur d'audit-service et de workflow-worker quand les trois fichiers TLS sont configurés. Configuration partielle ou matériel invalide : arrêt au démarrage, jamais de repli en clair. Sans configuration, comportement inchangé.
+- `TemporalConnectionTest` : cinq cas, certificat généré pendant le test. `./mvnw -B verify` réussi en local.
+- Non vérifié : connexion mTLS réelle, prévue au lot C2b après publication des images. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-26 : PostgreSQL en TLS vérifié dans k3s, phase 8 lot C1
 
 - Lot C découpé : C1 pour PostgreSQL, en configuration seule, C2 pour Temporal en mTLS, qui demande une modification du client Java.
