@@ -1,5 +1,18 @@
 # Journal des changements
 
+## 2026-10-26 : Keycloak configuré et données de démonstration, phase 4 lot D
+
+- `scripts/k3s-setup-keycloak.py` : client d'automatisation à la place de l'administrateur d'amorçage, administrateur `kc-admin` avec OTP, clients et six comptes synthétiques. Aucun secret affiché.
+- `seed-demo-missions.py` paramétrable par variables d'environnement, valeurs locales par défaut. 40 missions synthétiques créées dans le cluster.
+- Vérifié : connexion complète par le BFF en HTTPS, jetons attendus, droits des rôles par la gateway, notifications Kafka et revues Temporal.
+- Arrêt brutal de l'hôte, batterie à 0 % sans charge. Retour automatique complet sans perte de données.
+- CI de `main` en échec sur la publication GHCR, `permission_denied: write_package` : les paquets appartiennent à l'ancien dépôt. Accès à accorder au nouveau dépôt dans les réglages des paquets. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
+## 2026-10-26 : condition d'ouverture publique et dépôt distant
+
+- Condition d'ouverture publique écrite dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md) et la roadmap : lots D et E de la phase 4, puis phases 8, 6, 7 et 10. Préparation DNS et tunnel possible dès maintenant.
+- Le dépôt distant a été recréé le 2026-10-25, désormais public. Historique et branches conservés, numérotation des pull requests repartie de 1. Les mentions des PR #1 à #15 dans ce journal désignent l'ancien dépôt.
+
 ## 2026-10-26 : frontend et Traefik dans k3s, phase 4 lot C
 
 - Chart `infra/helm/web` : BFF Next.js, Traefik v3.7.16 en bordure et entrée Tailscale `app`. Schéma des sessions et droits appliqués par un Job Helm.
