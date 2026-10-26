@@ -414,7 +414,10 @@ Publication GHCR après la recréation du dépôt, le 2026-10-26 :
 
 - Le run de `main` sur `ddb8cc1` réussit la vérification et l'analyse des images, puis échoue à la publication avec `permission_denied: write_package` pour les cinq images.
 - Les paquets `auditsphere-*` restent liés à l'ancien dépôt. Le jeton du nouveau dépôt n'y a pas accès en écriture.
-- Correctif, à faire par l'utilisateur dans les réglages de chaque paquet : donner au dépôt l'accès en écriture aux actions, puis relancer les jobs échoués. Le cluster utilise toujours les images du commit `294a0ff`, déjà publiées.
+- L'ancien dépôt n'a pas été supprimé mais renommé `AuditSphere-old`, privé. Il restait source des paquets avec le rôle Admin, le nouveau dépôt n'avait que le rôle Read.
+- Correctif appliqué par l'utilisateur sur chacun des cinq paquets : rôle Write pour `AuditSphere` dans l'accès des actions, puis retrait de la source `AuditSphere-old`. La publication suivante relie le paquet au nouveau dépôt grâce au label `org.opencontainers.image.source` posé par la CI.
+- Vérifié : sixième tentative du run réussie, les cinq images de `ddb8cc1` répondent en HTTP 200 sans authentification. Le cluster utilise toujours les images de `294a0ff`, déjà publiées.
+- Reste possible : retirer `AuditSphere-old` de l'accès des actions et ramener le rôle à Write là où Admin a été donné.
 
 ### Phase 5 : GitOps
 
