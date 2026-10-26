@@ -99,7 +99,13 @@ spec:
             - name: realm
               mountPath: /opt/keycloak/data/import
               readOnly: true
+            - name: internal-ca
+              mountPath: /etc/auditsphere/ca
+              readOnly: true
       volumes:
         - name: realm
           configMap:
             name: keycloak-realm
+        - name: internal-ca
+          configMap:
+            name: {{ .Values.internalCa.configMap }}

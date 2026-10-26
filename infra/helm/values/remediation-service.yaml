@@ -9,7 +9,8 @@ oidc:
   enabled: true
 env:
   AUDIT_URL: http://audit-service.auditsphere.svc.cluster.local:8081
-  DB_URL: jdbc:postgresql://postgres.data.svc.cluster.local:5432/remediation
+  # TLS vérifié contre la racine hors ligne (phase 8, lot C).
+  DB_URL: jdbc:postgresql://postgres.data.svc.cluster.local:5432/remediation?sslmode=verify-full&sslrootcert=/etc/auditsphere/ca/ca.crt
   DB_USER: remediation_runtime
 secretEnv:
   - {name: DB_PASSWORD, secret: db-credentials, key: remediation_runtime}
@@ -19,6 +20,9 @@ resources:
     memory: 256Mi
   limits:
     memory: 320Mi
+internalCa:
+  enabled: true
+
 migration:
   enabled: true
   database: remediation

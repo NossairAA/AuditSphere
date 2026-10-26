@@ -63,7 +63,17 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            {{- if .Values.internalCa.enabled }}
+            - name: internal-ca
+              mountPath: /etc/auditsphere/ca
+              readOnly: true
+            {{- end }}
       volumes:
         - name: tmp
           emptyDir:
             sizeLimit: 64Mi
+        {{- if .Values.internalCa.enabled }}
+        - name: internal-ca
+          configMap:
+            name: {{ .Values.internalCa.configMap }}
+        {{- end }}

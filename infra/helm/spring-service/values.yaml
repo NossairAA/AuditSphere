@@ -30,6 +30,12 @@ resources:
   limits:
     memory: 320Mi
 
+# Racine hors ligne (ADR-0026), montée en /etc/auditsphere/ca depuis la ConfigMap internal-ca.
+# Activée, elle impose aussi TLS vérifié vers PostgreSQL au Job de migration (phase 8, lot C).
+internalCa:
+  enabled: false
+  configMap: internal-ca
+
 migration:
   enabled: false
   database: ""

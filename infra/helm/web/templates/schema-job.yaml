@@ -26,6 +26,8 @@ spec:
             - sh
             - -ec
             - |
+              # Les règles réseau n'admettent un nouveau pod qu'après quelques secondes : attendre au plus 60 s.
+              for _ in $(seq 30); do pg_isready -q && break; sleep 2; done
               printf '%s\n%s\n%s\n' "$SESSIONS_SQL" "$ENCRYPTED_SQL" "$GRANTS_SQL" | psql -X -q -v ON_ERROR_STOP=1
               echo "schéma et droits appliqués"
           env:
@@ -40,6 +42,10 @@ spec:
                 secretKeyRef:
                   name: db-credentials
                   key: web_migrator
+            - name: PGSSLMODE
+              value: verify-full
+            - name: PGSSLROOTCERT
+              value: /etc/auditsphere/ca/ca.crt
             - name: SESSIONS_SQL
               value: {{ required "sessionsSql est obligatoire" .Values.sessionsSql | quote }}
             - name: ENCRYPTED_SQL
@@ -53,3 +59,11 @@ spec:
               memory: 64Mi
           securityContext:
             {{- include "web.containerSecurity" . | nindent 12 }}
+          volumeMounts:
+            - name: internal-ca
+              mountPath: /etc/auditsphere/ca
+              readOnly: true
+      volumes:
+        - name: internal-ca
+          configMap:
+            name: {{ .Values.internalCa.configMap }}

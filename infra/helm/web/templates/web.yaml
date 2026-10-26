@@ -65,7 +65,7 @@ spec:
                   name: db-credentials
                   key: web_runtime
             - name: SESSION_DATABASE_URL
-              value: {{ printf "postgresql://web_runtime:$(WEB_DB_PASSWORD)@%s:5432/%s" .Values.database.host .Values.database.name | quote }}
+              value: {{ printf "postgresql://web_runtime:$(WEB_DB_PASSWORD)@%s:5432/%s?sslmode=verify-full&sslrootcert=/etc/auditsphere/ca/ca.crt" .Values.database.host .Values.database.name | quote }}
           ports:
             - name: http
               containerPort: 3000
@@ -87,6 +87,9 @@ spec:
               mountPath: /app/.next/cache
             - name: tmp
               mountPath: /tmp
+            - name: internal-ca
+              mountPath: /etc/auditsphere/ca
+              readOnly: true
       volumes:
         - name: cache
           emptyDir:
@@ -94,6 +97,9 @@ spec:
         - name: tmp
           emptyDir:
             sizeLimit: 64Mi
+        - name: internal-ca
+          configMap:
+            name: {{ .Values.internalCa.configMap }}
 ---
 # Le BFF n'accepte que Traefik : l'en-tête x-real-ip ne peut pas être forgé par un autre pod.
 apiVersion: networking.k8s.io/v1

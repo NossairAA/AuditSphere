@@ -1,6 +1,7 @@
 {{- if .Values.migration.enabled }}
 {{- $db := required "migration.database est obligatoire" .Values.migration.database }}
 {{- $user := required "migration.user est obligatoire" .Values.migration.user }}
+{{- $tls := .Values.internalCa.enabled }}
 # Flyway avec le rôle propriétaire, puis droits minimaux du rôle d'exécution, avant chaque installation ou mise à jour.
 apiVersion: batch/v1
 kind: Job
@@ -30,7 +31,7 @@ spec:
             - name: MIGRATION_ONLY
               value: "true"
             - name: DB_URL
-              value: {{ printf "jdbc:postgresql://%s:5432/%s" .Values.migration.databaseHost $db | quote }}
+              value: {{ printf "jdbc:postgresql://%s:5432/%s%s" .Values.migration.databaseHost $db (ternary "?sslmode=verify-full&sslrootcert=/etc/auditsphere/ca/ca.crt" "" $tls) | quote }}
             - name: DB_USER
               value: {{ $user }}
             - name: DB_PASSWORD
@@ -45,13 +46,21 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            {{- if $tls }}
+            - name: internal-ca
+              mountPath: /etc/auditsphere/ca
+              readOnly: true
+            {{- end }}
       containers:
         - name: grants
           image: {{ .Values.migration.psqlImage }}
           command:
             - sh
             - -ec
-            - printf '%s\n' "$GRANTS_SQL" | psql -X -q -v ON_ERROR_STOP=1 && echo "droits appliqués"
+            # Les règles réseau n'admettent un nouveau pod qu'après quelques secondes : attendre au plus 60 s.
+            - |
+              for _ in $(seq 30); do pg_isready -q && break; sleep 2; done
+              printf '%s\n' "$GRANTS_SQL" | psql -X -q -v ON_ERROR_STOP=1 && echo "droits appliqués"
           env:
             - name: PGHOST
               value: {{ .Values.migration.databaseHost }}
@@ -66,13 +75,30 @@ spec:
                   key: {{ $user }}
             - name: GRANTS_SQL
               value: {{ .Values.migration.grants | quote }}
+            {{- if $tls }}
+            - name: PGSSLMODE
+              value: verify-full
+            - name: PGSSLROOTCERT
+              value: /etc/auditsphere/ca/ca.crt
+            {{- end }}
           resources:
             limits:
               memory: 64Mi
           securityContext:
             {{- include "spring-service.containerSecurity" . | nindent 12 }}
+          {{- if $tls }}
+          volumeMounts:
+            - name: internal-ca
+              mountPath: /etc/auditsphere/ca
+              readOnly: true
+          {{- end }}
       volumes:
         - name: tmp
           emptyDir:
             sizeLimit: 64Mi
+        {{- if $tls }}
+        - name: internal-ca
+          configMap:
+            name: {{ .Values.internalCa.configMap }}
+        {{- end }}
 {{- end }}

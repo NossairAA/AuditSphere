@@ -10,7 +10,8 @@ allowFrom:
 oidc:
   enabled: true
 env:
-  DB_URL: jdbc:postgresql://postgres.data.svc.cluster.local:5432/audit
+  # TLS vérifié contre la racine hors ligne (phase 8, lot C).
+  DB_URL: jdbc:postgresql://postgres.data.svc.cluster.local:5432/audit?sslmode=verify-full&sslrootcert=/etc/auditsphere/ca/ca.crt
   DB_USER: audit_runtime
   SPRING_FLYWAY_ENABLED: "false"
   OUTBOX_ENABLED: "true"
@@ -37,6 +38,9 @@ resources:
     memory: 384Mi
   limits:
     memory: 448Mi
+internalCa:
+  enabled: true
+
 migration:
   enabled: true
   database: audit

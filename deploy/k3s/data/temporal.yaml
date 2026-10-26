@@ -38,6 +38,13 @@ spec:
                 secretKeyRef:
                   name: postgres-roles
                   key: temporal
+            # TLS vérifié contre la racine hors ligne (phase 8, lot C). La vérification du nom est active par défaut.
+            - name: SQL_TLS
+              value: "true"
+            - name: SQL_TLS_CA_FILE
+              value: /etc/auditsphere/ca/ca.crt
+            - name: SQL_TLS_SERVER_NAME
+              value: postgres.data.svc.cluster.local
           resources:
             limits:
               memory: 128Mi
@@ -45,6 +52,14 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
+          volumeMounts:
+            - name: internal-ca
+              mountPath: /etc/auditsphere/ca
+              readOnly: true
+      volumes:
+        - name: internal-ca
+          configMap:
+            name: internal-ca
 ---
 # Configuration dynamique attendue par l'image, vide tant qu'aucun réglage n'est justifié.
 apiVersion: v1
@@ -117,6 +132,15 @@ spec:
               value: "5"
             - name: SQL_VIS_MAX_IDLE_CONNS
               value: "2"
+            # TLS vérifié vers PostgreSQL, pour l'historique et la visibilité (phase 8, lot C).
+            - name: SQL_TLS_ENABLED
+              value: "true"
+            - name: SQL_CA
+              value: /etc/auditsphere/ca/ca.crt
+            - name: SQL_HOST_VERIFICATION
+              value: "true"
+            - name: SQL_HOST_NAME
+              value: postgres.data.svc.cluster.local
             # Fixé à la création du cluster Temporal, il ne peut plus changer ensuite.
             - name: NUM_HISTORY_SHARDS
               value: "4"
@@ -154,10 +178,16 @@ spec:
             - name: dynamic-config
               mountPath: /etc/temporal/config/dynamicconfig
               readOnly: true
+            - name: internal-ca
+              mountPath: /etc/auditsphere/ca
+              readOnly: true
       volumes:
         - name: dynamic-config
           configMap:
             name: temporal-dynamic-config
+        - name: internal-ca
+          configMap:
+            name: internal-ca
 ---
 apiVersion: batch/v1
 kind: Job

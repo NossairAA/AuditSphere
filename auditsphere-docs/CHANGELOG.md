@@ -1,5 +1,13 @@
 # Journal des changements
 
+## 2026-10-26 : PostgreSQL en TLS vérifié dans k3s, phase 8 lot C1
+
+- Lot C découpé : C1 pour PostgreSQL, en configuration seule, C2 pour Temporal en mTLS, qui demande une modification du client Java.
+- PostgreSQL : certificat cert-manager de 90 jours, TLS 1.2 au minimum, `pg_hba.conf` versionné qui refuse toute connexion réseau en clair. Conteneur `reload` qui recharge la configuration quand le certificat ou la règle change.
+- `scripts/k3s-ca-bundle.sh` publie la racine hors ligne dans la ConfigMap `internal-ca`. Tous les clients passent en `verify-full` : services Spring et migrations par l'option `internalCa` du chart, Keycloak, BFF, Temporal, Jobs d'amorçage et sauvegarde.
+- Jobs `web-schema` et `grants` : attente de PostgreSQL avant connexion, après un échec de la bascule dû au délai d'admission réseau des nouveaux pods.
+- Vérifié : toutes les connexions en TLS 1.3, clair refusé, nom et autorité vérifiés, smokes, pannes Kafka et Temporal, sauvegarde et restauration réussis. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-26 : sauvegardes du cluster, phase 7
 
 - Phase 7 avancée avant le lot C de la phase 8, choix de l'utilisateur. ADR-0027 accepté : le poste tire les sauvegardes et les chiffre avec restic, Garage est copié à chaud par S3 avec une clé en lecture seule.

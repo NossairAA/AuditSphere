@@ -92,6 +92,11 @@ spec:
                 secretKeyRef:
                   name: postgres-superuser
                   key: password
+            # TLS vérifié contre la racine hors ligne (phase 8, lot C).
+            - name: PGSSLMODE
+              value: verify-full
+            - name: PGSSLROOTCERT
+              value: /etc/auditsphere/ca/ca.crt
           resources:
             limits:
               memory: 64Mi
@@ -105,6 +110,9 @@ spec:
             - name: roles
               mountPath: /roles
               readOnly: true
+            - name: internal-ca
+              mountPath: /etc/auditsphere/ca
+              readOnly: true
       volumes:
         - name: scripts
           configMap:
@@ -113,3 +121,6 @@ spec:
           secret:
             secretName: postgres-roles
             defaultMode: 0440
+        - name: internal-ca
+          configMap:
+            name: internal-ca
