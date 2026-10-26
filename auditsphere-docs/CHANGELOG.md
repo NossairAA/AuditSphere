@@ -1,5 +1,11 @@
 # Journal des changements
 
+## 2026-10-26 : autorité interne dans k3s, phase 8 lot B
+
+- ADR-0026 accepté : racine hors ligne, choix de l'utilisateur. Racine ECDSA P-384 chiffrée sur le poste, intermédiaire ECDSA P-256 chargée dans cert-manager.
+- `deploy/k3s/cert-manager.yaml` : cert-manager v1.21.3, images épinglées, namespace `restricted` avec refus par défaut des entrées. `scripts/k3s-internal-ca.sh`, lancé par l'utilisateur, et ClusterIssuer `auditsphere-internal-ca`.
+- Vérifié : certificat de test émis, chaîne vérifiée jusqu'à la racine hors ligne, secret supprimé avec le certificat. cert-manager occupe 51 Mio. Aucun service ne l'utilise encore. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-26 : NetworkPolicy dans k3s, phase 8 lot A
 
 - Refus par défaut des entrées dans `auditsphere` et `data`. Règles par composant dans les charts `spring-service` et `keycloak`, règles de PostgreSQL, Kafka et Temporal dans `deploy/k3s/data/network-policies.yaml`.
