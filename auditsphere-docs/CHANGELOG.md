@@ -1,5 +1,17 @@
 # Journal des changements
 
+## 2026-10-26 : smoke et pannes dans k3s, phase 4 lot E
+
+- `scripts/target.py` : les scripts de smoke, de pannes et de nettoyage visent Compose par défaut ou k3s avec `AUDITSPHERE_TARGET=k3s`. `scripts/k3s-check.sh` ouvre la gateway par port-forward et un pod éphémère de CLI Temporal.
+- `scripts/smoke-bff.py` : connexion de navigateur par l'origine HTTPS du tailnet, session, missions et déconnexion.
+- Vérifié dans le cluster : smoke du BFF et de l'API, pannes Kafka et Temporal réussies, six missions de test nettoyées, données de démonstration intactes. Mémoire après les scénarios : 1,58 Gio disponibles, aucun OOM. Phase 4 terminée.
+- Non vérifié : arrêt isolé de la base des notifications, sans équivalent avec un PostgreSQL partagé, et chemin Compose des scripts modifiés. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
+## 2026-10-26 : publication GHCR rétablie
+
+- Cause : l'ancien dépôt, renommé `AuditSphere-old`, restait source des paquets. Le nouveau dépôt n'avait que le rôle Read.
+- Rôle Write donné au nouveau dépôt et ancienne source retirée sur les cinq paquets, par l'utilisateur. Run de `main` réussi à la sixième tentative, images de `ddb8cc1` publiées et lisibles sans authentification. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-26 : Keycloak configuré et données de démonstration, phase 4 lot D
 
 - `scripts/k3s-setup-keycloak.py` : client d'automatisation à la place de l'administrateur d'amorçage, administrateur `kc-admin` avec OTP, clients et six comptes synthétiques. Aucun secret affiché.

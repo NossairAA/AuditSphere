@@ -1,20 +1,12 @@
 #!/usr/bin/env python3
 """Real Kafka/Keycloak checks. --faults briefly stops local services, always restarted."""
-import argparse, json, subprocess, time, urllib.request, urllib.error, urllib.parse, uuid
-from pathlib import Path
-root = Path(__file__).resolve().parents[1]
-env = dict(line.split('=', 1) for line in (root / '.env').read_text().splitlines() if '=' in line)
+import argparse, base64, json, subprocess, time, urllib.request, urllib.error, urllib.parse, uuid
+import target
 parser = argparse.ArgumentParser()
 parser.add_argument('--faults', action='store_true')
 args = parser.parse_args()
-base = 'http://localhost:8080'
-recipient = '00000000-0000-0000-0000-000000000002'
-
-def compose(*command):
-    subprocess.run(['docker', 'compose', *command], cwd=root, check=True, stdout=subprocess.DEVNULL)
-
-def sql(db, statement):
-    return subprocess.check_output(['docker', 'compose', 'exec', '-T', db+'-db', 'psql', '-X', '-At', '-v', 'ON_ERROR_STOP=1', '-U', db+'_admin', '-d', db, '-c', statement], cwd=root, text=True, stderr=subprocess.DEVNULL).strip()
+base = target.API_BASE
+sql = target.sql
 
 def request(path, token=None, body=None, method=None):
     headers = {'Content-Type': 'application/json'}
@@ -26,7 +18,7 @@ def request(path, token=None, body=None, method=None):
     except urllib.error.HTTPError as error:
         return error.code, {}
 
-def wait(check, label, seconds=120):
+def wait(check, label, seconds=target.WAIT):
     deadline = time.monotonic()+seconds
     while time.monotonic() < deadline:
         try:
@@ -36,15 +28,17 @@ def wait(check, label, seconds=120):
     raise AssertionError('Timeout: '+label)
 
 def token(name):
-    payload = urllib.parse.urlencode({'client_id':'auditsphere-demo', 'grant_type':'password', 'username':name, 'password':env[name.upper()+'_PASSWORD']}).encode()
-    with urllib.request.urlopen('http://localhost:8180/realms/auditsphere/protocol/openid-connect/token', data=payload, timeout=10) as response:
+    payload = urllib.parse.urlencode({'client_id':'auditsphere-demo', 'grant_type':'password', 'username':name, 'password':target.secret(name.upper()+'_PASSWORD')}).encode()
+    with urllib.request.urlopen(target.TOKEN_URL, data=payload, timeout=10) as response:
         return json.load(response)['access_token']
 
 wait(lambda: request('/notifications', token('auditor'))[0] == 200, 'notification API')
 tokens = {name: token(name) for name in ['manager', 'auditor', 'outsider']}
+claims = tokens['auditor'].split('.')[1]
+recipient = json.loads(base64.urlsafe_b64decode(claims + '=' * (-len(claims) % 4)))['sub']
 
 def create(label):
-    status, body = request('/missions', tokens['manager'], {'title':'Test notifications '+label+' '+str(uuid.uuid4())[:8], 'description':'Données synthétiques de validation Kafka', 'perimeter':'Tests locaux', 'assigneeSubjects':[recipient]})
+    status, body = request('/missions', tokens['manager'], {'title':'Test notifications '+label+' '+str(uuid.uuid4())[:8], 'description':'Données synthétiques de validation Kafka', 'perimeter':'Tests ' + ('k3s' if target.K3S else 'locaux'), 'assigneeSubjects':[recipient]})
     assert status == 201, ('create', status)
     return str(uuid.UUID(body['id']))
 
@@ -94,25 +88,24 @@ if args.faults:
                'recipientSubject': recipient, 'aggregateVersion': 0,
                'occurredAt': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}
     records = poison_key + ':invalid-json\n' + poison_key + ':' + json.dumps(barrier) + '\n'
-    subprocess.run(['docker', 'compose', 'exec', '-T', 'kafka',
-                    '/opt/kafka/bin/kafka-console-producer.sh', '--bootstrap-server', 'kafka:9092',
-                    '--topic', 'audit.mission.assigned.v1', '--property', 'parse.key=true',
-                    '--property', 'key.separator=:'], input=records, text=True,
-                   cwd=root, check=True, stdout=subprocess.DEVNULL, timeout=30)
+    target.kafka('kafka-console-producer.sh', '--bootstrap-server', 'localhost:9092',
+                 '--topic', 'audit.mission.assigned.v1', '--property', 'parse.key=true',
+                 '--property', 'key.separator=:', input=records)
     try:
         wait(lambda: count(poison_mission) == 1, 'valid record after poison record')
-        quarantined = subprocess.run(['docker', 'compose', 'exec', '-T', 'kafka',
-                        '/opt/kafka/bin/kafka-console-consumer.sh', '--bootstrap-server', 'kafka:9092',
+        quarantined = target.kafka('kafka-console-consumer.sh', '--bootstrap-server', 'localhost:9092',
                         '--topic', 'audit.mission.assigned.v1.DLT', '--from-beginning',
-                        '--timeout-ms', '10000', '--property', 'print.key=true'],
-                       cwd=root, text=True, capture_output=True, timeout=20)
+                        '--timeout-ms', '10000', '--property', 'print.key=true', check=False)
         assert poison_key + '\tinvalid-json' in quarantined.stdout, 'Poison record not confirmed in DLT'
         print('PASS : message invalide en DLT, message suivant livré.', flush=True)
     finally:
         sql('notification', "DELETE FROM notifications WHERE event_id='" + poison_event + "'")
     for service in ['notification-service', 'kafka', 'notification-db']:
+        if target.K3S and service == 'notification-db':
+            print('SKIP : PostgreSQL partagé dans k3s, arrêt de notification-db sans équivalent isolé.', flush=True)
+            continue
         try:
-            compose('stop', service)
+            target.stop(service)
             start = time.monotonic()
             mission = create('panne '+service)
             assert time.monotonic()-start < 10, 'Business request blocked by downstream outage'
@@ -124,7 +117,7 @@ if args.faults:
                 wait(lambda: published(mission), 'event published while consumer is unavailable')
                 if service == 'notification-service': assert count(mission) == 0
         finally:
-            compose('start', service)
+            target.start(service)
         delivered(mission)
         print('PASS : reprise après arrêt de '+service+', notification unique.', flush=True)
 print('PASS : notifications et résilience validées.', flush=True)

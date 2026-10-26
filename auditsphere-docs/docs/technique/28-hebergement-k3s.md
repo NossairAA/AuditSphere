@@ -294,7 +294,7 @@ Limites :
 - Traefik en ClusterIP derrière l'entrée Tailscale, pour les en-têtes de sécurité, la limitation de débit et le routage.
 - Smoke et scénarios de pannes Kafka et Temporal exécutés par le tailnet, avec des données synthétiques uniquement.
 
-Sortie : smoke réussi par l'URL HTTPS du tailnet, scénarios de pannes réussis sur le cluster.
+Sortie : smoke réussi par l'URL HTTPS du tailnet, scénarios de pannes réussis sur le cluster. Atteinte le 2026-10-26 au lot E.
 
 Choix du 2026-10-25, faits par l'utilisateur : profil de démonstration avec comptes synthétiques, noms du tailnet `app` pour le frontend et `auth` pour Keycloak. La phase est découpée en cinq lots : A services Spring, B Keycloak, C frontend et Traefik, D configuration de Keycloak, Garage et données de démonstration, E smoke, pannes et mesure.
 
@@ -414,7 +414,43 @@ Publication GHCR après la recréation du dépôt, le 2026-10-26 :
 
 - Le run de `main` sur `ddb8cc1` réussit la vérification et l'analyse des images, puis échoue à la publication avec `permission_denied: write_package` pour les cinq images.
 - Les paquets `auditsphere-*` restent liés à l'ancien dépôt. Le jeton du nouveau dépôt n'y a pas accès en écriture.
-- Correctif, à faire par l'utilisateur dans les réglages de chaque paquet : donner au dépôt l'accès en écriture aux actions, puis relancer les jobs échoués. Le cluster utilise toujours les images du commit `294a0ff`, déjà publiées.
+- L'ancien dépôt n'a pas été supprimé mais renommé `AuditSphere-old`, privé. Il restait source des paquets avec le rôle Admin, le nouveau dépôt n'avait que le rôle Read.
+- Correctif appliqué par l'utilisateur sur chacun des cinq paquets : rôle Write pour `AuditSphere` dans l'accès des actions, puis retrait de la source `AuditSphere-old`. La publication suivante relie le paquet au nouveau dépôt grâce au label `org.opencontainers.image.source` posé par la CI.
+- Vérifié : sixième tentative du run réussie, les cinq images de `ddb8cc1` répondent en HTTP 200 sans authentification. Le cluster utilise toujours les images de `294a0ff`, déjà publiées.
+- Reste possible : retirer `AuditSphere-old` de l'accès des actions et ramener le rôle à Write là où Admin a été donné.
+
+#### Lot E : smoke, pannes et mesure
+
+Statut : implémenté et vérifié le 2026-10-26. La phase 4 est terminée.
+
+Outillage :
+
+- [scripts/target.py](../../../scripts/target.py) choisit la pile visée par les scripts de vérification : Compose local par défaut, k3s avec `AUDITSPHERE_TARGET=k3s`. Il fournit SQL, `pg_dump`, outils Kafka, CLI Temporal, arrêt et démarrage des composants.
+- Dans k3s, un arrêt ramène le déploiement à zéro réplique et attend la disparition du pod. Un démarrage remet une réplique et attend la sonde de disponibilité. Un redémarrage est un arrêt suivi d'un démarrage, pour obtenir une vraie coupure.
+- `smoke.py`, `test-notifications.py`, `test-temporal.py` et `cleanup-test-data.py` passent par ce module. Le destinataire des tests est lu dans le jeton de l'auditeur au lieu d'un identifiant fixe.
+- [scripts/k3s-check.sh](../../../scripts/k3s-check.sh) lance un de ces scripts contre le cluster : `kubectl port-forward` temporaire vers la gateway, comptes de `.local/k3s-demo-accounts.env`, secret du client `remediation-service` lu dans le cluster sans affichage.
+- La CLI Temporal tourne dans un pod éphémère `temporal-cli`, décrit par [deploy/k3s/tools/temporal-cli.yaml](../../../deploy/k3s/tools/temporal-cli.yaml) et supprimé en fin de script. L'image du serveur ne contient pas la CLI.
+- [scripts/smoke-bff.py](../../../scripts/smoke-bff.py) se connecte comme un navigateur par l'origine HTTPS du tailnet : formulaire Keycloak, retour sur `/missions`, session, missions servies par la gateway, déconnexion.
+- Le nettoyage refuse de supprimer des preuves dans k3s : la clé de stockage locale ne doit jamais toucher le bucket du cluster.
+
+Vérifications, le 2026-10-26 :
+
+- Smoke du BFF par l'URL HTTPS du tailnet : connexion OIDC, cookie `__Host-` sécurisé et HttpOnly, en-têtes HSTS, CSP, `X-Content-Type-Options` et `Referrer-Policy`, 40 missions servies au responsable, 401 sans session, session supprimée après déconnexion.
+- Smoke de l'API par la gateway : création, isolation entre comptes, 401 sans jeton ou avec un jeton invalide, refus par rôle, validation, actions correctives réservées à l'audité, compte de service `REMEDIATION_SYNC` sans rôle humain.
+- Pannes Kafka : livraison nominale, rejeu sans doublon, message invalide en DLT puis message suivant livré, reprise après arrêt de notification-service et après arrêt de Kafka avec une notification unique.
+- Pannes Temporal : trois cycles de revue dont un retrait, décisions acceptées pendant l'arrêt du worker, workflow conservé après redémarrage de Temporal, audit-service redémarré pendant l'arrêt de Temporal, rejeu sans nouveau workflow.
+- Nettoyage des six missions de test, sauvegarde privée prise avant suppression. Données de démonstration intactes : 40 missions, dont 7 en attente de revue, et 7 workflows Temporal en cours.
+- Mémoire après les scénarios : 1,58 Gio disponibles sur le nœud, aucun échange en swap, aucun arrêt OOM ni éviction. Keycloak 549 Mio, audit-service 362 Mio, Kafka 323 Mio, gateway 232 Mio, notification-service 207 Mio, remediation-service 201 Mio, PostgreSQL 139 Mio, frontend 124 Mio, Traefik 94 Mio, Temporal 92 Mio. Limites des pods à 79 % de la mémoire allouable, demandes à 58 %.
+- `kubectl top node` affiche 102 % de la mémoire allouable avant les scénarios. Ce chiffre inclut le cache de pages. La mémoire réellement disponible restait de 1,37 Gio.
+
+Limites :
+
+- L'arrêt seul de la base des notifications n'est pas testé : PostgreSQL est partagé dans le cluster. Ce scénario reste couvert en local.
+- Le pic de mémoire pendant les redémarrages n'est pas mesuré, seulement l'état avant et après. La supervision de la phase 6 le suivra.
+- Le chemin Compose des scripts modifiés n'a pas été relancé. Seules la compilation et les tests unitaires des scripts sont vérifiés.
+- Premier essai des pannes Kafka en échec : l'attente d'arrêt visait aussi le pod terminé du Job de migration. Corrigé en ne comptant que les pods actifs, second essai réussi.
+- Images toujours celles de `294a0ff` : le code applicatif est identique à celui de `ddb8cc1`, aucun déploiement n'était utile.
+- Un nouveau redémarrage du nœud a été constaté le 2026-10-26, avant le lot E. Tout est revenu seul. La cause n'est pas établie.
 
 ### Phase 5 : GitOps
 
@@ -480,7 +516,7 @@ Sortie : application servie en HTTPS sur le domaine, aucun port entrant ouvert s
 
 Arrêtée le 2026-10-26 avec l'utilisateur, conformément à ADR-0023 et ADR-0025. Aucun nom public ne sert l'application avant que ces quatre éléments soient vérifiés :
 
-1. HOST-004, lots D et E : connexion de bout en bout, comptes de démonstration et smoke réussi dans le cluster.
+1. HOST-004, lots D et E : connexion de bout en bout, comptes de démonstration et smoke réussi dans le cluster. Vérifié le 2026-10-26.
 2. HOST-008, sécurité C7 : NetworkPolicy autour de la gateway, de PostgreSQL, de Kafka et de Temporal, TLS et authentification de Temporal, console Keycloak refusée sur le nom public, MFA des administrateurs, inscription libre désactivée.
 3. HOST-006 : supervision avec alertes de disponibilité et d'abus.
 4. HOST-007 : sauvegardes hors machine et restauration vérifiée.
@@ -498,7 +534,7 @@ Seule la phase 7 pourrait être reportée, puisque l'instance publique ne porte 
 - Pas de haute disponibilité. Un reboot interrompt le service.
 - Liaison réseau unique et aucune alimentation secourue.
 - Un seul disque, d'où l'obligation de sauvegardes externes.
-- Les budgets mémoire sont des estimations jusqu'aux mesures de la phase 1.
+- Les budgets mémoire sont des estimations jusqu'aux mesures de la phase 1. Mesure du cluster complet au lot E de la phase 4.
 
 ## Vérifications effectuées
 
@@ -513,3 +549,4 @@ Seule la phase 7 pourrait être reportée, puisque l'instance publique ne porte 
 - Phase 3, le 2026-10-25 sur le serveur : couche de données, isolation SQL, redémarrage complet et correctif de Garage. Détails dans l'exécution de la phase 3.
 - Phase 2, le 2026-10-25 sur le serveur : installation de k3s, contrôle des ports depuis le réseau local, pod de test et redémarrage complet. Détails dans l'exécution du 2026-10-25 ci-dessus. Opérateur Tailscale installé, entrée HTTPS testée par le tailnet.
 - TECH-009, le 2026-10-25 sur `main` : CI distante réussie sur `2743acb` après la fusion. Job `verify` et cinq jobs `images` réussis, analyse Trivy bloquante comprise. Aucun job relancé.
+- Phase 4 lot E, le 2026-10-26 sur le serveur : smoke du BFF et de l'API, pannes Kafka et Temporal réussis dans le cluster, nettoyage des données de test, mesure mémoire sans OOM. Détails dans le lot E.
