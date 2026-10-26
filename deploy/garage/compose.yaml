@@ -1,11 +1,24 @@
 name: auditsphere-storage
 services:
+  # Garage n'est publié sur aucun port de l'hôte : seul le proxy TLS le joint, par le réseau du projet.
   garage:
     image: dxflrs/garage:v2.4.1@sha256:9c96caa2612d3411acc5b0e6701fb238dbfba33e533a6d7d3d811a4b12d0d020
     command: [/garage, server, --single-node]
     restart: unless-stopped
-    ports: ["${GARAGE_BIND_IP:?Adresse Tailscale requise}:3900:3900"]
     volumes:
       - ./.local/garage.toml:/etc/garage.toml:ro
       - ./meta:/var/lib/garage/meta
       - ./data:/var/lib/garage/data
+  # HTTPS devant Garage (phase 8, lot E). Certificat Let's Encrypt du nom du tailnet, obtenu et renouvelé
+  # par Tailscale via son socket. Ce socket donne la main sur Tailscale : seule cette image y accède.
+  tls:
+    image: caddy:2.11.6@sha256:3422ce6de165df66534f9b9ba50efaf457114ec961763cc52f5dbdaac2972d73
+    restart: unless-stopped
+    depends_on: [garage]
+    ports: ["${GARAGE_BIND_IP:?Adresse Tailscale de l'hôte requise}:3900:3900"]
+    environment:
+      GARAGE_TLS_NAME: ${GARAGE_TLS_NAME:?Nom du tailnet de l'hôte requis}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy-data:/data
+      - /var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock

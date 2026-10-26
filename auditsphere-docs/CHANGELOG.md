@@ -1,5 +1,13 @@
 # Journal des changements
 
+## 2026-10-26 : Garage en HTTPS et rotation des certificats, phase 8 lot E1
+
+- Garage servi en HTTPS par un proxy Caddy sur l'hôte, avec le certificat du nom du tailnet obtenu auprès de Tailscale, selon ADR-0028. Garage n'est plus publié directement. audit-service et la sauvegarde utilisent le point d'accès HTTPS.
+- Kafka relit son magasin de clés renouvelé par un conteneur `reload` et une reconfiguration dynamique, sans redémarrage.
+- Sonde du PostgreSQL de l'exercice de restauration par TCP, après un échec lié au serveur temporaire de l'initialisation.
+- Lot E découpé : E2 pour le rechargement du certificat client Temporal en Java. Durcissement de Keycloak reporté à la phase 10.
+- Vérifié : HTTPS depuis le poste et les pods, clair refusé, preuves relues, sauvegarde et restauration réussies, certificat Temporal expiré refusé, rotation des certificats serveur sans redémarrage. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-26 : Kafka en SASL_SSL avec ACL dans k3s, phase 8 lot D
 
 - Broker : seule l'écoute SASL_SSL, SCRAM-SHA-512 et certificat de l'autorité interne, est joignable par le réseau. Contrôleur et écoute des outils limités à la boucle locale du pod. Autorisation active, accès anonyme réseau refusé.

@@ -703,6 +703,49 @@ Limites :
 - Une ACL retirée du script n'est pas retirée du cluster. Le script ne fait qu'ajouter.
 - Kafka reste sans réplication : un broker unique, facteur de réplication 1.
 
+#### Lot E1 : Garage en HTTPS et rotation des certificats
+
+Statut : implémenté et vérifié le 2026-10-26, sauf mention contraire.
+
+Le lot E est découpé. E1 ne demande que de la configuration. E2, rechargement à chaud du certificat client Temporal par le code Java, demande une nouvelle image. Le durcissement de Keycloak est reporté à la phase 10 par l'utilisateur, le 2026-10-26 : désactivation du client `auditsphere-demo` et de son accès direct, OTP du super-administrateur, console refusée sur le nom public. Il reste une condition d'ouverture.
+
+Garage en HTTPS, selon [ADR-0028](../decisions/ADR-0028-garage-https-caddy-tailscale.md) :
+
+- [deploy/garage/compose.yaml](../../../deploy/garage/compose.yaml) : Garage n'est plus publié. Le service `tls`, Caddy 2.11.6 épinglé par empreinte, publie le port 3900 sur l'adresse Tailscale de l'hôte et transmet à Garage par le réseau du projet. [deploy/garage/Caddyfile](../../../deploy/garage/Caddyfile) : API d'administration fermée, aucune redirection HTTP.
+- Certificat Let's Encrypt du nom de l'hôte dans le tailnet, obtenu par Caddy auprès de Tailscale. `GARAGE_BIND_IP` et `GARAGE_TLS_NAME` sont dans le `.env` privé de l'hôte.
+- `deploy/garage/backup.sh` archive aussi le Caddyfile.
+- `GARAGE_ENDPOINT` de `.local/k3s.env` et la clé `endpoint` du secret `backup/garage-backup` passent en HTTPS. audit-service est redéployé avec ce point d'accès, sans autre changement.
+- Essai préalable de `tailscale serve`, choix initial : HTTPS fonctionnel depuis le poste, `Connection refused` depuis les pods. Le trafic d'un pod vers l'adresse Tailscale de son hôte ne passe pas par `tailscaled`. `tailscale serve` est désactivé sur ce port.
+
+Rechargement des certificats serveur :
+
+- Kafka : conteneur `reload` dans le pod du broker. Toutes les 60 secondes, il compare l'empreinte du magasin PKCS12. Si elle change, il redéclare `listener.name.sasl_ssl.ssl.keystore.location` par reconfiguration dynamique sur l'écoute locale, ce qui force Kafka à relire le fichier. Mémoire du conteneur limitée à 192 Mio, tas de l'outil à 64 Mio.
+- PostgreSQL : conteneur `reload` du lot C1, inchangé.
+- Temporal : relecture native toutes les 10 minutes, réglée au lot C2.
+
+Vérifications, le 2026-10-26 :
+
+- Depuis le poste : réponse 403 de Garage en HTTPS, chaîne Let's Encrypt `YE1` valide jusqu'en janvier 2027. HTTP clair sur 3900 refusé par une réponse 400. La racine interne seule ne valide pas le certificat, erreur 20 d'OpenSSL.
+- Depuis un pod du namespace `backup` : réponse 403 en HTTPS avec les seules autorités du système, réponse 400 en clair.
+- Preuves témoins relues par la gateway après la bascule : deux sur deux, SHA-256 identique à la base.
+- Jeu de sauvegarde `20261026T224712Z` produit avec la copie Garage en HTTPS, tiré sur le poste, puis restauration isolée réussie : sept bases, 40 missions, deux preuves sur deux.
+- Certificat client Temporal expiré, CN `temporal-expiry-test` d'une durée d'une heure : connexion coupée par le serveur juste après la négociation. Le certificat d'administration obtient `SERVING` au même moment. Le secret de test est supprimé.
+- Renouvellement forcé à 22:51 UTC des certificats de Kafka, PostgreSQL et Temporal. Certificat servi lu par `openssl s_client` par un `port-forward` : Kafka sert le nouveau numéro de série une minute plus tard, PostgreSQL deux minutes plus tard, sans redémarrage. Temporal sert le sien trois minutes plus tard, par sa relecture périodique. Aucun conteneur redémarré pendant la rotation : les derniers redémarrages datent du redémarrage de l'hôte.
+- Test des notifications réussi pendant la rotation : livraison, rejeu sans doublon, reprise. Après la rotation : test Temporal réussi, trois cycles dont un retrait et un rejeu, smoke de l'API réussi, aucune erreur TLS dans les journaux d'audit-service et du worker. Missions de test nettoyées : 40 missions de démonstration, dont 7 en attente de revue.
+
+Incidents :
+
+- Après un redémarrage de l'hôte par l'utilisateur, le conteneur Caddy a démarré avant l'adresse Tailscale. Docker l'a laissé en marche sans réseau ni port publié, sans erreur visible. Recréé à la main, il fonctionne. Correctif choisi par l'utilisateur et appliqué par lui avec sudo, le 2026-10-27 : `net.ipv4.ip_nonlocal_bind = 1` dans un fichier de `/etc/sysctl.d`. Docker peut alors publier le port avant que Tailscale attribue l'adresse. Valeur active et fichier présents, vérifiés par SSH. Non vérifié : retour seul de Caddy après un redémarrage de l'hôte.
+- L'exercice de restauration a échoué une fois sur `createdb` : la sonde de disponibilité du PostgreSQL de test passait par le socket, où répond aussi le serveur temporaire de l'initialisation. Elle passe désormais par TCP, et l'exercice suivant a réussi.
+
+Limites :
+
+- ADR-0027 prévoyait une copie à froid complète de Garage par `backup.sh` avant ce passage. Elle n'a pas été faite. Les volumes de Garage n'ont pas été modifiés, et la copie à chaud des objets est dans le dépôt restic du poste.
+- Le conteneur Caddy accède au socket de `tailscaled`, donc à la configuration Tailscale de l'hôte.
+- `ip_nonlocal_bind` vaut pour tout l'hôte : n'importe quel processus peut écouter sur une adresse que la machine n'a pas encore. Aucun autre service de l'hôte n'en dépend à ce jour.
+- Le client Java de Temporal garde son certificat jusqu'au redémarrage du pod, à traiter au lot E2.
+- Revue des critères de sortie d'ADR-0020 à faire. Le critère de supervision dépend de la phase 6.
+
 ### Phase 9 : extension
 
 - Second nœud agent k3s joint par Tailscale, puis HPA si une mesure le justifie.
@@ -772,5 +815,6 @@ Seule la phase 7 pourrait être reportée, puisque l'instance publique ne porte 
 - Phase 7, le 2026-10-26 sur le serveur et le poste : dumps et copie Garage, tirage restic chiffré sur le poste, restauration isolée réussie avec contrôle d'empreinte des preuves. Détails dans l'exécution de la phase 7.
 - Phase 8 lot D, le 2026-10-26 sur le serveur : Kafka en SASL_SSL, un compte SCRAM et des ACL par service, refus du clair, d'un mauvais mot de passe, d'un nom faux et des topics non autorisés. Pannes Kafka, DLT et smoke réussis. Détails dans le lot D.
 - Phase 8 lot C2, le 2026-10-26 sur le serveur : Temporal en mTLS, certificat client par appelant, refus du clair, de l'absence de certificat, d'un nom faux et d'un certificat à usage serveur. Pannes Temporal et smokes réussis, aucun workflow perdu. Détails dans le lot C2.
+- Phase 8 lot E1, le 2026-10-26 sur le serveur et le poste : Garage en HTTPS joint depuis le poste et les pods, clair refusé, preuves relues, sauvegarde et restauration réussies, certificat Temporal expiré refusé, rotation des certificats de Kafka, PostgreSQL et Temporal sans redémarrage. Détails dans le lot E1.
 - Phase 8 lot C1, le 2026-10-26 sur le serveur : PostgreSQL en TLS vérifié pour tous ses clients, clair refusé, smokes, pannes, sauvegarde et restauration réussis. Détails dans le lot C1.
 - Phase 8 lot B, le 2026-10-26 sur le serveur : cert-manager installé, autorité intermédiaire chargée par l'utilisateur, certificat de test émis et vérifié jusqu'à la racine hors ligne, mémoire mesurée. Détails dans le lot B.
