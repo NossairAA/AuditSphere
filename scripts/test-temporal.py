@@ -1,23 +1,22 @@
 #!/usr/bin/env python3
 """Verify durable review delivery with real JWTs. --faults stops and restores local services."""
 import argparse, base64, json, subprocess, time, urllib.request, urllib.error, urllib.parse, uuid
-from pathlib import Path
-root = Path(__file__).resolve().parents[1]
-env = dict(line.split('=', 1) for line in (root/'.env').read_text().splitlines() if '=' in line)
+import target
+root = target.ROOT
 parser = argparse.ArgumentParser()
 parser.add_argument('--faults', action='store_true')
 args = parser.parse_args()
-base = 'http://localhost:8080'
+base = target.API_BASE
 
-def compose(*command):
-    subprocess.run(['docker','compose',*command],cwd=root,check=True,stdout=subprocess.DEVNULL)
+def compose(command, service):
+    {'stop': target.stop, 'start': target.start, 'restart': target.restart}[command](service)
 
 def sql(query):
-    return subprocess.check_output(['docker','compose','exec','-T','audit-db','psql','-X','-At','-v','ON_ERROR_STOP=1','-U','audit_admin','-d','audit','-c',query],cwd=root,text=True).strip()
+    return target.sql('audit', query)
 
 def token(name):
-    body=urllib.parse.urlencode({'client_id':'auditsphere-demo','grant_type':'password','username':name,'password':env[name.upper()+'_PASSWORD']}).encode()
-    with urllib.request.urlopen('http://localhost:8180/realms/auditsphere/protocol/openid-connect/token',data=body,timeout=10) as r:
+    body=urllib.parse.urlencode({'client_id':'auditsphere-demo','grant_type':'password','username':name,'password':target.secret(name.upper()+'_PASSWORD')}).encode()
+    with urllib.request.urlopen(target.TOKEN_URL,data=body,timeout=10) as r:
         return json.load(r)['access_token']
 
 def request(path, bearer=None, body=None, method=None):
@@ -28,7 +27,7 @@ def request(path, bearer=None, body=None, method=None):
             return r.status,json.load(r)
     except urllib.error.HTTPError as e: return e.code,{}
 
-def wait(check, label, seconds=120):
+def wait(check, label, seconds=target.WAIT):
     end=time.monotonic()+seconds
     while time.monotonic()<end:
         try:
@@ -38,7 +37,7 @@ def wait(check, label, seconds=120):
     raise AssertionError('Timeout: '+label)
 
 def describe(cycle):
-    out=subprocess.check_output(['docker','compose','exec','-T','temporal','temporal','workflow','describe','--workflow-id','mission-review-'+cycle,'--output','json'],cwd=root,stderr=subprocess.DEVNULL,text=True)
+    out=target.temporal('workflow','describe','--workflow-id','mission-review-'+cycle,'--output','json').stdout
     return json.loads(out)
 
 def info(cycle): return describe(cycle)['workflowExecutionInfo']
@@ -46,7 +45,7 @@ def info(cycle): return describe(cycle)['workflowExecutionInfo']
 def completed(cycle): return info(cycle)['status']=='WORKFLOW_EXECUTION_STATUS_COMPLETED'
 
 def result(cycle):
-    raw=subprocess.check_output(['docker','compose','exec','-T','temporal','temporal','workflow','show','--workflow-id','mission-review-'+cycle,'--output','json'],cwd=root,text=True,stderr=subprocess.DEVNULL)
+    raw=target.temporal('workflow','show','--workflow-id','mission-review-'+cycle,'--output','json').stdout
     events=json.loads(raw)['events']
     end=next(e for e in events if e['eventType']=='EVENT_TYPE_WORKFLOW_EXECUTION_COMPLETED')
     payload=end['workflowExecutionCompletedEventAttributes']['result']['payloads'][0]['data']
