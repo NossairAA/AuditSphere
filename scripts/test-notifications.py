@@ -88,12 +88,12 @@ if args.faults:
                'recipientSubject': recipient, 'aggregateVersion': 0,
                'occurredAt': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}
     records = poison_key + ':invalid-json\n' + poison_key + ':' + json.dumps(barrier) + '\n'
-    target.kafka('kafka-console-producer.sh', '--bootstrap-server', 'localhost:9092',
+    target.kafka('kafka-console-producer.sh', '--bootstrap-server', target.KAFKA_BOOTSTRAP,
                  '--topic', 'audit.mission.assigned.v1', '--property', 'parse.key=true',
                  '--property', 'key.separator=:', input=records)
     try:
         wait(lambda: count(poison_mission) == 1, 'valid record after poison record')
-        quarantined = target.kafka('kafka-console-consumer.sh', '--bootstrap-server', 'localhost:9092',
+        quarantined = target.kafka('kafka-console-consumer.sh', '--bootstrap-server', target.KAFKA_BOOTSTRAP,
                         '--topic', 'audit.mission.assigned.v1.DLT', '--from-beginning',
                         '--timeout-ms', '10000', '--property', 'print.key=true', check=False)
         assert poison_key + '\tinvalid-json' in quarantined.stdout, 'Poison record not confirmed in DLT'

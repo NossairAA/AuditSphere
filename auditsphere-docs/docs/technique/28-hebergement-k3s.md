@@ -261,7 +261,7 @@ Statut : implémentée et vérifiée le 2026-10-25. Manifestes dans [deploy/k3s/
 
 - `postgres.yaml` : PostgreSQL 17.9 en StatefulSet, volume local-path de 10 Gio, mémoire limitée à 256 Mio, `shared_buffers` à 32 Mo, 80 connexions au plus, utilisateur non root.
 - `postgres-bootstrap.yaml` : Job idempotent qui crée sept bases et leurs rôles. Pour audit, notification, remediation et web : un rôle de migration propriétaire et un rôle d'exécution qui peut seulement se connecter et utiliser le schéma, avec délais de requête et de verrou. Keycloak et Temporal ont chacun un rôle propriétaire, Temporal possède `temporal` et `temporal_visibility`. Les droits sur les tables viendront après les migrations Flyway, en phase 4.
-- `kafka.yaml` : Kafka 4.0.2 à un broker KRaft, tas de 256 Mio, conservation de sept jours et de 256 Mio au plus par partition. Un Job crée les huit topics de `compose.yaml`. `enableServiceLinks` est désactivé : Kubernetes injecte sinon des variables `KAFKA_*` pour le service `kafka`, que l'image lirait comme des réglages du broker.
+- `kafka.yaml` : Kafka 4.0.2 à un broker KRaft, tas de 256 Mio, conservation de sept jours et de 256 Mio au plus par partition. Un Job crée les huit topics de `compose.yaml`, remplacé au lot D de la phase 8 par `scripts/k3s-kafka-security.sh`. `enableServiceLinks` est désactivé : Kubernetes injecte sinon des variables `KAFKA_*` pour le service `kafka`, que l'image lirait comme des réglages du broker.
 - `temporal.yaml` : Temporal 1.32.1 en processus unique, persistant dans PostgreSQL, sans mode start-dev. Un Job pose et met à jour les schémas avec `temporal-sql-tool`, un autre crée le namespace `default` avec sept jours de rétention. Quatre shards d'historique, valeur définitive. L'image attend un fichier de configuration dynamique, fourni vide par une ConfigMap. Sans lui, le serveur s'arrête au démarrage.
 - Mots de passe générés aléatoirement depuis le poste et écrits directement dans les secrets `postgres-superuser` et `postgres-roles`. Ils ne sont ni affichés ni versionnés.
 
@@ -672,6 +672,37 @@ Limites :
 - Le client Java charge ses certificats au démarrage. Un renouvellement demande un redémarrage du pod, à traiter au lot E.
 - mTLS authentifie l'appelant mais ne restreint pas ses droits : tout certificat client de l'autorité interne est admis. Une autorisation par nom de certificat reste à décider.
 
+#### Lot D : Kafka en SASL_SSL avec ACL
+
+Statut : implémenté et vérifié le 2026-10-26.
+
+- [deploy/k3s/data/kafka.yaml](../../../deploy/k3s/data/kafka.yaml) : seule l'écoute `SASL_SSL` sur 9092 est joignable par le réseau, avec SCRAM-SHA-512 et un certificat de l'autorité interne. Magasin de clés PKCS12 produit par cert-manager, mot de passe dans `kafka-keystore-password`. L'image exige ces fichiers dans `/etc/kafka/secrets` dès qu'une écoute annoncée utilise SSL.
+- Le contrôleur, 9093, et une écoute locale des outils, 9094, n'écoutent que sur `127.0.0.1`. Leur principal `ANONYMOUS` est le seul super-utilisateur : seuls les processus du pod l'obtiennent, par `kubectl exec`. La sonde de vie passe de 9093 à 9092.
+- `StandardAuthorizer`, `allow.everyone.if.no.acl.found` à faux, création automatique des topics toujours désactivée.
+- [scripts/k3s-kafka-security.sh](../../../scripts/k3s-kafka-security.sh) remplace le Job `kafka-topics` : topics, comptes SCRAM, ACL et secrets `kafka-audit-service` et `kafka-notification-service`, de façon idempotente. Les mots de passe passent par l'entrée standard et ne sont jamais affichés.
+- ACL : audit-service écrit et décrit ses quatre topics, sans rien lire. notification-service lit les affectations et les demandes de revue, lit son groupe `notification-service-v1` et écrit leurs deux DLT. Les topics de constats n'ont aucun lecteur.
+- Clients Spring : `SPRING_KAFKA_PROPERTIES_*` pour le protocole, le mécanisme et le magasin de confiance PEM, ligne JAAS lue dans le secret. La liaison de ces variables vers les clés `security.protocol` et voisines a été vérifiée avec le `Binder` de Spring Boot 4.0.9 avant la bascule.
+- Scripts de vérification : `target.KAFKA_BOOTSTRAP` vaut `localhost:9094` dans k3s et reste `localhost:9092` pour Compose.
+
+Bascule : jeu de sauvegarde `20261026T185715Z` tiré sur le poste, outbox vides, broker redémarré en SASL_SSL, comptes et ACL posés, puis audit-service et notification-service redéployés.
+
+Vérifications, le 2026-10-26 :
+
+- Broker démarré avec l'autorisation active. Aucune erreur Kafka dans les journaux des deux services. Groupe `notification-service-v1` reconnecté, retard nul sur les six partitions.
+- Depuis un pod de test admis par la règle réseau mais jamais prêt, donc hors du service : connexion en clair rejetée à la négociation TLS, mauvais mot de passe refusé par SCRAM, connexion par adresse IP refusée sur le nom du certificat.
+- Avec le compte de notification-service : seuls ses topics sont visibles, écriture sur `audit.mission.assigned.v1` et lecture de `audit.mission.findings-issued.v1` refusées par `TopicAuthorizationException`.
+- Le client en clair échoue par manque de mémoire : il lit la réponse TLS comme une taille de message. Le broker journalise `Failed authentication ... (SSL handshake failed)`.
+- Pannes Kafka réussies sous SASL_SSL : rejeu sans doublon, message invalide mis en DLT puis message suivant livré, reprise après arrêt de notification-service et de Kafka. Smoke de l'API réussi.
+- Quatre missions de test nettoyées, 40 missions de démonstration intactes, dont 7 en attente de revue. Mémoire du nœud : 78 %, Kafka à 376 Mio sur 512.
+
+Incident : au premier passage du script, `kafka-configs` a refusé la clé `SCRAM-SHA-512` lue depuis un fichier, et son message d'erreur a recopié le mot de passe généré pour audit-service dans la sortie. Ce compte n'avait pas encore été créé. Le secret a été supprimé puis régénéré. Le script passe désormais le mot de passe par l'entrée standard et masque les erreurs de l'outil.
+
+Limites :
+
+- Le broker ne relit pas son magasin de clés quand cert-manager le renouvelle. Un redémarrage ou une reconfiguration dynamique est nécessaire, à traiter au lot E.
+- Une ACL retirée du script n'est pas retirée du cluster. Le script ne fait qu'ajouter.
+- Kafka reste sans réplication : un broker unique, facteur de réplication 1.
+
 ### Phase 9 : extension
 
 - Second nœud agent k3s joint par Tailscale, puis HPA si une mesure le justifie.
@@ -704,7 +735,7 @@ Sortie : application servie en HTTPS sur le domaine, aucun port entrant ouvert s
 Arrêtée le 2026-10-26 avec l'utilisateur, conformément à ADR-0023 et ADR-0025. Aucun nom public ne sert l'application avant que ces quatre éléments soient vérifiés :
 
 1. HOST-004, lots D et E : connexion de bout en bout, comptes de démonstration et smoke réussi dans le cluster. Vérifié le 2026-10-26.
-2. HOST-008, sécurité C7 : NetworkPolicy autour de la gateway, de PostgreSQL, de Kafka et de Temporal, vérifiées le 2026-10-26 au lot A, TLS et authentification de Temporal, vérifiés le 2026-10-26 au lot C2, console Keycloak refusée sur le nom public, MFA des administrateurs, inscription libre désactivée.
+2. HOST-008, sécurité C7 : Kafka en SASL_SSL avec ACL, vérifié le 2026-10-26 au lot D, NetworkPolicy autour de la gateway, de PostgreSQL, de Kafka et de Temporal, vérifiées le 2026-10-26 au lot A, TLS et authentification de Temporal, vérifiés le 2026-10-26 au lot C2, console Keycloak refusée sur le nom public, MFA des administrateurs, inscription libre désactivée.
 3. HOST-006 : supervision avec alertes de disponibilité et d'abus.
 4. HOST-007 : sauvegardes hors machine et restauration vérifiée.
 
@@ -739,6 +770,7 @@ Seule la phase 7 pourrait être reportée, puisque l'instance publique ne porte 
 - Phase 4 lot E, le 2026-10-26 sur le serveur : smoke du BFF et de l'API, pannes Kafka et Temporal réussis dans le cluster, nettoyage des données de test, mesure mémoire sans OOM. Détails dans le lot E.
 - Phase 8 lot A, le 2026-10-26 sur le serveur : NetworkPolicy en entrée, refus constatés depuis des pods non autorisés, smoke et pannes Kafka réussis sous les règles, pannes Temporal réussies au second essai après un 503 isolé. Détails dans le lot A.
 - Phase 7, le 2026-10-26 sur le serveur et le poste : dumps et copie Garage, tirage restic chiffré sur le poste, restauration isolée réussie avec contrôle d'empreinte des preuves. Détails dans l'exécution de la phase 7.
+- Phase 8 lot D, le 2026-10-26 sur le serveur : Kafka en SASL_SSL, un compte SCRAM et des ACL par service, refus du clair, d'un mauvais mot de passe, d'un nom faux et des topics non autorisés. Pannes Kafka, DLT et smoke réussis. Détails dans le lot D.
 - Phase 8 lot C2, le 2026-10-26 sur le serveur : Temporal en mTLS, certificat client par appelant, refus du clair, de l'absence de certificat, d'un nom faux et d'un certificat à usage serveur. Pannes Temporal et smokes réussis, aucun workflow perdu. Détails dans le lot C2.
 - Phase 8 lot C1, le 2026-10-26 sur le serveur : PostgreSQL en TLS vérifié pour tous ses clients, clair refusé, smokes, pannes, sauvegarde et restauration réussis. Détails dans le lot C1.
 - Phase 8 lot B, le 2026-10-26 sur le serveur : cert-manager installé, autorité intermédiaire chargée par l'utilisateur, certificat de test émis et vérifié jusqu'à la racine hors ligne, mémoire mesurée. Détails dans le lot B.

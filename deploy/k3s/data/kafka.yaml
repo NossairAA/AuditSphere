@@ -1,4 +1,51 @@
 # Kafka à un broker KRaft (ADR-0023, phase 3). Même image et mêmes topics que compose.yaml.
+# Phase 8, lot D : SASL_SSL avec SCRAM-SHA-512 et ACL par service. Topics, comptes et ACL sont posés par
+# scripts/k3s-kafka-security.sh. Le secret kafka-keystore-password est créé par ce script, hors dépôt.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kafka-tls
+  namespace: data
+spec:
+  secretName: kafka-tls
+  issuerRef:
+    name: auditsphere-internal-ca
+    kind: ClusterIssuer
+  dnsNames:
+    - kafka
+    - kafka.data
+    - kafka.data.svc
+    - kafka.data.svc.cluster.local
+    - kafka-0.kafka.data.svc.cluster.local
+  duration: 2160h
+  renewBefore: 720h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  usages:
+    - server auth
+  # L'image attend un magasin de clés et son mot de passe dans des fichiers.
+  keystores:
+    pkcs12:
+      create: true
+      profile: Modern2023
+      passwordSecretRef:
+        name: kafka-keystore-password
+        key: password
+---
+# Côté serveur, SCRAM ne demande aucun secret : les empreintes des mots de passe sont dans les métadonnées KRaft.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-jaas
+  namespace: data
+data:
+  server.jaas: |
+    KafkaServer {
+      org.apache.kafka.common.security.scram.ScramLoginModule required;
+    };
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -45,14 +92,36 @@ spec:
               value: "1"
             - name: KAFKA_PROCESS_ROLES
               value: broker,controller
+            # Seul SASL_SSL écoute sur le réseau. Le contrôleur et l'écoute locale des outils n'acceptent que
+            # la boucle locale du pod : leur principal ANONYMOUS est super-utilisateur, sans accès réseau.
             - name: KAFKA_LISTENERS
-              value: PLAINTEXT://:9092,CONTROLLER://:9093
+              value: SASL_SSL://:9092,CONTROLLER://127.0.0.1:9093,LOCAL://127.0.0.1:9094
             - name: KAFKA_ADVERTISED_LISTENERS
-              value: PLAINTEXT://kafka.data.svc.cluster.local:9092
+              value: SASL_SSL://kafka.data.svc.cluster.local:9092,LOCAL://127.0.0.1:9094
             - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
-              value: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+              value: CONTROLLER:PLAINTEXT,LOCAL:PLAINTEXT,SASL_SSL:SASL_SSL
             - name: KAFKA_CONTROLLER_LISTENER_NAMES
               value: CONTROLLER
+            - name: KAFKA_INTER_BROKER_LISTENER_NAME
+              value: LOCAL
+            - name: KAFKA_SASL_ENABLED_MECHANISMS
+              value: SCRAM-SHA-512
+            - name: KAFKA_AUTHORIZER_CLASS_NAME
+              value: org.apache.kafka.metadata.authorizer.StandardAuthorizer
+            - name: KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND
+              value: "false"
+            - name: KAFKA_SUPER_USERS
+              value: User:ANONYMOUS
+            - name: KAFKA_OPTS
+              value: -Djava.security.auth.login.config=/etc/kafka/jaas/server.jaas
+            - name: KAFKA_SSL_KEYSTORE_TYPE
+              value: PKCS12
+            - name: KAFKA_SSL_KEYSTORE_FILENAME
+              value: keystore.p12
+            - name: KAFKA_SSL_KEYSTORE_CREDENTIALS
+              value: keystore-password
+            - name: KAFKA_SSL_KEY_CREDENTIALS
+              value: keystore-password
             - name: KAFKA_CONTROLLER_QUORUM_VOTERS
               value: 1@localhost:9093
             - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
@@ -87,7 +156,7 @@ spec:
             periodSeconds: 10
           livenessProbe:
             tcpSocket:
-              port: 9093
+              port: 9092
             initialDelaySeconds: 60
             periodSeconds: 20
           resources:
@@ -103,6 +172,30 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/kafka/data
+            - name: secrets
+              mountPath: /etc/kafka/secrets
+              readOnly: true
+            - name: jaas
+              mountPath: /etc/kafka/jaas
+              readOnly: true
+      volumes:
+        - name: secrets
+          projected:
+            defaultMode: 0440
+            sources:
+              - secret:
+                  name: kafka-tls
+                  items:
+                    - key: keystore.p12
+                      path: keystore.p12
+              - secret:
+                  name: kafka-keystore-password
+                  items:
+                    - key: password
+                      path: keystore-password
+        - name: jaas
+          configMap:
+            name: kafka-jaas
   volumeClaimTemplates:
     - metadata:
         name: data
@@ -112,46 +205,3 @@ spec:
         resources:
           requests:
             storage: 10Gi
----
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: kafka-topics
-  namespace: data
-spec:
-  backoffLimit: 5
-  ttlSecondsAfterFinished: 3600
-  template:
-    spec:
-      restartPolicy: OnFailure
-      enableServiceLinks: false
-      securityContext:
-        runAsUser: 1000
-        runAsGroup: 1000
-        runAsNonRoot: true
-        seccompProfile:
-          type: RuntimeDefault
-      containers:
-        - name: topics
-          image: apache/kafka:4.0.2@sha256:836cafdad9f4825880d7cf1d5a21202915ae2527bd0ef1c3600c526ed7814d1f
-          command:
-            - sh
-            - -ec
-            - |
-              bootstrap=kafka.data.svc.cluster.local:9092
-              until /opt/kafka/bin/kafka-topics.sh --bootstrap-server "$bootstrap" --list >/dev/null 2>&1; do sleep 3; done
-              for topic in audit.mission.assigned.v1 audit.mission.review-requested.v1 audit.mission.findings-issued.v1 audit.mission.findings-withdrawn.v1 audit.mission.assigned.v1.DLT audit.mission.review-requested.v1.DLT audit.mission.findings-issued.v1.DLT audit.mission.findings-withdrawn.v1.DLT
-              do
-                /opt/kafka/bin/kafka-topics.sh --bootstrap-server "$bootstrap" --create --if-not-exists --topic "$topic" --partitions 3 --replication-factor 1 --config retention.ms=604800000
-              done
-              /opt/kafka/bin/kafka-topics.sh --bootstrap-server "$bootstrap" --list
-          env:
-            - name: KAFKA_HEAP_OPTS
-              value: -Xmx128m
-          resources:
-            limits:
-              memory: 256Mi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: [ALL]

@@ -13,8 +13,14 @@ env:
   DB_URL: jdbc:postgresql://postgres.data.svc.cluster.local:5432/notification?sslmode=verify-full&sslrootcert=/etc/auditsphere/ca/ca.crt
   DB_USER: notification_runtime
   KAFKA_BOOTSTRAP_SERVERS: kafka.data.svc.cluster.local:9092
+  # SASL_SSL avec SCRAM-SHA-512 et TLS vérifié contre la racine hors ligne (phase 8, lot D).
+  SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL: SASL_SSL
+  SPRING_KAFKA_PROPERTIES_SASL_MECHANISM: SCRAM-SHA-512
+  SPRING_KAFKA_PROPERTIES_SSL_TRUSTSTORE_TYPE: PEM
+  SPRING_KAFKA_PROPERTIES_SSL_TRUSTSTORE_LOCATION: /etc/auditsphere/ca/ca.crt
 secretEnv:
   - {name: DB_PASSWORD, secret: db-credentials, key: notification_runtime}
+  - {name: SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG, secret: kafka-notification-service, key: jaas}
 resources:
   requests:
     cpu: 50m
