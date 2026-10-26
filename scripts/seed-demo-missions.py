@@ -16,8 +16,11 @@ import urllib.parse
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
-MANIFEST = ROOT / '.local' / 'demo-missions-manifest.json'
-BASE = 'http://localhost:8080'
+# Les valeurs par défaut visent la pile locale. Le cluster k3s les remplace par des variables d'environnement.
+MANIFEST = Path(os.environ.get('SEED_MANIFEST', ROOT / '.local' / 'demo-missions-manifest.json'))
+BASE = os.environ.get('SEED_API_BASE', 'http://localhost:8080')
+TOKEN_URL = os.environ.get('SEED_TOKEN_URL', 'http://localhost:8180/realms/auditsphere/protocol/openid-connect/token')
+ACCOUNTS = Path(os.environ.get('SEED_ACCOUNTS_FILE', ROOT / '.env'))
 IDENT = 'auditsphere-demo-expansion-v1'
 
 # title, perimeter, audited process, primary asset, risk themes
@@ -76,7 +79,7 @@ class Client:
     def login(self, name):
         form = urllib.parse.urlencode({'client_id': 'auditsphere-demo', 'grant_type': 'password',
                                        'username': name, 'password': self.passwords[name]}).encode()
-        req = urllib.request.Request('http://localhost:8180/realms/auditsphere/protocol/openid-connect/token',
+        req = urllib.request.Request(TOKEN_URL,
                                      data=form, headers={'Content-Type': 'application/x-www-form-urlencoded'})
         try:
             with urllib.request.urlopen(req, timeout=15) as response:
@@ -120,7 +123,7 @@ class Client:
 def passwords_from_env():
     # This file is local and ignored by Git. Never print values or HTTP response bodies.
     values = {}
-    for line in (ROOT / '.env').read_text().splitlines():
+    for line in ACCOUNTS.read_text().splitlines():
         if '=' in line and not line.lstrip().startswith('#'):
             key, value = line.split('=', 1)
             values[key] = value.strip().strip('"').strip("'")
@@ -289,8 +292,8 @@ def main():
         print(f'Plan synthétique : 40 missions, 120 risques, 160 contrôles. Scénarios : {counts}.')
         print('Aucune écriture. Exécuter avec --apply après sauvegarde et préflight.')
         return
-    if not (ROOT / '.env').exists():
-        raise ApiError('.env local absent')
+    if not ACCOUNTS.exists():
+        raise ApiError('Fichier des comptes absent')
     if MANIFEST.exists():
         state = json.loads(MANIFEST.read_text())
         if state.get('seedId') != IDENT or not isinstance(state.get('missions'), dict):

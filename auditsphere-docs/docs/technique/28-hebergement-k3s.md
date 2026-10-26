@@ -376,6 +376,46 @@ Limites :
 - Traefik voit l'adresse du proxy Tailscale, pas celle de l'utilisateur. La limitation de débit s'applique donc à tous les utilisateurs ensemble.
 - Le renvoi DNS couvre tout `ts.net`, pas seulement le tailnet, pour ne pas versionner son nom.
 
+#### Lot D : Keycloak, comptes de démonstration et données
+
+Statut : implémenté et vérifié le 2026-10-26.
+
+- [scripts/k3s-setup-keycloak.py](../../../scripts/k3s-setup-keycloak.py) configure Keycloak de façon idempotente par l'origine HTTPS du tailnet. Il lit les secrets dans le cluster et n'affiche aucune valeur secrète.
+- Automatisation : client `k3s-provisioner` du royaume `master`, par identifiants client, secret dans `keycloak-provisioner`. Il remplace l'administrateur d'amorçage, supprimé au premier passage.
+- Administration humaine : compte `kc-admin`, OTP exigé à la première connexion.
+- Royaume `auditsphere` : rôles, client `auditsphere-web` en code avec PKCE, clients serveur annuaire, gestion des utilisateurs et `remediation-service` avec les secrets déjà montés dans les pods. Aucun redéploiement n'est nécessaire.
+- Six comptes synthétiques : manager, auditor, outsider, validator, superadmin et auditee. Mots de passe dans `.local/k3s-demo-accounts.env`, ignoré par Git, en mode 600.
+- Client public `auditsphere-demo` avec mot de passe direct, pour le peuplement et le smoke, sur le tailnet seulement.
+- Protection contre la force brute, journal des événements, rotation des refresh tokens, inscription libre désactivée, HTTPS exigé partout.
+- `scripts/seed-demo-missions.py` accepte désormais `SEED_API_BASE`, `SEED_TOKEN_URL`, `SEED_ACCOUNTS_FILE` et `SEED_MANIFEST`. Les valeurs par défaut restent celles de la pile locale. La gateway est jointe par un `kubectl port-forward` temporaire.
+
+Vérifications :
+
+- Second passage du script idempotent, par le client d'automatisation.
+- Un compte de service obtient un jeton par l'adresse interne HTTP malgré `sslRequired` à `all`.
+- Après redémarrage de Keycloak, le royaume `master` ne contient que `kc-admin` : l'administrateur d'amorçage n'est pas recréé.
+- Jetons de démonstration avec l'émetteur HTTPS attendu, l'audience `auditsphere-api` et les rôles attendus. La gateway sert les missions. Les actions correctives répondent 403 au responsable et à l'auditeur, 200 à l'audité.
+- Connexion complète simulée comme un navigateur : page de Keycloak, retour sur `/missions`, cookie `__Host-` de session, `/api/session` qui renvoie le compte attendu.
+- 40 missions synthétiques créées, tous statuts couverts. Le validateur reçoit ses notifications par Kafka. Temporal compte sept revues en cours, une par mission en attente de revue.
+
+À faire avant toute ouverture publique, en phase 8 :
+
+- Désactiver `auditsphere-demo` et le mot de passe direct.
+- Exiger l'OTP du compte `superadmin`. Il n'est pas exigé maintenant pour garder les tests par mot de passe.
+- Refuser la console d'administration sur le nom public.
+
+Incident du 2026-10-26 :
+
+- L'hôte s'est arrêté sans extinction propre, puis a été rallumé par l'utilisateur. La batterie indique 0 % et ne charge pas : elle ne protège plus contre une coupure.
+- Tout est revenu seul : nœud, 14 pods, Garage publié. Les données étaient intactes, ce qui confirme les essais de redémarrage des phases 2 et 3.
+- La cause exacte n'est pas établie : le journal système de l'hôte n'est lisible qu'avec `sudo`.
+
+Publication GHCR après la recréation du dépôt, le 2026-10-26 :
+
+- Le run de `main` sur `ddb8cc1` réussit la vérification et l'analyse des images, puis échoue à la publication avec `permission_denied: write_package` pour les cinq images.
+- Les paquets `auditsphere-*` restent liés à l'ancien dépôt. Le jeton du nouveau dépôt n'y a pas accès en écriture.
+- Correctif, à faire par l'utilisateur dans les réglages de chaque paquet : donner au dépôt l'accès en écriture aux actions, puis relancer les jobs échoués. Le cluster utilise toujours les images du commit `294a0ff`, déjà publiées.
+
 ### Phase 5 : GitOps
 
 - Argo CD en installation minimale, sans Dex, notifications ni ApplicationSet. Interface démarrée à la demande.
@@ -435,6 +475,23 @@ Mise en œuvre, après les phases 4, 6, 7 et 8 :
 - Keycloak : inscription désactivée, détection de force brute, MFA pour les administrateurs.
 
 Sortie : application servie en HTTPS sur le domaine, aucun port entrant ouvert sur l'hôte ni sur la box, gateway et services internes injoignables depuis Internet, console Keycloak refusée sur le nom public.
+
+#### Condition d'ouverture
+
+Arrêtée le 2026-10-26 avec l'utilisateur, conformément à ADR-0023 et ADR-0025. Aucun nom public ne sert l'application avant que ces quatre éléments soient vérifiés :
+
+1. HOST-004, lots D et E : connexion de bout en bout, comptes de démonstration et smoke réussi dans le cluster.
+2. HOST-008, sécurité C7 : NetworkPolicy autour de la gateway, de PostgreSQL, de Kafka et de Temporal, TLS et authentification de Temporal, console Keycloak refusée sur le nom public, MFA des administrateurs, inscription libre désactivée.
+3. HOST-006 : supervision avec alertes de disponibilité et d'abus.
+4. HOST-007 : sauvegardes hors machine et restauration vérifiée.
+
+Ordre retenu : lots D et E, puis phases 8, 6, 7 et 10.
+
+Préparation possible sans attendre, par l'utilisateur : délégation DNS du domaine à Cloudflare, après recopie des enregistrements existants, et création du tunnel sans nom public.
+
+Décision restant à prendre avant l'ouverture : ce qu'un visiteur anonyme peut faire, par exemple un compte de démonstration en lecture seule.
+
+Seule la phase 7 pourrait être reportée, puisque l'instance publique ne porte que des données de démonstration. Ce report exigerait un amendement d'ADR-0025. Les phases 6 et 8 ne sont pas négociables.
 
 ## Limites connues
 
