@@ -36,6 +36,11 @@ internalCa:
   enabled: false
   configMap: internal-ca
 
+# Certificat client Temporal émis par cert-manager (phase 8, lot C2), monté en /etc/auditsphere/temporal.
+# Vide : connexion en clair. Exige internalCa.enabled pour vérifier le serveur.
+temporalTls:
+  secret: ""
+
 migration:
   enabled: false
   database: ""

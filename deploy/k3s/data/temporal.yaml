@@ -14,6 +14,7 @@ spec:
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
+        fsGroup: 1000
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
@@ -104,6 +105,7 @@ spec:
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
+        fsGroup: 1000
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
@@ -141,6 +143,31 @@ spec:
               value: "true"
             - name: SQL_HOST_NAME
               value: postgres.data.svc.cluster.local
+            # mTLS sur le frontal et le trafic interne (phase 8, lot C2). Certificats relus toutes les 10 minutes.
+            - name: TEMPORAL_TLS_SERVER_CA_CERT
+              value: /etc/auditsphere/ca/ca.crt
+            - name: TEMPORAL_TLS_SERVER_CERT
+              value: /etc/temporal/tls/tls.crt
+            - name: TEMPORAL_TLS_SERVER_KEY
+              value: /etc/temporal/tls/tls.key
+            - name: TEMPORAL_TLS_FRONTEND_CERT
+              value: /etc/temporal/tls/tls.crt
+            - name: TEMPORAL_TLS_FRONTEND_KEY
+              value: /etc/temporal/tls/tls.key
+            # Le modèle de l'image liste deux autorités clientes : la même racine des deux côtés.
+            - name: TEMPORAL_TLS_CLIENT1_CA_CERT
+              value: /etc/auditsphere/ca/ca.crt
+            - name: TEMPORAL_TLS_CLIENT2_CA_CERT
+              value: /etc/auditsphere/ca/ca.crt
+            - name: TEMPORAL_TLS_REQUIRE_CLIENT_AUTH
+              value: "true"
+            # Le trafic interne vise l'adresse du pod : le nom du service est vérifié à la place.
+            - name: TEMPORAL_TLS_INTERNODE_SERVER_NAME
+              value: temporal.data.svc.cluster.local
+            - name: TEMPORAL_TLS_FRONTEND_SERVER_NAME
+              value: temporal.data.svc.cluster.local
+            - name: TEMPORAL_TLS_REFRESH_INTERVAL
+              value: 10m
             # Fixé à la création du cluster Temporal, il ne peut plus changer ensuite.
             - name: NUM_HISTORY_SHARDS
               value: "4"
@@ -181,6 +208,9 @@ spec:
             - name: internal-ca
               mountPath: /etc/auditsphere/ca
               readOnly: true
+            - name: tls
+              mountPath: /etc/temporal/tls
+              readOnly: true
       volumes:
         - name: dynamic-config
           configMap:
@@ -188,6 +218,10 @@ spec:
         - name: internal-ca
           configMap:
             name: internal-ca
+        - name: tls
+          secret:
+            secretName: temporal-server-tls
+            defaultMode: 0440
 ---
 apiVersion: batch/v1
 kind: Job
@@ -203,6 +237,7 @@ spec:
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
+        fsGroup: 1000
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
@@ -220,6 +255,13 @@ spec:
           env:
             - name: TEMPORAL_ADDRESS
               value: temporal.data.svc.cluster.local:7233
+            # mTLS avec le certificat d'administration (phase 8, lot C2).
+            - name: TEMPORAL_TLS_SERVER_CA_CERT_PATH
+              value: /etc/auditsphere/ca/ca.crt
+            - name: TEMPORAL_TLS_CLIENT_CERT_PATH
+              value: /etc/auditsphere/temporal/tls.crt
+            - name: TEMPORAL_TLS_CLIENT_KEY_PATH
+              value: /etc/auditsphere/temporal/tls.key
           resources:
             limits:
               memory: 128Mi
@@ -227,3 +269,18 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
+          volumeMounts:
+            - name: internal-ca
+              mountPath: /etc/auditsphere/ca
+              readOnly: true
+            - name: tls
+              mountPath: /etc/auditsphere/temporal
+              readOnly: true
+      volumes:
+        - name: internal-ca
+          configMap:
+            name: internal-ca
+        - name: tls
+          secret:
+            secretName: temporal-admin-tls
+            defaultMode: 0440

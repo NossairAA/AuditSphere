@@ -1,0 +1,91 @@
+# Certificats du mTLS de Temporal (phase 8, lot C2), émis par l'autorité interne (ADR-0026).
+# Le serveur exige un certificat client de cette autorité avec l'usage client. Un certificat par appelant.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: temporal-server
+  namespace: data
+spec:
+  secretName: temporal-server-tls
+  issuerRef:
+    name: auditsphere-internal-ca
+    kind: ClusterIssuer
+  dnsNames:
+    - temporal
+    - temporal.data
+    - temporal.data.svc
+    - temporal.data.svc.cluster.local
+  duration: 2160h
+  renewBefore: 720h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  # Usage client aussi : le trafic interne du processus présente ce certificat.
+  usages:
+    - server auth
+    - client auth
+---
+# Outils d'administration : Job temporal-namespace et pod de CLI des scripts de vérification.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: temporal-admin
+  namespace: data
+spec:
+  secretName: temporal-admin-tls
+  issuerRef:
+    name: auditsphere-internal-ca
+    kind: ClusterIssuer
+  commonName: temporal-admin
+  duration: 2160h
+  renewBefore: 720h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  usages:
+    - client auth
+---
+# Clé PKCS#8 : seul format lu par le client Java.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: temporal-client-audit-service
+  namespace: auditsphere
+spec:
+  secretName: temporal-client-audit-service
+  issuerRef:
+    name: auditsphere-internal-ca
+    kind: ClusterIssuer
+  commonName: audit-service
+  duration: 2160h
+  renewBefore: 720h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    encoding: PKCS8
+    rotationPolicy: Always
+  usages:
+    - client auth
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: temporal-client-workflow-worker
+  namespace: auditsphere
+spec:
+  secretName: temporal-client-workflow-worker
+  issuerRef:
+    name: auditsphere-internal-ca
+    kind: ClusterIssuer
+  commonName: workflow-worker
+  duration: 2160h
+  renewBefore: 720h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    encoding: PKCS8
+    rotationPolicy: Always
+  usages:
+    - client auth

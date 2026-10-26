@@ -638,7 +638,7 @@ Limites :
 
 #### Lot C2 : Temporal en mTLS
 
-Statut : C2a implémenté et testé localement le 2026-10-26. C2b, configuration du cluster, à faire après la publication des images.
+Statut : implémenté et vérifié le 2026-10-26. C2a, client Java, fusionné par #8, images de `9af0ebb` publiées. C2b, configuration du cluster, appliquée le même jour.
 
 C2a, client Java :
 
@@ -647,16 +647,27 @@ C2a, client Java :
 - La clé doit être au format PKCS#8. Le nom du serveur est vérifié contre l'hôte de `TEMPORAL_TARGET`.
 - `TemporalConnectionTest` : cinq cas, dont un certificat EC généré par `keytool` pendant le test. Aucune clé n'est versionnée.
 
-C2b, prévu :
+C2b, cluster :
 
-- Certificate du serveur Temporal avec usages serveur et client, noms du service. Le trafic interne du processus unique vérifie ce nom au lieu de l'adresse du pod, par `TEMPORAL_TLS_INTERNODE_SERVER_NAME`.
-- Certificat client par appelant : audit-service, workflow-worker, Job `temporal-namespace` et pod de CLI. Clé PKCS#8, usage client seul.
-- `TEMPORAL_TLS_REQUIRE_CLIENT_AUTH` actif. Seuls les certificats de l'autorité interne avec l'usage client sont admis. Le certificat de PostgreSQL, à usage serveur seul, est refusé.
-- La CLI prend `TEMPORAL_TLS_CLIENT_CERT_PATH`, `TEMPORAL_TLS_CLIENT_KEY_PATH` et `TEMPORAL_TLS_SERVER_CA_CERT_PATH`.
+- [deploy/k3s/data/temporal-tls.yaml](../../../deploy/k3s/data/temporal-tls.yaml) : quatre Certificate de l'autorité interne, 90 jours. Serveur Temporal avec usages serveur et client et noms du service. `temporal-admin` pour le Job `temporal-namespace` et le pod de CLI. Un certificat par appelant Java, `audit-service` et `workflow-worker`, clé PKCS#8, usage client seul.
+- Serveur : `TEMPORAL_TLS_REQUIRE_CLIENT_AUTH` actif, racine hors ligne comme seule autorité cliente. Le trafic interne du processus vise l'adresse du pod : `TEMPORAL_TLS_INTERNODE_SERVER_NAME` fait vérifier le nom du service à la place. Certificats relus toutes les 10 minutes par `TEMPORAL_TLS_REFRESH_INTERVAL`.
+- Chart `spring-service` : option `temporalTls.secret`, qui monte le certificat client et définit les trois variables de `TemporalConnection`. Le rendu échoue si `internalCa.enabled` est absent. `fsGroup` à 10001 : les secrets montés en 0440 restent lisibles par le seul processus.
+- Pods Temporal avec `fsGroup` à 1000 pour la même raison. La CLI prend `TEMPORAL_TLS_CLIENT_CERT_PATH`, `TEMPORAL_TLS_CLIENT_KEY_PATH` et `TEMPORAL_TLS_SERVER_CA_CERT_PATH`.
+- `scripts/k3s-check.sh` attend que Temporal réponde au pod de CLI avant de lancer un script.
 
-Vérifications, le 2026-10-26 en local : `./mvnw -B verify` réussi, tests d'intégration compris. Le chemin mTLS complet n'est pas encore vérifié contre un serveur Temporal.
+Bascule : sauvegarde `20261026T153220Z` tirée sur le poste, certificats émis, serveur redémarré en mTLS, puis audit-service et workflow-worker redéployés aussitôt avec l'image `9af0ebb`. Seul changement d'audit-service depuis l'image précédente : C2a.
 
-Limites prévues :
+Vérifications, le 2026-10-26 :
+
+- En local, avant fusion : `./mvnw -B verify` réussi, tests d'intégration compris.
+- Job `temporal-namespace` réussi par mTLS. Aucune erreur TLS dans les journaux de Temporal, d'audit-service et du worker.
+- Depuis le pod de CLI : certificat d'administration admis. Refusés : connexion en clair, TLS sans certificat client, connexion par adresse IP sur le nom du certificat, certificat de PostgreSQL à usage serveur seul.
+- Les premiers essais ont reçu `connection refused` avant toute négociation TLS : délai d'admission réseau d'un nouveau pod, déjà vu aux lots précédents.
+- Pannes Temporal réussies sous mTLS : trois cycles dont un retrait, décision durable, reprise et rejeu. Smoke de l'API et smoke du BFF réussis. Outbox des revues vide après la bascule.
+- Sept workflows de revue en cours, autant que de missions en attente de revue : aucun n'a été perdu. Missions de test nettoyées, 40 missions de démonstration intactes.
+- Mémoire du nœud : 83 %. Aucun pod en échec.
+
+Limites :
 
 - Le client Java charge ses certificats au démarrage. Un renouvellement demande un redémarrage du pod, à traiter au lot E.
 - mTLS authentifie l'appelant mais ne restreint pas ses droits : tout certificat client de l'autorité interne est admis. Une autorisation par nom de certificat reste à décider.
@@ -693,7 +704,7 @@ Sortie : application servie en HTTPS sur le domaine, aucun port entrant ouvert s
 Arrêtée le 2026-10-26 avec l'utilisateur, conformément à ADR-0023 et ADR-0025. Aucun nom public ne sert l'application avant que ces quatre éléments soient vérifiés :
 
 1. HOST-004, lots D et E : connexion de bout en bout, comptes de démonstration et smoke réussi dans le cluster. Vérifié le 2026-10-26.
-2. HOST-008, sécurité C7 : NetworkPolicy autour de la gateway, de PostgreSQL, de Kafka et de Temporal, vérifiées le 2026-10-26 au lot A, TLS et authentification de Temporal, console Keycloak refusée sur le nom public, MFA des administrateurs, inscription libre désactivée.
+2. HOST-008, sécurité C7 : NetworkPolicy autour de la gateway, de PostgreSQL, de Kafka et de Temporal, vérifiées le 2026-10-26 au lot A, TLS et authentification de Temporal, vérifiés le 2026-10-26 au lot C2, console Keycloak refusée sur le nom public, MFA des administrateurs, inscription libre désactivée.
 3. HOST-006 : supervision avec alertes de disponibilité et d'abus.
 4. HOST-007 : sauvegardes hors machine et restauration vérifiée.
 
@@ -728,5 +739,6 @@ Seule la phase 7 pourrait être reportée, puisque l'instance publique ne porte 
 - Phase 4 lot E, le 2026-10-26 sur le serveur : smoke du BFF et de l'API, pannes Kafka et Temporal réussis dans le cluster, nettoyage des données de test, mesure mémoire sans OOM. Détails dans le lot E.
 - Phase 8 lot A, le 2026-10-26 sur le serveur : NetworkPolicy en entrée, refus constatés depuis des pods non autorisés, smoke et pannes Kafka réussis sous les règles, pannes Temporal réussies au second essai après un 503 isolé. Détails dans le lot A.
 - Phase 7, le 2026-10-26 sur le serveur et le poste : dumps et copie Garage, tirage restic chiffré sur le poste, restauration isolée réussie avec contrôle d'empreinte des preuves. Détails dans l'exécution de la phase 7.
+- Phase 8 lot C2, le 2026-10-26 sur le serveur : Temporal en mTLS, certificat client par appelant, refus du clair, de l'absence de certificat, d'un nom faux et d'un certificat à usage serveur. Pannes Temporal et smokes réussis, aucun workflow perdu. Détails dans le lot C2.
 - Phase 8 lot C1, le 2026-10-26 sur le serveur : PostgreSQL en TLS vérifié pour tous ses clients, clair refusé, smokes, pannes, sauvegarde et restauration réussis. Détails dans le lot C1.
 - Phase 8 lot B, le 2026-10-26 sur le serveur : cert-manager installé, autorité intermédiaire chargée par l'utilisateur, certificat de test émis et vérifié jusqu'à la racine hors ligne, mémoire mesurée. Détails dans le lot B.

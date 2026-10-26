@@ -25,6 +25,11 @@ trap cleanup EXIT
 kubectl --namespace data delete pod temporal-cli --ignore-not-found >/dev/null
 kubectl apply -f "$root/deploy/k3s/tools/temporal-cli.yaml" >/dev/null
 kubectl --namespace data wait --for=condition=Ready pod/temporal-cli --timeout=120s >/dev/null
+# Un nouveau pod n'est admis par les règles réseau qu'après quelques secondes.
+for _ in $(seq 30); do
+  kubectl --namespace data exec temporal-cli -- temporal operator cluster health >/dev/null 2>&1 && break
+  sleep 2
+done
 for _ in $(seq 30); do
   curl -fsS "http://127.0.0.1:$port/actuator/health" >/dev/null 2>&1 && break
   sleep 1
