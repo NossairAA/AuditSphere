@@ -477,6 +477,48 @@ Sortie : une alerte de test reçue, une requête tracée de la gateway au servic
 
 Sortie : restauration complète réussie et datée. Cette phase est prioritaire, car le serveur n'a aucune protection électrique.
 
+#### Exécution du 2026-10-26
+
+Statut : implémenté et vérifié le 2026-10-26, sortie de phase atteinte. Agent launchd du poste non encore installé. Décision : [ADR-0027](../decisions/ADR-0027-sauvegardes-tirees-par-le-poste.md), le poste tire les sauvegardes et Garage est copié à chaud par S3. La phase 7 est avancée avant le lot C de la phase 8, choix de l'utilisateur.
+
+Serveur, [deploy/k3s/backup/backup.yaml](../../../deploy/k3s/backup/backup.yaml) :
+
+- Namespace `backup` au niveau Pod Security `restricted`, refus par défaut des entrées, volume local-path de 5 Gio.
+- CronJob `backup` chaque jour à 2 h 30 UTC, une exécution à la fois, 30 minutes au plus. Premier conteneur : `pg_dump` au format personnalisé de chaque base, rôles sans mots de passe, fichier `SHA256SUMS`. Le jeu est écrit dans un dossier partiel, renommé une fois complet, puis le marqueur `LATEST` avance. Sept jours conservés.
+- Second conteneur : rclone 1.75.2 copie le bucket `auditsphere-evidence-k3s` sans jamais supprimer, avec `--immutable`.
+- Rôle PostgreSQL `backup` créé par `postgres-bootstrap` quand son mot de passe existe dans `postgres-roles` : membre de `pg_read_all_data`, droit de connexion sur chaque base, aucun droit d'écriture. Règle d'entrée de PostgreSQL étendue aux pods `backup` du namespace `backup`.
+- [scripts/k3s-backup-setup.sh](../../../scripts/k3s-backup-setup.sh) : `postgres` génère le mot de passe du rôle sans l'afficher. `garage`, lancé par l'utilisateur, crée la clé Garage `auditsphere-backup` par SSH vers l'hôte, limitée à la lecture du bucket, et écrit le secret `garage-backup`. Il lit `GARAGE_SSH` dans `.local/k3s.env`.
+
+Poste, [scripts/k3s-backup.sh](../../../scripts/k3s-backup.sh) :
+
+- `init` crée le mot de passe restic dans le trousseau macOS, service `auditsphere-restic`, puis le dépôt dans `~/AuditSphere-backups/restic`, hors du dépôt Git.
+- `run` déclenche le CronJob tout de suite. `pull` lit le dernier jeu par le pod éphémère [backup-reader](../../../deploy/k3s/tools/backup-reader.yaml), monté en lecture seule, vérifie les empreintes et l'ajoute à restic. Rétention : 7 jours, 8 semaines, 12 mois, puis `restic check`. Le dossier de transit est effacé à la fin.
+- `schedule` installe un agent launchd qui lance `pull` chaque jour à 9 h.
+
+Restauration, [scripts/k3s-restore-test.sh](../../../scripts/k3s-restore-test.sh) : instantané restic restauré sur le poste, empreintes des dumps vérifiées, chaque base restaurée dans un PostgreSQL vide du namespace `restore-test`, sans entrée ni sortie réseau ([manifeste](../../../deploy/k3s/tools/restore-test.yaml)). Contrôles : tables présentes dans chaque base, missions dans `audit`, royaume dans `keycloak`, namespaces dans `temporal`. Chaque preuve de la base restaurée doit exister dans la copie de Garage avec le même SHA-256. Le namespace est supprimé à la fin.
+
+[scripts/seed-backup-evidence.py](../../../scripts/seed-backup-evidence.py) dépose deux preuves synthétiques, un PDF et un PNG, sur une mission en cours. Les données de démonstration n'en avaient aucune, ce qui aurait rendu le contrôle d'empreinte sans objet.
+
+Vérifications, le 2026-10-26 :
+
+- Rôle `backup` : ni superutilisateur ni création de rôle, membre de `pg_read_all_data`, connexion admise sur les huit bases.
+- Premier essai du dump refusé à la connexion : la règle réseau n'admet un nouveau pod qu'après environ deux secondes. Le script attend désormais PostgreSQL 60 secondes au plus. Le même essai a montré qu'un échec de `psql` dans une liste de boucle n'arrêtait pas le script, corrigé. Second essai réussi en trois secondes.
+- Deux preuves synthétiques déposées par la gateway, empreintes renvoyées identiques à celles calculées.
+- Dépôt restic initialisé, restic 0.19.1, mot de passe dans le trousseau. L'utilisateur en a fait une copie hors du poste, non vérifiable par l'agent.
+- Clé Garage `auditsphere-backup` créée par SSH : lecture seule sur le seul bucket des preuves, aucune création de bucket. Le rôle `backup` n'a ni INSERT, ni UPDATE, ni DELETE sur les tables d'audit.
+- Jeu complet par `run` : dumps et copie Garage réussis. Tirage par `pull` : 12 fichiers, 594 Kio, empreintes vérifiées, instantané restic enregistré, `restic check` réussi.
+- Exercice de restauration réussi et daté, de 12 h 31 min 20 s à 12 h 31 min 37 s UTC le 2026-10-26 : sept bases restaurées, 40 missions et migration 18 dans `audit`, royaume présent dans `keycloak`, deux namespaces dans `temporal`. Deux preuves sur deux présentes avec le même SHA-256. Namespace `restore-test` supprimé ensuite.
+- Mémoire du nœud après l'exercice : 84 % utilisés.
+
+Non vérifié : la détection d'une preuve altérée ou absente n'a pas été provoquée. Agent launchd non installé, il attend l'accord de l'utilisateur.
+
+Limites :
+
+- Les copies hors machine n'avancent que poste allumé. L'âge du dernier tirage devra être surveillé en phase 6.
+- Dumps en clair sur le disque du serveur pendant sept jours, écart à ADR-0020 accepté par ADR-0027.
+- Ni les métadonnées de Garage, ni les secrets Kubernetes, ni Kafka ne sont copiés. Voir les conséquences d'ADR-0027.
+- La copie Garage relit la liste complète du bucket à chaque passage, et le tirage transfère toute la copie. Acceptable au volume actuel, à revoir si les preuves dépassent quelques gigaoctets.
+
 ### Phase 8 : sécurité C7
 
 - NetworkPolicies, intégrées à k3s sans coût supplémentaire.
@@ -493,7 +535,7 @@ Découpage proposé le 2026-10-26, en cinq lots :
 - D : Kafka en SASL_SSL avec une identité et des ACL par service.
 - E : Garage en HTTPS, durcissement de Keycloak avant ouverture, rotation des certificats et critères de sortie.
 
-Décision à prendre avant le lot C : ADR-0020 exige une sauvegarde et une restauration vérifiée avant de basculer les connexions en TLS. Or la phase 7 vient après la phase 8 dans l'ordre retenu. Deux voies possibles : avancer la phase 7, ou faire un `pg_dump` daté avec un essai de restauration avant chaque bascule. Le lot A ne bascule aucune connexion et n'est pas concerné.
+Décision à prendre avant le lot C : ADR-0020 exige une sauvegarde et une restauration vérifiée avant de basculer les connexions en TLS. Or la phase 7 vient après la phase 8 dans l'ordre retenu. Deux voies possibles : avancer la phase 7, ou faire un `pg_dump` daté avec un essai de restauration avant chaque bascule. Le lot A ne bascule aucune connexion et n'est pas concerné. Décision de l'utilisateur, le 2026-10-26 : la phase 7 est avancée avant le lot C.
 
 #### Lot A : NetworkPolicy
 
@@ -593,7 +635,7 @@ Arrêtée le 2026-10-26 avec l'utilisateur, conformément à ADR-0023 et ADR-002
 3. HOST-006 : supervision avec alertes de disponibilité et d'abus.
 4. HOST-007 : sauvegardes hors machine et restauration vérifiée.
 
-Ordre retenu : lots D et E, puis phases 8, 6, 7 et 10.
+Ordre retenu : lots D et E, puis phases 8, 6, 7 et 10. Révisé le 2026-10-26 par l'utilisateur : la phase 7 passe avant le lot C de la phase 8, pour disposer d'une restauration vérifiée avant toute bascule en TLS. Ordre en vigueur : lots A et B de la phase 8, phase 7, lots C à E, puis phases 6 et 10.
 
 Préparation possible sans attendre, par l'utilisateur : délégation DNS du domaine à Cloudflare, après recopie des enregistrements existants, et création du tunnel sans nom public.
 
@@ -623,4 +665,5 @@ Seule la phase 7 pourrait être reportée, puisque l'instance publique ne porte 
 - TECH-009, le 2026-10-25 sur `main` : CI distante réussie sur `2743acb` après la fusion. Job `verify` et cinq jobs `images` réussis, analyse Trivy bloquante comprise. Aucun job relancé.
 - Phase 4 lot E, le 2026-10-26 sur le serveur : smoke du BFF et de l'API, pannes Kafka et Temporal réussis dans le cluster, nettoyage des données de test, mesure mémoire sans OOM. Détails dans le lot E.
 - Phase 8 lot A, le 2026-10-26 sur le serveur : NetworkPolicy en entrée, refus constatés depuis des pods non autorisés, smoke et pannes Kafka réussis sous les règles, pannes Temporal réussies au second essai après un 503 isolé. Détails dans le lot A.
+- Phase 7, le 2026-10-26 sur le serveur et le poste : dumps et copie Garage, tirage restic chiffré sur le poste, restauration isolée réussie avec contrôle d'empreinte des preuves. Détails dans l'exécution de la phase 7.
 - Phase 8 lot B, le 2026-10-26 sur le serveur : cert-manager installé, autorité intermédiaire chargée par l'utilisateur, certificat de test émis et vérifié jusqu'à la racine hors ligne, mémoire mesurée. Détails dans le lot B.

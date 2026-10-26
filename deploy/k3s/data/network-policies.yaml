@@ -39,6 +39,13 @@ spec:
               - key: app.kubernetes.io/name
                 operator: In
                 values: [audit-service, notification-service, remediation-service, keycloak, web, web-schema]
+        # Sauvegarde quotidienne, rôle en lecture seule (phase 7).
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: backup
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: backup
       ports:
         - port: 5432
 ---

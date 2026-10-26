@@ -112,8 +112,8 @@ Décision prise le 2026-10-24 par [ADR-0023](../decisions/ADR-0023-hebergement-p
 | HOST-004 | Charts Helm, Keycloak, frontend, Traefik derrière l'entrée Tailscale | Implémenté et vérifié : lot A, services Spring avec migrations et droits SQL, lot B, Keycloak sur l'entrée `auth`, lot C, frontend et Traefik sur l'entrée `app`, et lot D, clients, comptes et 40 missions de démonstration, implémentés et vérifiés les 2026-10-25 et 2026-10-26. Lot E, smoke, pannes Kafka et Temporal et mesure mémoire, vérifié le 2026-10-26. Phase 4 terminée |
 | HOST-005 | GitOps Argo CD minimal et Sealed Secrets | Proposé |
 | HOST-006 | Observabilité par paliers et alertes | Proposé |
-| HOST-007 | Sauvegardes hors machine et restauration vérifiée | Proposé |
-| HOST-008 | Sécurité C7 sur le cluster selon ADR-0020 | En cours : lot A, NetworkPolicy en entrée avec refus par défaut, implémenté et vérifié le 2026-10-26. Lot B, cert-manager et autorité intermédiaire sous racine hors ligne selon ADR-0026, vérifié le même jour. Lots C à E à faire, sauvegarde préalable à décider avant le lot C |
+| HOST-007 | Sauvegardes hors machine et restauration vérifiée | En cours depuis le 2026-10-26, avancé avant le lot C de HOST-008 : CronJob de dumps et copie Garage, tirage restic par le poste selon ADR-0027. Implémenté et vérifié le même jour : clé Garage en lecture seule, tirage restic et restauration isolée réussie avec contrôle d'empreinte. Agent launchd quotidien à installer |
+| HOST-008 | Sécurité C7 sur le cluster selon ADR-0020 | En cours : lot A, NetworkPolicy en entrée avec refus par défaut, implémenté et vérifié le 2026-10-26. Lot B, cert-manager et autorité intermédiaire sous racine hors ligne selon ADR-0026, vérifié le même jour. Lots C à E à faire. Sauvegarde préalable : HOST-007 avancé avant le lot C, choix de l'utilisateur du 2026-10-26 |
 | HOST-009 | Second nœud, essai AKS ou EKS. Accès public déplacé vers HOST-010 | Proposé |
 | HOST-010 | Exposition publique par Cloudflare Tunnel selon ADR-0025, domaine délégué à Cloudflare | Proposé, après HOST-004, HOST-006, HOST-007 et HOST-008 |
 

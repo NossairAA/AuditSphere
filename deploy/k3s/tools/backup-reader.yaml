@@ -1,0 +1,41 @@
+# Lecteur éphémère du volume de sauvegarde, créé et supprimé par scripts/k3s-backup.sh pull.
+# Montage en lecture seule, aucun réseau entrant, aucun secret.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: backup-reader
+  namespace: backup
+  labels:
+    app.kubernetes.io/name: backup-reader
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  securityContext:
+    runAsUser: 999
+    runAsGroup: 999
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: reader
+      image: postgres:17.9@sha256:2a0d0fe14825b0939f78a8cad5cd4e6aa68bf94d0e5dd96e24b6d23af4315545
+      command: [sleep, "1800"]
+      resources:
+        requests:
+          memory: 16Mi
+        limits:
+          memory: 64Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: [ALL]
+      volumeMounts:
+        - name: staging
+          mountPath: /backup
+          readOnly: true
+  volumes:
+    - name: staging
+      persistentVolumeClaim:
+        claimName: backup-staging
+        readOnly: true
