@@ -1,0 +1,26 @@
+# Entrées limitées aux pods listés dans allowFrom. Sans port HTTP, aucune entrée n'est admise.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-ingress
+  labels:
+    {{- include "spring-service.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Release.Name }}
+  policyTypes: [Ingress]
+  {{- if and (gt (int .Values.port) 0) .Values.allowFrom }}
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  {{- toYaml .Values.allowFrom | nindent 18 }}
+      ports:
+        - port: {{ .Values.port }}
+  {{- else }}
+  ingress: []
+  {{- end }}

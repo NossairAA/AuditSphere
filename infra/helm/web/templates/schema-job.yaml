@@ -9,6 +9,10 @@ metadata:
 spec:
   backoffLimit: 2
   template:
+    metadata:
+      # Désigne le Job dans la NetworkPolicy de PostgreSQL.
+      labels:
+        app.kubernetes.io/name: web-schema
     spec:
       restartPolicy: Never
       enableServiceLinks: false

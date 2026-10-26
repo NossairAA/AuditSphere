@@ -1,0 +1,23 @@
+# Keycloak reçoit le navigateur par le proxy Tailscale et les services qui lisent les clés ou demandent un jeton.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: keycloak-ingress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: keycloak
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: tailscale
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  {{- toYaml .Values.allowFrom | nindent 18 }}
+      ports:
+        - port: 8080

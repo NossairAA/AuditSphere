@@ -15,6 +15,13 @@ database:
   passwordSecret: db-credentials
   passwordKey: keycloak
 
+# Pods du namespace qui lisent les clés publiques ou demandent un jeton de service.
+allowFrom:
+  - api-gateway
+  - audit-service
+  - notification-service
+  - remediation-service
+
 # Royaume importé au premier démarrage seulement, passé par --set-file realm=...
 realm: ""
 

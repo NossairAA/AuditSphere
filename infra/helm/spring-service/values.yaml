@@ -14,6 +14,9 @@ env: {}
 # Variables lues dans des secrets : - {name, secret, key}
 secretEnv: []
 
+# Pods du namespace autorisés à joindre le port HTTP, par app.kubernetes.io/name. Vide : aucune entrée.
+allowFrom: []
+
 oidc:
   enabled: false
   # Origine publique de Keycloak, vue par le navigateur. Passée à l'installation, jamais versionnée.

@@ -1,5 +1,11 @@
 # Journal des changements
 
+## 2026-10-26 : NetworkPolicy dans k3s, phase 8 lot A
+
+- Refus par défaut des entrées dans `auditsphere` et `data`. Règles par composant dans les charts `spring-service` et `keycloak`, règles de PostgreSQL, Kafka et Temporal dans `deploy/k3s/data/network-policies.yaml`.
+- Vérifié : pods prêts, smoke du BFF et de l'API, pannes Kafka réussies sous les règles. Pannes Temporal réussies au second essai, après un 503 isolé sur une soumission, cause non établie. Connexions refusées depuis des pods non autorisés vers audit-service, Keycloak, PostgreSQL, Kafka et Temporal.
+- Limite : sorties non filtrées. Découpage de la phase 8 en cinq lots et décision de sauvegarde avant le lot C dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-26 : smoke et pannes dans k3s, phase 4 lot E
 
 - `scripts/target.py` : les scripts de smoke, de pannes et de nettoyage visent Compose par défaut ou k3s avec `AUDITSPHERE_TARGET=k3s`. `scripts/k3s-check.sh` ouvre la gateway par port-forward et un pod éphémère de CLI Temporal.
