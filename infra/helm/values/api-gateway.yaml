@@ -3,6 +3,8 @@ image:
   tag: 294a0ff6efb6bb7b304e82ccfeb6fe937b28660b
   digest: sha256:65503981bd9998df54bf3d6dc524a3c7749e7d461c13f7c9a100fbfb9a8c1f17
 port: 8080
+allowFrom:
+  - web
 oidc:
   enabled: true
 env:

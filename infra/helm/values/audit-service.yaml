@@ -3,6 +3,10 @@ image:
   tag: 294a0ff6efb6bb7b304e82ccfeb6fe937b28660b
   digest: sha256:22f86f5586b1ba1bbf77f7be2866e895d0bc8c85b8ae4fa2bff66f3533361dfb
 port: 8081
+allowFrom:
+  - api-gateway
+  - notification-service
+  - remediation-service
 oidc:
   enabled: true
 env:

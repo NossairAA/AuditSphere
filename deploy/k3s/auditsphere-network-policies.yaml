@@ -1,0 +1,10 @@
+# Filet de sécurité du namespace applicatif (phase 8, lot A) : un pod sans règle propre ne reçoit rien.
+# Les règles par composant sont dans les charts Helm.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: auditsphere
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]

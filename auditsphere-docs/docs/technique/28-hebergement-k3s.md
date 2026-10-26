@@ -485,6 +485,55 @@ Sortie : restauration complète réussie et datée. Cette phase est prioritaire,
 
 Sortie : tous les critères d'ADR-0020 vérifiés. Aucune donnée réelle avant les phases 7 et 8.
 
+Découpage proposé le 2026-10-26, en cinq lots :
+
+- A : NetworkPolicy en entrée, refus par défaut dans `auditsphere` et `data`.
+- B : cert-manager et autorité interne, mémoire mesurée.
+- C : PostgreSQL en TLS vérifié et Temporal en mTLS.
+- D : Kafka en SASL_SSL avec une identité et des ACL par service.
+- E : Garage en HTTPS, durcissement de Keycloak avant ouverture, rotation des certificats et critères de sortie.
+
+Décision à prendre avant le lot C : ADR-0020 exige une sauvegarde et une restauration vérifiée avant de basculer les connexions en TLS. Or la phase 7 vient après la phase 8 dans l'ordre retenu. Deux voies possibles : avancer la phase 7, ou faire un `pg_dump` daté avec un essai de restauration avant chaque bascule. Le lot A ne bascule aucune connexion et n'est pas concerné.
+
+#### Lot A : NetworkPolicy
+
+Statut : implémenté et vérifié le 2026-10-26.
+
+- Refus par défaut des entrées dans les deux namespaces : [deploy/k3s/auditsphere-network-policies.yaml](../../../deploy/k3s/auditsphere-network-policies.yaml) et [deploy/k3s/data/network-policies.yaml](../../../deploy/k3s/data/network-policies.yaml). Un nouveau pod sans règle propre ne reçoit rien.
+- Chart `spring-service` : une règle par service, alimentée par `allowFrom` dans les valeurs. Sans port HTTP, comme le worker, aucune entrée n'est admise.
+- Chart `keycloak` : entrées du proxy Tailscale et des quatre services qui lisent les clés publiques ou demandent un jeton.
+- Le Job `web-schema` porte désormais `app.kubernetes.io/name: web-schema`, pour être désigné dans la règle de PostgreSQL.
+
+| Cible | Port | Entrées admises |
+| --- | --- | --- |
+| api-gateway | 8080 | web |
+| audit-service | 8081 | api-gateway, notification-service, remediation-service |
+| notification-service | 8082 | api-gateway |
+| remediation-service | 8083 | api-gateway |
+| workflow-worker | aucun | aucune |
+| keycloak | 8080 | proxy Tailscale, api-gateway, audit-service, notification-service, remediation-service |
+| web et edge | 3000, 8000 | inchangés depuis la phase 4 : edge, puis proxy Tailscale |
+| postgres | 5432 | Temporal, Jobs d'amorçage, audit, notification, remediation, Keycloak, web, web-schema |
+| kafka | 9092 | audit-service, notification-service |
+| temporal | 7233 | lui-même sur tous ses ports, CLI éphémère, Job du namespace, audit-service, workflow-worker |
+
+Les Jobs de migration Flyway portent le nom de leur service et héritent de ses droits vers PostgreSQL. Les sondes du kubelet, `kubectl exec` et `kubectl port-forward` ne passent pas par ces règles : les scripts de vérification fonctionnent sans exception.
+
+Vérifications, le 2026-10-26 :
+
+- Tous les pods restent prêts après l'application. Aucun redémarrage provoqué.
+- Smoke du BFF et smoke de l'API réussis avec toutes les règles en place.
+- Refus constatés : depuis le BFF, audit-service, Keycloak, Kafka et Temporal refusent la connexion. Depuis Kafka, PostgreSQL et Temporal la refusent aussi. Le BFF joint la gateway et PostgreSQL.
+- Pannes Kafka réussies sous les règles.
+- Pannes Temporal : premier essai en échec, réponse 503 à une soumission pendant l'arrêt de Temporal et de notification-service. Second essai réussi sans changement. Sept missions de test nettoyées, données de démonstration intactes : 40 missions, dont 7 en attente de revue.
+
+Limites :
+
+- Les sorties ne sont pas filtrées. Un pod compromis peut joindre Internet, le tailnet et Garage. Un filtrage des sorties demande d'abord l'inventaire des adresses du tailnet utilisées par le BFF et audit-service.
+- Les futurs composants, Prometheus et sauvegardes, devront être ajoutés aux règles des cibles qu'ils interrogent.
+- Les règles de `data` sont appliquées par `kubectl apply`, hors Helm. Leur application a été faite par l'utilisateur.
+- Cause du 503 non établie : les journaux ont été perdus au redémarrage des pods par le test. Hypothèse : le contrôle de révocation de la gateway, borné à 2 secondes, a expiré vers audit-service. Les règles ne sont pas en cause, ce flux est autorisé et le second essai réussit. À suivre avec la supervision de la phase 6.
+
 ### Phase 9 : extension
 
 - Second nœud agent k3s joint par Tailscale, puis HPA si une mesure le justifie.
@@ -517,7 +566,7 @@ Sortie : application servie en HTTPS sur le domaine, aucun port entrant ouvert s
 Arrêtée le 2026-10-26 avec l'utilisateur, conformément à ADR-0023 et ADR-0025. Aucun nom public ne sert l'application avant que ces quatre éléments soient vérifiés :
 
 1. HOST-004, lots D et E : connexion de bout en bout, comptes de démonstration et smoke réussi dans le cluster. Vérifié le 2026-10-26.
-2. HOST-008, sécurité C7 : NetworkPolicy autour de la gateway, de PostgreSQL, de Kafka et de Temporal, TLS et authentification de Temporal, console Keycloak refusée sur le nom public, MFA des administrateurs, inscription libre désactivée.
+2. HOST-008, sécurité C7 : NetworkPolicy autour de la gateway, de PostgreSQL, de Kafka et de Temporal, vérifiées le 2026-10-26 au lot A, TLS et authentification de Temporal, console Keycloak refusée sur le nom public, MFA des administrateurs, inscription libre désactivée.
 3. HOST-006 : supervision avec alertes de disponibilité et d'abus.
 4. HOST-007 : sauvegardes hors machine et restauration vérifiée.
 
@@ -550,3 +599,4 @@ Seule la phase 7 pourrait être reportée, puisque l'instance publique ne porte 
 - Phase 2, le 2026-10-25 sur le serveur : installation de k3s, contrôle des ports depuis le réseau local, pod de test et redémarrage complet. Détails dans l'exécution du 2026-10-25 ci-dessus. Opérateur Tailscale installé, entrée HTTPS testée par le tailnet.
 - TECH-009, le 2026-10-25 sur `main` : CI distante réussie sur `2743acb` après la fusion. Job `verify` et cinq jobs `images` réussis, analyse Trivy bloquante comprise. Aucun job relancé.
 - Phase 4 lot E, le 2026-10-26 sur le serveur : smoke du BFF et de l'API, pannes Kafka et Temporal réussis dans le cluster, nettoyage des données de test, mesure mémoire sans OOM. Détails dans le lot E.
+- Phase 8 lot A, le 2026-10-26 sur le serveur : NetworkPolicy en entrée, refus constatés depuis des pods non autorisés, smoke et pannes Kafka réussis sous les règles, pannes Temporal réussies au second essai après un 503 isolé. Détails dans le lot A.

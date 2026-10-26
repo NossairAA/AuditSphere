@@ -3,6 +3,8 @@ image:
   tag: 294a0ff6efb6bb7b304e82ccfeb6fe937b28660b
   digest: sha256:f6bfcc6d80f4792025dd0749972038b5555d8d4d5313e846f6be0aafa1c9a023
 port: 8082
+allowFrom:
+  - api-gateway
 oidc:
   enabled: true
 env:
