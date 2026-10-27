@@ -1,5 +1,12 @@
 # Journal des changements
 
+## 2026-10-27 : rotation réelle du certificat client Temporal, phase 8 lot E2b
+
+- audit-service et workflow-worker passent à l'image `0e56ca9`, qui contient `ReloadingKeyManager`.
+- Essai avec des certificats clients d'une heure renouvelés toutes les 20 minutes : le worker bascule seul sur le certificat renouvelé dix secondes après l'expiration de son certificat de démarrage, audit-service bascule à son premier appel après un renouvellement. Aucun pod redémarré pour la rotation. Test Temporal réussi. Durées de 90 jours rétablies.
+- Critères de sortie d'ADR-0020 : quatre remplis sur cinq. Reste la supervision, phase 6.
+- Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-27 : rechargement du certificat client Temporal, phase 8 lot E2a
 
 - `ReloadingKeyManager` : le client Java de Temporal relit son certificat et sa clé à chaque négociation TLS et bascule quand leur contenu change. Plus de redémarrage d'audit-service ni de workflow-worker après un renouvellement par cert-manager.

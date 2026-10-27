@@ -743,12 +743,12 @@ Limites :
 - ADR-0027 prévoyait une copie à froid complète de Garage par `backup.sh` avant ce passage. Elle n'a pas été faite. Les volumes de Garage n'ont pas été modifiés, et la copie à chaud des objets est dans le dépôt restic du poste.
 - Le conteneur Caddy accède au socket de `tailscaled`, donc à la configuration Tailscale de l'hôte.
 - `ip_nonlocal_bind` vaut pour tout l'hôte : n'importe quel processus peut écouter sur une adresse que la machine n'a pas encore. Aucun autre service de l'hôte n'en dépend à ce jour.
-- Le client Java de Temporal garde son certificat jusqu'au redémarrage du pod, à traiter au lot E2.
+- Le client Java de Temporal garde son certificat jusqu'au redémarrage du pod, à traiter au lot E2. Levée par le lot E2, vérifié le 2026-10-27.
 - Revue des critères de sortie d'ADR-0020 à faire. Le critère de supervision dépend de la phase 6.
 
 #### Lot E2 : rechargement du certificat client Temporal
 
-Statut : E2a, client Java, implémenté et vérifié par tests unitaires le 2026-10-27. E2b, déploiement et vérification dans le cluster, à faire après publication des images par la CI.
+Statut : implémenté et vérifié le 2026-10-27. E2a, client Java, fusionné par #12, images de `0e56ca9` publiées. E2b, déploiement et rotation réelle dans le cluster, vérifié le même jour.
 
 Comme au lot C2, le lot est découpé : E2a change le code et produit de nouvelles images, E2b les déploie et vérifie une rotation réelle.
 
@@ -765,14 +765,28 @@ Vérifications d'E2a, le 2026-10-27, dans l'image Maven de construction :
 
 - `ReloadingKeyManagerTest` : quatre cas réussis. Bascule vers les fichiers renouvelés avec conservation de la paire précédente, maintien de la paire courante si la clé devient invalide ou si le certificat disparaît, refus au démarrage d'une clé invalide. Deux négociations TLS 1.3 réelles avec authentification cliente obligatoire, fichiers renouvelés entre les deux : le serveur reçoit l'ancien certificat puis le nouveau.
 - `TemporalConnectionTest` : cinq cas réussis, inchangés.
-- Ces tests passent par le fournisseur TLS de la JVM. Dans le pod, gRPC utilise le fournisseur OpenSSL de Netty, qui appelle le même gestionnaire de clés à chaque négociation. Ce chemin reste à vérifier en E2b.
+- Ces tests passent par le fournisseur TLS de la JVM. Dans le pod, gRPC utilise le fournisseur OpenSSL de Netty. Ce chemin est vérifié en E2b.
 
-E2b, prévu :
+E2b :
 
-- Déployer audit-service et workflow-worker avec l'image publiée.
-- Certificat client du worker ramené temporairement à une heure de validité, renouvelé toutes les 20 minutes par cert-manager.
-- Après l'expiration du premier certificat, sans redémarrage du worker : redémarrer Temporal pour forcer de nouvelles connexions, puis exécuter le test Temporal. Le journal du worker doit montrer les rechargements.
-- Rétablir la durée de 90 jours.
+- audit-service et workflow-worker déployés avec l'image `0e56ca9`, tirée par empreinte. Valeurs Helm mises à jour.
+- Avant le déploiement, certificats clients d'audit-service et du worker ramenés à une heure de validité, renouvelés 40 minutes avant l'expiration, donc toutes les 20 minutes. Réémission forcée par la condition `Issuing` du statut, comme le fait `cmctl renew`. Les pods démarrent ainsi avec un certificat A expirant à 01:32:06 UTC.
+- Durées de 90 jours rétablies ensuite depuis [temporal-tls.yaml](../../../deploy/k3s/data/temporal-tls.yaml) et réémission forcée : nouveaux certificats valables jusqu'en janvier 2027.
+
+Vérifications d'E2b, le 2026-10-27 :
+
+- Test Temporal réussi à 00:33 avec le certificat A : le fournisseur OpenSSL de Netty utilise le nouveau gestionnaire de clés dans le pod.
+- workflow-worker, pod démarré à 00:34:13 avec le certificat A, jamais redémarré pendant l'essai. À 01:32:16, dix secondes après l'expiration de A, il journalise le rechargement vers le certificat émis à 01:32, valable jusqu'à 02:32. Les certificats intermédiaires n'ont jamais été chargés : aucune négociation entre-temps.
+- Temporal redémarré à 01:34, avec A expiré. Le même pod de worker interroge de nouveau la file `audit-review-v1` du nouveau serveur, relevé par `temporal task-queue describe`.
+- audit-service, pod démarré à 01:37:18 avec le certificat de 01:32. Après le renouvellement de 01:52 et un redémarrage de Temporal, il journalise le rechargement à 01:55:25 lors de son premier appel. Test Temporal réussi ensuite : trois cycles dont un retrait, rejeu sans nouveau workflow.
+- Aucune erreur TLS dans les journaux. Tous les pods des namespaces `auditsphere` et `data` en service après le retour aux 90 jours.
+
+Incidents et constats :
+
+- Un premier passage du test Temporal après l'expiration a échoué dans `cleanup-test-data.py`, appelé en fin de test. Relancé seul, le nettoyage a réussi. La cause n'a pas été établie, la sortie complète n'ayant pas été conservée.
+- Le nettoyage arrête puis redémarre audit-service. Ce redémarrage a remplacé le pod d'audit-service pendant l'essai : sa preuve de rechargement vient donc du second cycle, après le renouvellement de 01:52.
+- À chaque redémarrage, Temporal a échoué une fois faute de connexion à PostgreSQL, puis a démarré au second essai. Délai d'admission réseau d'un nouveau pod, déjà vu aux lots précédents.
+- Le worker s'est reconnecté seul juste après l'expiration de A, sans redémarrage de Temporal. La cause de cette reconnexion n'a pas été établie.
 
 #### Revue des critères de sortie d'ADR-0020
 
@@ -783,7 +797,7 @@ Revue documentaire du 2026-10-27, à partir des preuves des lots A à E. Aucun n
 | Kafka : anonyme et topic non autorisé refusés, publication et DLT réussies | Rempli | Lot D : seule l'écoute SASL_SSL est joignable, clair rejeté à la négociation, mauvais mot de passe refusé, `allow.everyone.if.no.acl.found` à faux. Topics hors ACL refusés par `TopicAuthorizationException`. Pannes Kafka et DLT réussies |
 | Temporal : sans certificat ou certificat expiré refusés, reprise du worker | Rempli | Lot C2 : clair et TLS sans certificat client refusés, pannes et reprise réussies. Lot E1 : certificat expiré refusé |
 | PostgreSQL et Garage : sans TLS ou mauvaise autorité refusés | Rempli | Lot C1 : clair refusé par `pg_hba.conf`, connexion refusée avec les seules autorités du système. Lot E1 : clair refusé par Garage, certificat refusé avec la seule racine interne |
-| Rotation sans perte d'événement, restauration des preuves avec empreinte | Partiel | Lot E1 : rotation des certificats serveur sans redémarrage, test des notifications réussi pendant la rotation. Phase 7 : restauration avec SHA-256 identique. Reste la rotation du certificat client Temporal, lot E2b |
+| Rotation sans perte d'événement, restauration des preuves avec empreinte | Rempli | Lot E1 : rotation des certificats serveur sans redémarrage, test des notifications réussi pendant la rotation. Lot E2b : rotation des certificats clients Temporal sans redémarrage, test Temporal réussi. Phase 7 : restauration avec SHA-256 identique |
 | Journaux, métriques d'échec et alertes de saturation sans secret | Non rempli | Dépend de la phase 6, non commencée |
 
 Points de la proposition d'ADR-0020 hors critères de sortie, relevés par la revue :
@@ -793,7 +807,7 @@ Points de la proposition d'ADR-0020 hors critères de sortie, relevés par la re
 - Réplication de Kafka : broker unique, facteur 1. Limite déjà documentée au lot D, acceptée pour un hôte unique.
 - Fenêtre de maintenance et anciens volumes conservés : chaque bascule a été précédée d'une sauvegarde tirée sur le poste. Exception documentée au lot E1 : la copie à froid de Garage n'a pas été faite.
 
-Conclusion : C7 n'est pas clos. Il reste le lot E2b et la phase 6.
+Conclusion : C7 n'est pas clos. Il reste la phase 6. Mise à jour du 2026-10-27 après le lot E2b : quatre critères remplis sur cinq.
 
 ### Phase 9 : extension
 
