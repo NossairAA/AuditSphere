@@ -468,6 +468,49 @@ Sortie : déploiement d'un commit et retour arrière vérifiés depuis Git seul.
 
 Sortie : une alerte de test reçue, une requête tracée de la gateway au service.
 
+#### Lot 6A : socle de supervision et alertes d'infrastructure
+
+Statut : implémenté et vérifié le 2026-10-27, sauf la réception sur le téléphone, à confirmer par l'utilisateur. Décision : [ADR-0029](../decisions/ADR-0029-supervision-prometheus-ntfy.md). Lots suivants : 6B, métriques applicatives et alertes d'abus, avec de nouvelles images, puis 6C, Grafana, Loki et Tempo à la demande et une requête tracée.
+
+[deploy/k3s/monitoring/monitoring.yaml](../../../deploy/k3s/monitoring/monitoring.yaml), installé par le contrôleur Helm de k3s comme cert-manager :
+
+- Namespace `monitoring` au niveau Pod Security `privileged`, car node-exporter lit `/proc` et `/sys` de l'hôte avec son réseau. Refus par défaut des entrées. Seul Prometheus joint Alertmanager, kube-state-metrics et l'exportateur blackbox.
+- Chart `prometheus` 29.36.0, publié le 2026-10-07 : Prometheus 3.15.0, Alertmanager 0.34.1, node-exporter 1.12.1, kube-state-metrics 2.20.0. Pushgateway désactivée. Collecte et évaluation toutes les 60 secondes, deux jours ou 1 Go de données, volume de 2 Gio.
+- Chart `prometheus-blackbox-exporter` 11.20.0, publié le même jour, exportateur 0.29.0. Sondes : bordure `edge`, préparation de la gateway, document de découverte OIDC du royaume Keycloak, et Garage en HTTPS avec réponse 403 attendue. Le service Keycloak n'expose pas son port de santé, d'où la découverte OIDC.
+- Règles d'entrée ajoutées : l'exportateur blackbox vers `edge`, `api-gateway` et `keycloak` dans `auditsphere`, Prometheus vers le port 9402 des trois pods de cert-manager.
+- cert-manager : métriques activées, annotations de collecte sur les pods, sans opérateur.
+- k3s sert toutes ses métriques internes, environ 43 000 séries, à la fois sur l'API et sur le kubelet. Ces deux cibles ne gardent que leur disponibilité. cAdvisor reste collecté pour les conteneurs.
+- 16 règles d'alerte : disque de l'hôte au-delà de 85 %, mémoire disponible sous 10 %, échange au-delà de 1 Gio, charge, node-exporter muet, conteneur arrêté par manque de mémoire, redémarrages répétés, CrashLoopBackOff, Deployment ou StatefulSet incomplet, Job en échec, aucune sauvegarde réussie depuis 26 heures, certificat expirant sous 14 jours ou non prêt, sonde en échec, cible injoignable, échec d'envoi d'Alertmanager.
+- Alertmanager envoie les alertes au sujet ntfy.sh par un webhook, avec le gabarit `alertmanager` de ntfy. Les alertes critiques partent en priorité maximale et sont répétées toutes les heures, les autres toutes les six heures. Les adresses, qui contiennent le sujet, sont lues dans un fichier par `url_file`.
+
+[scripts/k3s-monitoring.sh](../../../scripts/k3s-monitoring.sh) :
+
+- `apply` crée le sujet aléatoire dans `.local/ntfy.env` s'il est absent, puis les secrets `alertmanager-ntfy` et `prometheus-private-targets`. Le second porte l'adresse de Garage, propre au tailnet. Il applique ensuite le manifeste. Aucune valeur secrète n'est affichée.
+- `test` crée une alerte `MonitoringTest` dans Alertmanager, puis lit le sujet pour confirmer sa publication.
+- Consultation depuis le poste : `kubectl --namespace monitoring port-forward svc/prometheus-server 19090:80`. Aucune interface n'est publiée.
+
+Vérifications, le 2026-10-27 :
+
+- Avant l'installation : 16 règles validées par `promtool check rules`, configuration d'Alertmanager validée par `amtool check-config`, rendu des deux charts relu. Gabarit `alertmanager` de ntfy essayé sur un sujet jetable avec une alerte synthétique : titre et résumé corrects.
+- Après correction : 15 cibles de collecte sur 15 actives, quatre sondes réussies, aucune alerte active. 13 160 échantillons par cycle, contre environ 98 000 avant le filtrage des métriques de k3s.
+- Chaîne complète par une vraie règle : les deux premières sondes visaient de mauvais ports. `ProbeFailed` est partie à 02:07:57 UTC en priorité maximale, puis sa résolution à 02:12:58 après correction. Alerte de test publiée à 02:13:27. Ces trois messages sont relus sur le sujet ntfy. Alertmanager compte trois envois réussis et aucun échec.
+- Mémoire après installation : supervision 422 Mio, dont Prometheus 333 Mio sur une limite de 448 Mio. Prometheus garde encore en mémoire les séries d'avant le filtrage, jusqu'à sa prochaine compaction. Nœud : demandes à 66 % de la mémoire allouable, limites à 101 %. 1,8 Gio disponibles sur l'hôte, 95 Mio d'échange utilisés.
+
+Incidents :
+
+- Premières sondes en échec : le service `edge` publie le port 80, pas 8000, et le service Keycloak n'a pas le port 9000. Cibles corrigées.
+- Deux cibles de cert-manager refusées : le webhook et l'injecteur exposent aussi leurs métriques, et la règle n'admettait que le contrôleur. Les métriques propres de kube-state-metrics, sur le port 8081, étaient aussi refusées. Règles élargies.
+- Alertmanager n'était pas collecté par défaut : l'alerte d'échec d'envoi n'aurait jamais pu se déclencher. Collecte ajoutée.
+
+Limites :
+
+- Aucune alerte si Prometheus, Alertmanager ou le nœud s'arrête. Une sonde externe de veille reste à choisir.
+- Toute personne qui connaît le sujet ntfy peut lire les alertes et en publier de fausses. Les messages ne contiennent ni secret ni donnée d'audit.
+- Les limites mémoire du nœud dépassent la mémoire allouable. Une pression mémoire forte peut provoquer des arrêts. La mémoire de Prometheus est à remesurer après sa compaction.
+- Pas encore de métriques applicatives : erreurs 5xx, mémoire des JVM, retard Kafka, DLT, workflows bloqués et tentatives d'abus viennent au lot 6B. Pas de journaux centralisés avant le lot 6C.
+- La sonde de la bordure suit le chemin interne. Le tunnel Cloudflare sera sondé à la phase 10.
+- Comme cert-manager et l'opérateur Tailscale, les charts sont épinglés par version, pas les images par empreinte. Les applications restent épinglées par empreinte.
+
 ### Phase 7 : sauvegardes et restauration
 
 - CronJob `pg_dump` de chaque base, sauvegarde Garage par `deploy/garage/backup.sh`, copies restic chiffrées hors machine. La cible est le Mac par le tailnet ou un stockage objet externe.
@@ -862,6 +905,7 @@ Seule la phase 7 pourrait être reportée, puisque l'instance publique ne porte 
 
 ## Vérifications effectuées
 
+- Phase 6 lot 6A, le 2026-10-27 sur le serveur : Prometheus, Alertmanager, node-exporter, kube-state-metrics et sondes blackbox. Toutes les cibles actives, alerte réelle et alerte de test publiées sur le sujet ntfy. Détails dans le lot 6A.
 - Relevé matériel et logiciel du serveur par SSH le 2026-10-24, sans sudo ni modification.
 - Tarifs cloud relevés le 2026-10-24 pour l'arbitrage d'ADR-0023. Ils ne sont pas vérifiés sur les pages officielles d'AWS et d'Azure.
 - Aucune installation, aucun déploiement et aucun test sur le serveur à la date du relevé.

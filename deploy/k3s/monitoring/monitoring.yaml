@@ -1,0 +1,379 @@
+# Supervision (phase 6, lot 6A, ADR-0029) : Prometheus, Alertmanager, node-exporter, kube-state-metrics et sondes blackbox.
+# Les secrets d'alerte et les cibles propres au tailnet sont créés par scripts/k3s-monitoring.sh, jamais dans Git.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    # node-exporter lit /proc et /sys de l'hôte avec le réseau de l'hôte : niveau privileged pour ce seul namespace.
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/warn: baseline
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: monitoring
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+# Prometheus seul interroge Alertmanager, kube-state-metrics et les sondes.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: from-prometheus
+  namespace: monitoring
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values: [alertmanager, kube-state-metrics, prometheus-blackbox-exporter]
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+              app.kubernetes.io/component: server
+      ports:
+        - port: 9093
+        - port: 8080
+        - port: 8081
+        - port: 9115
+---
+# Sondes de disponibilité : la bordure, la gateway et Keycloak, depuis l'exportateur blackbox seul.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: from-monitoring-probes
+  namespace: auditsphere
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values: [edge, api-gateway, keycloak]
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus-blackbox-exporter
+      ports:
+        - port: 8000
+        - port: 8080
+---
+# Métriques de cert-manager, dont l'expiration des certificats. Ses trois pods les exposent sur 9402.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: metrics-from-prometheus
+  namespace: cert-manager
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: cert-manager
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - port: 9402
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: blackbox
+  namespace: kube-system
+spec:
+  repo: https://prometheus-community.github.io/helm-charts
+  chart: prometheus-blackbox-exporter
+  version: 11.20.0
+  targetNamespace: monitoring
+  valuesContent: |-
+    fullnameOverride: blackbox-exporter
+    resources:
+      requests: {cpu: 5m, memory: 16Mi}
+      limits: {memory: 48Mi}
+    config:
+      modules:
+        # Réponse attendue sans suivre de redirection : la page de connexion peut rediriger.
+        http_up:
+          prober: http
+          timeout: 10s
+          http:
+            follow_redirects: false
+            valid_status_codes: [200, 301, 302, 303, 307, 308]
+            preferred_ip_protocol: ip4
+        # Garage répond 403 sans signature : seul le service et son certificat sont vérifiés.
+        https_garage:
+          prober: http
+          timeout: 10s
+          http:
+            valid_status_codes: [403]
+            fail_if_not_ssl: true
+            preferred_ip_protocol: ip4
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: prometheus
+  namespace: kube-system
+spec:
+  repo: https://prometheus-community.github.io/helm-charts
+  chart: prometheus
+  version: 29.36.0
+  targetNamespace: monitoring
+  valuesContent: |-
+    prometheus-pushgateway:
+      enabled: false
+    # k3s sert toutes ses métriques internes, environ 43 000 séries, à la fois sur l'API et sur le kubelet.
+    # Seule la disponibilité de ces deux cibles est gardée. Le kubelet reste lu par cAdvisor pour les conteneurs.
+    scrapeConfigs:
+      kubernetes-api-servers:
+        metric_relabel_configs:
+          - source_labels: [__name__]
+            regex: .+
+            action: drop
+      kubernetes-nodes:
+        metric_relabel_configs:
+          - source_labels: [__name__]
+            regex: .+
+            action: drop
+    server:
+      retention: 2d
+      retentionSize: 1GB
+      global:
+        scrape_interval: 1m
+        evaluation_interval: 1m
+      persistentVolume:
+        size: 2Gi
+      resources:
+        requests: {cpu: 50m, memory: 192Mi}
+        limits: {memory: 448Mi}
+      # Cibles propres au tailnet, comme Garage, écrites par scripts/k3s-monitoring.sh.
+      extraSecretMounts:
+        - name: private-targets
+          mountPath: /etc/prometheus-private
+          secretName: prometheus-private-targets
+          readOnly: true
+    configmapReload:
+      prometheus:
+        resources:
+          requests: {cpu: 1m, memory: 8Mi}
+          limits: {memory: 32Mi}
+    kube-state-metrics:
+      resources:
+        requests: {cpu: 5m, memory: 48Mi}
+        limits: {memory: 96Mi}
+    prometheus-node-exporter:
+      resources:
+        requests: {cpu: 5m, memory: 24Mi}
+        limits: {memory: 48Mi}
+    alertmanager:
+      persistence:
+        size: 256Mi
+      resources:
+        requests: {cpu: 5m, memory: 32Mi}
+        limits: {memory: 64Mi}
+      configmapReload:
+        resources:
+          requests: {cpu: 1m, memory: 8Mi}
+          limits: {memory: 32Mi}
+      extraSecretMounts:
+        - name: ntfy
+          mountPath: /etc/alertmanager-ntfy
+          secretName: alertmanager-ntfy
+          readOnly: true
+      config:
+        route:
+          receiver: ntfy
+          group_by: [alertname, namespace]
+          group_wait: 30s
+          group_interval: 5m
+          repeat_interval: 6h
+          routes:
+            - matchers: ['severity="critical"']
+              receiver: ntfy-urgent
+              repeat_interval: 1h
+        receivers:
+          # Les adresses contiennent le sujet ntfy, qui sert de secret : elles sont lues dans un fichier.
+          - name: ntfy
+            webhook_configs:
+              - url_file: /etc/alertmanager-ntfy/url
+                send_resolved: true
+          - name: ntfy-urgent
+            webhook_configs:
+              - url_file: /etc/alertmanager-ntfy/url-urgent
+                send_resolved: true
+        inhibit_rules:
+          # Une application injoignable explique les sondes qui échouent derrière elle.
+          - source_matchers: ['alertname="NodeDown"']
+            target_matchers: ['alertname=~"ProbeFailed|TargetDown"']
+    extraScrapeConfigs: |
+      # Les échecs d'envoi d'Alertmanager alimentent l'alerte AlertmanagerNotificationsFailing.
+      - job_name: alertmanager
+        static_configs:
+          - targets: [prometheus-alertmanager:9093]
+      - job_name: blackbox
+        metrics_path: /probe
+        params:
+          module: [http_up]
+        static_configs:
+          - targets:
+              - http://edge.auditsphere.svc/
+              - http://api-gateway.auditsphere.svc:8080/actuator/health/readiness
+              # Le service Keycloak n'expose pas le port de santé : le document de découverte OIDC du royaume sert de sonde.
+              - http://keycloak.auditsphere.svc:8080/realms/auditsphere/.well-known/openid-configuration
+        relabel_configs:
+          - source_labels: [__address__]
+            target_label: __param_target
+          - source_labels: [__param_target]
+            target_label: instance
+          - target_label: __address__
+            replacement: blackbox-exporter:9115
+      - job_name: blackbox-garage
+        metrics_path: /probe
+        params:
+          module: [https_garage]
+        file_sd_configs:
+          - files: [/etc/prometheus-private/garage.json]
+        relabel_configs:
+          - source_labels: [__address__]
+            target_label: __param_target
+          - target_label: instance
+            replacement: garage
+          - target_label: __address__
+            replacement: blackbox-exporter:9115
+    serverFiles:
+      alerting_rules.yml:
+        groups:
+          - name: hote
+            rules:
+              - alert: NodeDiskAlmostFull
+                expr: 1 - node_filesystem_avail_bytes{mountpoint="/",fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{mountpoint="/",fstype!~"tmpfs|overlay"} > 0.85
+                for: 10m
+                labels: {severity: critical}
+                annotations:
+                  summary: Disque racine de l'hôte rempli à plus de 85 %
+                  description: "Occupation : {{ $value | humanizePercentage }}."
+              - alert: NodeMemoryLow
+                expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.10
+                for: 10m
+                labels: {severity: critical}
+                annotations:
+                  summary: Moins de 10 % de mémoire disponible sur l'hôte
+                  description: "Disponible : {{ $value | humanizePercentage }}."
+              - alert: NodeSwapHigh
+                expr: node_memory_SwapTotal_bytes - node_memory_SwapFree_bytes > 1073741824
+                for: 15m
+                labels: {severity: warning}
+                annotations:
+                  summary: Plus de 1 Gio d'échange utilisé sur l'hôte
+                  description: "Échange utilisé : {{ $value | humanize1024 }}o."
+              - alert: NodeLoadHigh
+                expr: node_load15 / count without (cpu, mode) (node_cpu_seconds_total{mode="idle"}) > 0.9
+                for: 15m
+                labels: {severity: warning}
+                annotations:
+                  summary: Charge de l'hôte supérieure à 90 % des cœurs depuis 15 minutes
+                  description: "Charge par cœur : {{ $value | humanize }}."
+              - alert: NodeDown
+                expr: up{job="kubernetes-service-endpoints",service=~".*node-exporter.*"} == 0
+                for: 5m
+                labels: {severity: critical}
+                annotations:
+                  summary: node-exporter ne répond plus
+                  description: Les métriques de l'hôte ne sont plus collectées.
+          - name: kubernetes
+            rules:
+              - alert: ContainerOOMKilled
+                expr: (kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} == 1) and on (namespace, pod, container) (increase(kube_pod_container_status_restarts_total[15m]) > 0)
+                labels: {severity: warning}
+                annotations:
+                  summary: "Conteneur {{ $labels.namespace }}/{{ $labels.container }} arrêté par manque de mémoire"
+                  description: "Pod {{ $labels.pod }}."
+              - alert: PodRestartingOften
+                expr: increase(kube_pod_container_status_restarts_total[1h]) >= 3
+                labels: {severity: warning}
+                annotations:
+                  summary: "Conteneur {{ $labels.namespace }}/{{ $labels.container }} redémarré au moins trois fois en une heure"
+                  description: "Pod {{ $labels.pod }}."
+              - alert: PodCrashLooping
+                expr: kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff"} == 1
+                for: 5m
+                labels: {severity: critical}
+                annotations:
+                  summary: "Conteneur {{ $labels.namespace }}/{{ $labels.container }} en CrashLoopBackOff"
+                  description: "Pod {{ $labels.pod }}."
+              - alert: WorkloadUnavailable
+                expr: |
+                  (kube_deployment_status_replicas_available < kube_deployment_spec_replicas)
+                  or (kube_statefulset_status_replicas_ready < kube_statefulset_replicas)
+                for: 10m
+                labels: {severity: critical}
+                annotations:
+                  summary: "{{ $labels.namespace }}/{{ $labels.deployment }}{{ $labels.statefulset }} sans toutes ses répliques prêtes"
+                  description: Depuis plus de 10 minutes.
+              - alert: JobFailed
+                expr: kube_job_status_failed > 0
+                labels: {severity: warning}
+                annotations:
+                  summary: "Job {{ $labels.namespace }}/{{ $labels.job_name }} en échec"
+                  description: Un échec reste signalé tant que le Job existe.
+              - alert: BackupTooOld
+                expr: time() - kube_cronjob_status_last_successful_time{namespace="backup"} > 26 * 3600
+                labels: {severity: critical}
+                annotations:
+                  summary: Aucune sauvegarde réussie depuis plus de 26 heures
+                  description: "CronJob {{ $labels.cronjob }}."
+          - name: certificats
+            rules:
+              - alert: CertificateExpiringSoon
+                expr: certmanager_certificate_expiration_timestamp_seconds - time() < 14 * 86400
+                for: 1h
+                labels: {severity: warning}
+                annotations:
+                  summary: "Certificat {{ $labels.namespace }}/{{ $labels.name }} expire dans moins de 14 jours"
+                  description: cert-manager aurait dû le renouveler.
+              - alert: CertificateNotReady
+                expr: certmanager_certificate_ready_status{condition="True"} == 0
+                for: 15m
+                labels: {severity: critical}
+                annotations:
+                  summary: "Certificat {{ $labels.namespace }}/{{ $labels.name }} non prêt"
+                  description: Depuis plus de 15 minutes.
+          - name: disponibilite
+            rules:
+              - alert: ProbeFailed
+                expr: probe_success == 0
+                for: 3m
+                labels: {severity: critical}
+                annotations:
+                  summary: "Sonde en échec : {{ $labels.instance }}"
+                  description: Depuis plus de 3 minutes.
+              - alert: TargetDown
+                expr: up == 0
+                for: 10m
+                labels: {severity: warning}
+                annotations:
+                  summary: "Cible {{ $labels.job }} injoignable : {{ $labels.instance }}"
+                  description: Depuis plus de 10 minutes.
+          - name: supervision
+            rules:
+              - alert: AlertmanagerNotificationsFailing
+                expr: increase(alertmanager_notifications_failed_total[15m]) > 0
+                labels: {severity: warning}
+                annotations:
+                  summary: Alertmanager n'arrive pas à envoyer des alertes
+                  description: "Intégration {{ $labels.integration }}."

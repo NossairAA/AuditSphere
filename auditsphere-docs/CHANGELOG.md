@@ -1,5 +1,13 @@
 # Journal des changements
 
+## 2026-10-27 : socle de supervision et alertes ntfy, phase 6 lot 6A
+
+- ADR-0029 : Prometheus sans opérateur, Alertmanager vers un sujet ntfy.sh choisi par l'utilisateur, phase 6 découpée en trois lots.
+- `deploy/k3s/monitoring/monitoring.yaml` : Prometheus, Alertmanager, node-exporter, kube-state-metrics et sondes blackbox dans le namespace `monitoring`, avec refus par défaut des entrées. Métriques de cert-manager activées.
+- 16 règles d'alerte : disque, mémoire, échange, charge, OOM, redémarrages, charges incomplètes, Job en échec, sauvegarde trop ancienne, certificats, sondes, cibles et envoi des alertes.
+- `scripts/k3s-monitoring.sh` : sujet ntfy et secrets créés sans affichage, application du manifeste, alerte de test.
+- Vérifié : toutes les cibles actives, alerte réelle, résolution et alerte de test publiées sur le sujet ntfy, aucun échec d'envoi. Supervision à 422 Mio. Réception sur le téléphone à confirmer. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-27 : rotation réelle du certificat client Temporal, phase 8 lot E2b
 
 - audit-service et workflow-worker passent à l'image `0e56ca9`, qui contient `ReloadingKeyManager`.
