@@ -147,6 +147,11 @@ spec:
               value: CF9re3IETN-2u83vX9lyOA
             - name: KAFKA_HEAP_OPTS
               value: -Xms128m -Xmx256m
+            # Le nettoyeur des topics compactés réserve par défaut 128 Mio de tas en permanence, soit la
+            # moitié du tas. Le tas saturé a provoqué des arrêts par manque de mémoire le 2026-10-27.
+            # 16 Mio couvrent environ 700 000 clés, très au-delà des groupes et transactions de ce broker.
+            - name: KAFKA_LOG_CLEANER_DEDUPE_BUFFER_SIZE
+              value: "16777216"
           ports:
             - name: broker
               containerPort: 9092

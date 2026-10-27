@@ -1,5 +1,11 @@
 # Journal des changements
 
+## 2026-10-27 : mémoire de Kafka corrigée
+
+- Cause des arrêts de Kafka par manque de mémoire : la table du nettoyeur des topics compactés réservait 128 Mio de tas en permanence, la moitié du tas. Tas saturé, collecte complète toutes les 13 minutes.
+- `KAFKA_LOG_CLEANER_DEDUPE_BUFFER_SIZE` ramené à 16 Mio. Tas et limite inchangés.
+- Vérifié : test avec pannes réussi, environ 60 Mio vivants dans le tas au lieu de 170, mémoire de travail de 240 Mio au lieu de 400, aucune collecte complète ni alerte. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-27 : métriques des services activées dans k3s, phase 6 lot 6B-b
 
 - api-gateway, audit-service, notification-service et remediation-service passent aux images de `788e3c8` avec le port de gestion 9464. Sonde de la gateway sur ce port.
