@@ -1,8 +1,10 @@
 image:
   repository: ghcr.io/nossairaa/auditsphere-audit-service
-  tag: 0e56ca9b50286f43cb14d82db1cd657f7ab4083c
-  digest: sha256:d4ba852a886161f0310b656d619516a9e2eb3d503c8402b652e012d90a5d209f
+  tag: 788e3c8fbc7dc6d6b18d8bcec315b60d9983aa90
+  digest: sha256:562d89ed1d0f5de42ec63563e7cf1524f941f0a780a8914d45647e3bd960e68f
 port: 8081
+# Actuator et métriques Prometheus sur un port réservé à la supervision (phase 6, lot 6B).
+managementPort: 9464
 allowFrom:
   - api-gateway
   - notification-service
@@ -38,12 +40,14 @@ secretEnv:
   - {name: EVIDENCE_S3_ACCESS_KEY, secret: evidence-s3, key: EVIDENCE_S3_ACCESS_KEY}
   - {name: EVIDENCE_S3_SECRET_KEY, secret: evidence-s3, key: EVIDENCE_S3_SECRET_KEY}
 # Hibernate, Kafka, Temporal et le client S3 demandent environ 140 Mio hors du tas.
+# 448 Mio suffisaient sans le port de gestion. Avec lui et le registre Prometheus, le conteneur a atteint
+# sa limite et a été arrêté le 2026-10-27 (phase 6, lot 6B) : 64 Mio de plus.
 resources:
   requests:
     cpu: 100m
     memory: 384Mi
   limits:
-    memory: 448Mi
+    memory: 512Mi
 internalCa:
   enabled: true
 

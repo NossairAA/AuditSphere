@@ -12,8 +12,10 @@ accounts="$root/.local/k3s-demo-accounts.env"
 : "${APP_ORIGIN:?}" "${OIDC_ORIGIN:?}"
 export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/auditsphere.yaml}"
 port=${GATEWAY_PORT:-18080}
+# Port de gestion de la gateway : santé d'Actuator depuis la phase 6, lot 6B.
+management_port=${GATEWAY_MANAGEMENT_PORT:-19464}
 
-kubectl --namespace auditsphere port-forward svc/api-gateway "$port:8080" >/dev/null 2>&1 &
+kubectl --namespace auditsphere port-forward svc/api-gateway "$port:8080" "$management_port:9464" >/dev/null 2>&1 &
 forward=$!
 disown "$forward"
 cleanup() {
@@ -31,11 +33,12 @@ for _ in $(seq 30); do
   sleep 2
 done
 for _ in $(seq 30); do
-  curl -fsS "http://127.0.0.1:$port/actuator/health" >/dev/null 2>&1 && break
+  curl -fsS "http://127.0.0.1:$management_port/actuator/health" >/dev/null 2>&1 && break
   sleep 1
 done
 
 AUDITSPHERE_TARGET=k3s AUDITSPHERE_API_BASE="http://127.0.0.1:$port" AUDITSPHERE_OIDC_BASE="$OIDC_ORIGIN" \
+AUDITSPHERE_HEALTH_BASE="http://127.0.0.1:$management_port" \
 AUDITSPHERE_ACCOUNTS_FILE="$accounts" AUDITSPHERE_WAIT=300 APP_ORIGIN="$APP_ORIGIN" \
 REMEDIATION_SYNC_CLIENT_SECRET=$(kubectl --namespace auditsphere get secret app-secrets -o jsonpath='{.data.REMEDIATION_SYNC_CLIENT_SECRET}' | base64 -d) \
   python3 "$root/scripts/$1" "${@:2}"

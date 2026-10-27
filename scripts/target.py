@@ -5,12 +5,15 @@ The k3s values come from scripts/k3s-check.sh, which opens the gateway port-forw
 import json
 import os
 import subprocess
+import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 K3S = os.environ.get('AUDITSPHERE_TARGET') == 'k3s'
 API_BASE = os.environ.get('AUDITSPHERE_API_BASE', 'http://localhost:8080')
 OIDC_BASE = os.environ.get('AUDITSPHERE_OIDC_BASE', 'http://localhost:8180')
+# Actuator answers on the gateway port in Compose and on its management port in k3s (phase 6, lot 6B).
+HEALTH_BASE = os.environ.get('AUDITSPHERE_HEALTH_BASE', API_BASE)
 TOKEN_URL = OIDC_BASE + '/realms/auditsphere/protocol/openid-connect/token'
 # Spring services restart slower on the single k3s node than in Compose.
 WAIT = int(os.environ.get('AUDITSPHERE_WAIT', '120'))
@@ -20,6 +23,14 @@ _env = dict(line.split('=', 1) for line in _accounts.read_text().splitlines() if
 KAFKA_BOOTSTRAP = 'localhost:9094' if K3S else 'localhost:9092'
 # PostgreSQL is a single instance in k3s: one database cannot be stopped alone.
 WORKLOADS = {'kafka': ('data', 'statefulset/kafka'), 'temporal': ('data', 'deployment/temporal')}
+
+
+def api_healthy():
+    try:
+        with urllib.request.urlopen(HEALTH_BASE + '/actuator/health', timeout=10) as response:
+            return response.status == 200
+    except (OSError, ValueError):
+        return False
 
 
 def secret(name):

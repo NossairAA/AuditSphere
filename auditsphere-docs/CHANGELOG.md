@@ -1,5 +1,12 @@
 # Journal des changements
 
+## 2026-10-27 : métriques des services activées dans k3s, phase 6 lot 6B-b
+
+- api-gateway, audit-service, notification-service et remediation-service passent aux images de `788e3c8` avec le port de gestion 9464. Sonde de la gateway sur ce port.
+- Scripts de vérification : santé d'Actuator lue sur le port de gestion dans k3s, par `AUDITSPHERE_HEALTH_BASE`.
+- audit-service : limite mémoire portée à 512 Mio après un arrêt par manque de mémoire avec la nouvelle image.
+- Vérifié : 22 cibles actives, métriques absentes du port routé, port de gestion refusé hors de la supervision, alertes DLT et OOM reçues, tests des notifications et de Temporal réussis. Kafka arrêté une fois par manque de mémoire pendant les pannes : dimensionnement à revoir. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-27 : métriques Prometheus des services, phase 6 lot 6B-a
 
 - api-gateway, audit-service, notification-service et remediation-service exposent `/actuator/prometheus`. Spring Security l'admet sans jeton.

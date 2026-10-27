@@ -51,7 +51,7 @@ def result(cycle):
     payload=end['workflowExecutionCompletedEventAttributes']['result']['payloads'][0]['data']
     return json.loads(base64.b64decode(payload))
 
-wait(lambda:request('/actuator/health')[0]==200,'API')
+wait(target.api_healthy,'API')
 manager,validator=token('manager'),token('validator')
 wait(lambda:request('/missions',manager)[0]==200,'mission API')
 claims=json.loads(base64.urlsafe_b64decode(validator.split('.')[1]+'=='))

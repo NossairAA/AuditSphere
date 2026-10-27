@@ -514,7 +514,7 @@ Limites :
 
 #### Lot 6B : métriques applicatives et alertes d'abus
 
-Statut : 6B-a, code et chart, implémenté et vérifié par tests le 2026-10-27. Métriques de la bordure et de Keycloak et alertes d'abus en service et vérifiées le même jour. 6B-b, activation des métriques des services Spring avec les nouvelles images, à faire.
+Statut : implémenté et vérifié le 2026-10-27. 6B-a, code et chart, fusionné par #15, images de `788e3c8` publiées. Métriques de la bordure et de Keycloak et alertes d'abus en service le même jour. 6B-b, activation des métriques des services Spring, déployé et vérifié le même jour.
 
 Comme aux lots C2 et E2, le lot est découpé : 6B-a change le code et produit de nouvelles images, 6B-b les déploie et ajoute les règles.
 
@@ -549,10 +549,32 @@ Vérifications, le 2026-10-27 :
 - Second essai après la correction, à 03:15 UTC : 25 échecs de connexion, 209 refus 429 sur 400 requêtes. `LoginFailures` et `EdgeRateLimited` publiées sur le sujet ntfy à 03:16:38.
 - Keycloak et la bordure redémarrés une fois par le déploiement. Aucune autre interruption.
 
-6B-b, prévu :
+6B-b :
 
-- Activer `managementPort` avec les nouvelles images. Sonde blackbox de la gateway déplacée sur le port de gestion.
-- Constater les métriques des services servlet, des consommateurs et producteurs Kafka et des outbox, puis l'absence de faux positif.
+- api-gateway, audit-service, notification-service, remediation-service et workflow-worker passent aux images de `788e3c8`, tirées par empreinte. Port de gestion 9464 actif pour les quatre services HTTP. Le worker n'a pas de serveur HTTP et reste sans métriques.
+- Chart `spring-service` : le service publie aussi le port de gestion, pour la sonde blackbox de la gateway, désormais sur 9464. La règle d'entrée générale des sondes ne vise plus la gateway.
+- Scripts de vérification : la santé d'Actuator quitte le port routé. `target.py` lit `AUDITSPHERE_HEALTH_BASE` et fournit `api_healthy()`. `k3s-check.sh` ouvre aussi le port de gestion de la gateway. `smoke.py` et `test-temporal.py` l'utilisent. Compose garde la santé sur le port routé.
+- audit-service : limite mémoire portée de 448 à 512 Mio, voir l'incident ci-dessous.
+
+Vérifications de 6B-b, le 2026-10-27 :
+
+- 22 cibles sur 22 actives. Métriques des JVM pour les quatre services, étiquetées par l'application. Retard des consommateurs Kafka de notification-service. Jauges des deux outbox à zéro. Sonde de la gateway réussie sur 9464.
+- Port routé de la gateway : réponse 404 pour `/actuator/prometheus` et `/actuator/health`. Port de gestion : réponse 200 sans jeton.
+- Depuis le pod `edge`, hors du namespace `monitoring` : connexion refusée vers le port 9464 de la gateway et d'audit-service. Témoin depuis le même pod vers `web` : réussi.
+- Test des notifications avec pannes, par `k3s-check.sh` : livraison, rejeu sans doublon, DLT, reprise après arrêt de notification-service et de Kafka réussis.
+- `KafkaDeadLetter` non déclenchée par ce test : le producteur de la DLT naît au premier envoi, et le test arrête notification-service avant la collecte suivante. Un seul message invalide injecté ensuite, sans arrêt : alerte publiée sur le sujet ntfy trois minutes plus tard.
+- Test Temporal réussi par le nouveau chemin de santé : trois cycles dont un retrait, rejeu sans nouveau workflow.
+- Tas des JVM entre 18 et 22 % de leur maximum. Aucun faux positif sur les règles applicatives pendant les essais.
+
+Incidents :
+
+- audit-service arrêté par manque de mémoire à 13:47 UTC, 15 minutes après le déploiement. L'ancienne image se stabilisait à 400 Mio pour une limite de 448. La nouvelle est montée à 423 Mio, puis a dépassé la limite. Le serveur du port de gestion et le registre Prometheus en sont la cause probable : la mémoire hors du tas atteignait 186 Mio pour 53 Mio de tas. Alerte `ContainerOOMKilled` reçue. Limite portée à 512 Mio, demande inchangée. Mesure sur les 16 minutes suivantes : stable vers 393 Mio, aucun redémarrage. Nœud à 85 % de sa mémoire allouable, aucune alerte active à 14:06 UTC.
+- Kafka arrêté par manque de mémoire à 13:36 UTC pendant le test avec pannes, et déjà une fois avant l'installation de la supervision. Sa mémoire de travail reste vers 400 Mio pour une limite de 512. Alerte `ContainerOOMKilled` reçue, puis résolue. Non corrigé dans ce lot : dimensionnement de Kafka à revoir.
+
+Limites :
+
+- Les compteurs d'un producteur Kafka disparaissent avec son pod. Une DLT suivie d'un redémarrage avant la collecte suivante n'est pas signalée.
+- Le worker Temporal n'expose aucune métrique. Ses pannes restent visibles par `WorkloadUnavailable`, `PodCrashLooping` et `OutboxStuck` côté audit-service.
 
 ### Phase 7 : sauvegardes et restauration
 
@@ -948,6 +970,7 @@ Seule la phase 7 pourrait être reportée, puisque l'instance publique ne porte 
 
 ## Vérifications effectuées
 
+- Phase 6 lot 6B, le 2026-10-27 sur le serveur : métriques des quatre services Spring sur un port réservé à la supervision, isolation vérifiée, alertes d'abus, de DLT et d'arrêt par manque de mémoire reçues, tests des notifications et de Temporal réussis. Détails dans le lot 6B.
 - Phase 6 lot 6A, le 2026-10-27 sur le serveur : Prometheus, Alertmanager, node-exporter, kube-state-metrics et sondes blackbox. Toutes les cibles actives, alerte réelle et alerte de test publiées sur le sujet ntfy, alerte de test reçue sur le téléphone. Détails dans le lot 6A.
 - Relevé matériel et logiciel du serveur par SSH le 2026-10-24, sans sudo ni modification.
 - Tarifs cloud relevés le 2026-10-24 pour l'arbitrage d'ADR-0023. Ils ne sont pas vérifiés sur les pages officielles d'AWS et d'Azure.

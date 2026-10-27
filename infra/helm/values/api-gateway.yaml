@@ -1,8 +1,10 @@
 image:
   repository: ghcr.io/nossairaa/auditsphere-api-gateway
-  tag: 294a0ff6efb6bb7b304e82ccfeb6fe937b28660b
-  digest: sha256:65503981bd9998df54bf3d6dc524a3c7749e7d461c13f7c9a100fbfb9a8c1f17
+  tag: 788e3c8fbc7dc6d6b18d8bcec315b60d9983aa90
+  digest: sha256:3b109da994c57d9a5395e831939be7e0ba7ca15a265650e2278c82d7e1292535
 port: 8080
+# Actuator et métriques Prometheus sur un port réservé à la supervision (phase 6, lot 6B).
+managementPort: 9464
 allowFrom:
   - web
 oidc:

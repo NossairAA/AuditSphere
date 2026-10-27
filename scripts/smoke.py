@@ -13,7 +13,7 @@ def request(url,token=None,data=None,form=False):
 base=target.API_BASE
 for attempt in range(120):
  try:
-  if request(base+'/actuator/health')[0]==200 and request(target.OIDC_BASE+'/realms/auditsphere/.well-known/openid-configuration')[0]==200: break
+  if target.api_healthy() and request(target.OIDC_BASE+'/realms/auditsphere/.well-known/openid-configuration')[0]==200: break
  except (OSError,ValueError): pass
  time.sleep(2)
 else: raise SystemExit('Services indisponibles après 4 minutes')

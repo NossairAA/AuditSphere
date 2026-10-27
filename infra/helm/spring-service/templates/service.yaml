@@ -12,4 +12,10 @@ spec:
     - name: http
       port: {{ .Values.port }}
       targetPort: http
+    {{- if gt (int .Values.managementPort) 0 }}
+    # Port de gestion, pour la sonde blackbox. La règle d'entrée le réserve au namespace monitoring.
+    - name: management
+      port: {{ .Values.managementPort }}
+      targetPort: management
+    {{- end }}
 {{- end }}

@@ -43,7 +43,8 @@ spec:
         - port: 8081
         - port: 9115
 ---
-# Sondes de disponibilité : la bordure, la gateway et Keycloak, depuis l'exportateur blackbox seul.
+# Sondes de disponibilité : la bordure et Keycloak, depuis l'exportateur blackbox seul.
+# La gateway est sondée sur son port de gestion, ouvert par le chart spring-service.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -54,7 +55,7 @@ spec:
     matchExpressions:
       - key: app.kubernetes.io/name
         operator: In
-        values: [edge, api-gateway, keycloak]
+        values: [edge, keycloak]
   policyTypes: [Ingress]
   ingress:
     - from:
@@ -259,7 +260,8 @@ spec:
         static_configs:
           - targets:
               - http://edge.auditsphere.svc/
-              - http://api-gateway.auditsphere.svc:8080/actuator/health/readiness
+              # Port de gestion de la gateway (lot 6B), ouvert à la supervision par le chart spring-service.
+              - http://api-gateway.auditsphere.svc:9464/actuator/health/readiness
               # Le service Keycloak n'expose pas le port de santé : le document de découverte OIDC du royaume sert de sonde.
               - http://keycloak.auditsphere.svc:8080/realms/auditsphere/.well-known/openid-configuration
         relabel_configs:
