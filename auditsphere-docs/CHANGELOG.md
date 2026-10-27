@@ -1,5 +1,10 @@
 # Journal des changements
 
+## 2026-10-27 : images corrigées déployées
+
+- api-gateway, audit-service, notification-service, remediation-service et workflow-worker passent aux images de `3066fbc`, avec `guava` 33.7.2-android et `snappy-java` 1.1.10.9.
+- Vérifié : analyse Trivy bloquante réussie en CI, smoke de l'API réussi, 22 cibles actives, aucune alerte active après le redémarrage. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-27 : session d'observation et requête tracée, phase 6 lot 6C-b
 
 - `scripts/k3s-observability.sh up|down|grafana` : Tempo, Loki, Alloy et Grafana installés à la demande dans `monitoring`, traces activées dans les services pendant la session. Valeurs dans `deploy/k3s/observability`.
