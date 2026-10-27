@@ -171,8 +171,6 @@ Le dépannage du frontend local est documenté dans le README. Le démarrage aut
 
 Publication du jalon de durcissement terminée, CI verte sur 69de451.
 
-- DEV-REPO-01 : consignes IA exclues des publications futures, documentation fonctionnelle et technique conservée.
-
 ## Jalon notifications Kafka
 
 | ID | Livrable | État |

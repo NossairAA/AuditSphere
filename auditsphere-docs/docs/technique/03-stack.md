@@ -56,7 +56,6 @@ Créer une mission, déclarer un constat et affecter une action. Le service prop
 
 ```text
 AuditSphere/
-  AGENTS.md
   auditsphere-docs/
   pom.xml                  # parent Maven créé
   services/                # audit-service et api-gateway créés
