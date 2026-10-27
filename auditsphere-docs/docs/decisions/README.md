@@ -59,6 +59,7 @@ Utiliser le modèle dans [`docs/templates/adr.md`](../templates/adr.md).
 - [ADR-0029 : supervision par Prometheus et alertes par ntfy](ADR-0029-supervision-prometheus-ntfy.md), accepté, lots 6A et 6B implémentés
 - [ADR-0030 : traces et journaux à la demande](ADR-0030-traces-journaux-a-la-demande.md), accepté, lot 6C implémenté
 - [ADR-0031 : profils de démonstration et de production](ADR-0031-profils-demonstration-production.md), proposé, non implémenté
+- [ADR-0032 : client de démonstration désactivé au repos](ADR-0032-client-demonstration-bascule.md), accepté, implémenté
 
 - [ADR-0018 : séparation validateur et auditeur](ADR-0018-separation-validateur-auditeur.md).
 - [ADR-0019 : sessions et accès web](ADR-0019-sessions-et-acces-web.md).

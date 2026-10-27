@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Configure idempotently the Keycloak of the k3s cluster for the demo profile (phase 4, lot D).
+"""Configure idempotently the Keycloak of the k3s cluster for the demo profile (phase 4, lot D, hardened in phase 10).
 
 Secrets come from the cluster and demo passwords from .local/k3s-demo-accounts.env. Nothing secret is printed.
 """
@@ -155,10 +155,10 @@ ensure_client({'clientId': 'auditsphere-web', 'name': 'AuditSphere Web', 'protoc
                'standardFlowEnabled': True, 'directAccessGrantsEnabled': False, 'serviceAccountsEnabled': False,
                'redirectUris': [app_origin + '/auth/callback'], 'webOrigins': [app_origin],
                'attributes': {'pkce.code.challenge.method': 'S256', 'post.logout.redirect.uris': app_origin + '/'}, 'protocolMappers': audience})
-# Password grant for seeding and smoke tests, tailnet only. To disable before any public opening (HOST-008).
-ensure_client({'clientId': 'auditsphere-demo', 'protocol': 'openid-connect', 'publicClient': True, 'standardFlowEnabled': False,
+# Password grant for seeding and smoke tests. Disabled at rest, enabled by scripts/k3s-check.sh for one run only (ADR-0032).
+ensure_client({'clientId': 'auditsphere-demo', 'enabled': False, 'protocol': 'openid-connect', 'publicClient': True, 'standardFlowEnabled': False,
                'directAccessGrantsEnabled': True, 'serviceAccountsEnabled': False, 'protocolMappers': audience})
-print('Clients auditsphere-web, avec code et PKCE, et auditsphere-demo, limité au tailnet, configurés.')
+print('Clients auditsphere-web, avec code et PKCE, et auditsphere-demo, désactivé au repos, configurés.')
 
 management = call(base + '/clients?clientId=realm-management', token=token)[0]['id']
 
@@ -177,6 +177,21 @@ service_account(ensure_client({**server, 'clientId': 'auditsphere-directory', 's
 service_account(ensure_client({**server, 'clientId': 'auditsphere-user-admin', 'secret': app['USER_ADMIN_CLIENT_SECRET']}), ['view-users', 'query-users', 'manage-users', 'view-realm'])
 service_account(ensure_client({**server, 'clientId': 'remediation-service', 'secret': app['REMEDIATION_SYNC_CLIENT_SECRET'], 'protocolMappers': audience}), realm_roles=['REMEDIATION_SYNC'])
 print('Clients serveur annuaire, gestion des utilisateurs et remediation-service configurés avec les secrets du cluster.')
+
+# Switch of auditsphere-demo, limited to the clients of this realm instead of the master administrator (ADR-0032).
+switch = secret('keycloak-demo-switch') or {'client_secret': secrets.token_urlsafe(32)}
+service_account(ensure_client({**server, 'clientId': 'k3s-demo-switch', 'secret': switch['client_secret']}), ['view-clients', 'manage-clients'])
+save_secret('keycloak-demo-switch', switch)
+print('Client k3s-demo-switch configuré, secret stocké dans le cluster.')
+
+# OTP for the super administrator, enrolled at the next browser sign-in. A configured OTP is left untouched.
+superadmin = call(base + '/users?username=superadmin&exact=true', token=token)[0]
+if not any(c['type'] == 'otp' for c in call(base + '/users/' + superadmin['id'] + '/credentials', token=token)):
+    actions = sorted(set(superadmin.get('requiredActions', [])) | {'CONFIGURE_TOTP'})
+    call(base + '/users/' + superadmin['id'], {'requiredActions': actions}, 'PUT', token)
+    print('OTP exigé pour superadmin à sa prochaine connexion.')
+else:
+    print('OTP de superadmin déjà configuré.')
 
 for realm in ['auditsphere', 'master']:
     settings = {'bruteForceProtected': True, 'permanentLockout': False, 'failureFactor': 5, 'waitIncrementSeconds': 30, 'minimumQuickLoginWaitSeconds': 30,

@@ -1,5 +1,12 @@
 # Journal des changements
 
+## 2026-10-28 : durcissement de Keycloak, phase 10 lot A
+
+- ADR-0032 : le client `auditsphere-demo`, qui accepte le mot de passe direct, est désactivé au repos. `scripts/k3s-check.sh` l'active le temps d'une exécution et le désactive à la sortie.
+- `scripts/k3s-demo-client.py` et compte de service `k3s-demo-switch`, limité aux clients du royaume `auditsphere`.
+- OTP exigé pour `superadmin`. Sonde blackbox et alerte `DemoClientEnabled` si le client reste actif plus de 30 minutes.
+- Vérifié dans le cluster : smoke réussi, refus quand le client est déjà actif, fermeture après Ctrl+C, sonde dans les deux états, mot de passe direct de `superadmin` refusé. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-27 : profils de démonstration et de production proposés
 
 - ADR-0031 proposé : deux profils de déploiement distincts. `demo` offre une entrée en un clic par rôle, sans OTP pour ces seuls comptes, sur des données synthétiques réinitialisées chaque nuit. `production` reprend le royaume isolé de C1 et C17.

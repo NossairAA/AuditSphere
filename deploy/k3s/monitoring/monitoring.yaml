@@ -151,6 +151,17 @@ spec:
             valid_status_codes: [403]
             fail_if_not_ssl: true
             preferred_ip_protocol: ip4
+        # Client auditsphere-demo désactivé (ADR-0032) : Keycloak répond invalid_client. Actif, il répond unauthorized_client.
+        demo_client_disabled:
+          prober: http
+          timeout: 10s
+          http:
+            method: POST
+            headers: {Content-Type: application/x-www-form-urlencoded}
+            body: client_id=auditsphere-demo&grant_type=client_credentials
+            valid_status_codes: [400, 401]
+            fail_if_body_not_matches_regexp: ['"error":"invalid_client"']
+            preferred_ip_protocol: ip4
 ---
 apiVersion: helm.cattle.io/v1
 kind: HelmChart
@@ -271,6 +282,21 @@ spec:
             target_label: instance
           - target_label: __address__
             replacement: blackbox-exporter:9115
+      # Une requête toutes les 5 minutes : chaque essai laisse un événement CLIENT_LOGIN_ERROR dans Keycloak.
+      - job_name: blackbox-demo-client
+        metrics_path: /probe
+        scrape_interval: 5m
+        params:
+          module: [demo_client_disabled]
+        static_configs:
+          - targets: [http://keycloak.auditsphere.svc:8080/realms/auditsphere/protocol/openid-connect/token]
+        relabel_configs:
+          - source_labels: [__address__]
+            target_label: __param_target
+          - target_label: instance
+            replacement: auditsphere-demo
+          - target_label: __address__
+            replacement: blackbox-exporter:9115
       - job_name: blackbox-garage
         metrics_path: /probe
         params:
@@ -385,7 +411,7 @@ spec:
           - name: disponibilite
             rules:
               - alert: ProbeFailed
-                expr: probe_success == 0
+                expr: probe_success{job!="blackbox-demo-client"} == 0
                 for: 3m
                 labels: {severity: critical}
                 annotations:
@@ -456,6 +482,13 @@ spec:
                 annotations:
                   summary: "Plus de 20 échecs de connexion en 10 minutes sur {{ $labels.realm }}"
                   description: "Échecs : {{ $value | humanize }}."
+              - alert: DemoClientEnabled
+                expr: probe_success{job="blackbox-demo-client"} == 0
+                for: 30m
+                labels: {severity: critical}
+                annotations:
+                  summary: Client auditsphere-demo actif depuis plus de 30 minutes
+                  description: Mot de passe direct ouvert hors d'une exécution de k3s-check.sh. Lancer scripts/k3s-demo-client.py disable.
               - alert: GatewayAuthRejections
                 expr: sum((http_server_requests_seconds_count{application="api-gateway",status=~"401|403|429"} unless http_server_requests_seconds_count offset 10m) or increase(http_server_requests_seconds_count{application="api-gateway",status=~"401|403|429"}[10m])) > 50
                 labels: {severity: warning}
