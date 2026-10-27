@@ -31,8 +31,11 @@ spec:
     crds:
       enabled: true
       keep: true
+    # Métriques d'expiration lues par Prometheus (phase 6, lot 6A). Annotations de collecte sur le pod, sans opérateur.
     prometheus:
-      enabled: false
+      enabled: true
+      servicemonitor:
+        enabled: false
     # Le contrôle de démarrage lance un Job à chaque mise à jour : inutile ici.
     startupapicheck:
       enabled: false
