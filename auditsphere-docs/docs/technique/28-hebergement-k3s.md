@@ -512,6 +512,48 @@ Limites :
 - La sonde de la bordure suit le chemin interne. Le tunnel Cloudflare sera sondé à la phase 10.
 - Comme cert-manager et l'opérateur Tailscale, les charts sont épinglés par version, pas les images par empreinte. Les applications restent épinglées par empreinte.
 
+#### Lot 6B : métriques applicatives et alertes d'abus
+
+Statut : 6B-a, code et chart, implémenté et vérifié par tests le 2026-10-27. Métriques de la bordure et de Keycloak et alertes d'abus en service et vérifiées le même jour. 6B-b, activation des métriques des services Spring avec les nouvelles images, à faire.
+
+Comme aux lots C2 et E2, le lot est découpé : 6B-a change le code et produit de nouvelles images, 6B-b les déploie et ajoute les règles.
+
+6B-a :
+
+- `micrometer-registry-prometheus` dans api-gateway, audit-service, notification-service et remediation-service. Spring Security admet `/actuator/prometheus` sans jeton, comme la santé.
+- Chart `spring-service`, option `managementPort`, nulle par défaut. Active, elle place Actuator sur ce port, y expose `prometheus`, étiquette les métriques avec le nom du service, déplace les sondes de Kubernetes sur ce port et ajoute les annotations de collecte. Une règle d'entrée admet sur ce port Prometheus et l'exportateur blackbox du namespace `monitoring`, et personne d'autre. Le port routé reste fermé aux métriques.
+- Option nulle : rendu du chart identique octet pour octet à celui de `main` pour les cinq services, vérifié par `diff`. Le déploiement actuel ne change pas tant que les valeurs n'activent pas l'option.
+- audit-service, `OutboxMetrics` : nombre d'événements non publiés et âge du plus ancien, pour `assignment_outbox`, vers Kafka, et `review_workflow_outbox`, vers Temporal. Lus en base à chaque collecte. Une lecture en échec donne une absence de valeur, pas un zéro trompeur.
+- `remediation_outbox` existe en base mais aucun code ne la publie encore : pas de mesure.
+
+Vérifications de 6B-a, le 2026-10-27, dans l'image Maven de construction :
+
+- `ManagementPortTest`, gateway démarrée avec les réglages du chart : métriques servies sans jeton sur le port de gestion avec l'étiquette du service, refusées sur le port routé, santé servie sur le port de gestion. Trois cas réussis.
+- `OutboxMetricsTest` : jauges enregistrées pour chaque outbox, lecture des seuls événements non publiés, absence de valeur en cas d'échec. Trois cas réussis.
+- Non vérifié localement : le même comportement dans les services servlet. Il sera constaté dans le cluster en 6B-b.
+
+Bordure, Keycloak et règles, configuration seule, déployées le 2026-10-27 :
+
+- Bordure Traefik : métriques Prometheus sur l'écoute `ping`, port 8082, jamais sur l'écoute web. Compteur par code de réponse, dont les refus 429 de la limite de débit.
+- Keycloak : `KC_METRICS_ENABLED` et `KC_EVENT_METRICS_USER_ENABLED`, servis sur le port de gestion 9000. Compteur `keycloak_user_events_total` par événement, erreur et royaume.
+- Annotations de collecte sur les deux pods. Règle d'entrée `metrics-from-prometheus` dans `auditsphere` : Prometheus seul vers les ports 8082 de la bordure et 9000 de Keycloak.
+- Neuf règles ajoutées, 25 au total. Applications : tas des JVM au-delà de 90 %, au moins 10 erreurs 5xx en 10 minutes, retard d'un consommateur Kafka au-delà de 100 messages, message envoyé en DLT, outbox bloquée depuis plus de 10 minutes. Abus : plus de 50 refus 429 de la bordure en 5 minutes, plus de 20 requêtes par seconde sur la bordure pendant 10 minutes, plus de 20 échecs de connexion en 10 minutes, plus de 50 réponses 401, 403 ou 429 de la gateway en 10 minutes.
+- Les règles des applications et celle de la gateway restent sans données jusqu'à 6B-b.
+- Compteurs : `increase()` ignore la première valeur d'une série. Une série qui apparaît avec la première rafale d'une attaque, comme le premier code 429, comptait donc pour zéro. Les règles comptent désormais une série absente au début de la fenêtre pour sa valeur entière.
+
+Vérifications, le 2026-10-27 :
+
+- 18 cibles sur 18 actives, dont la bordure et Keycloak. 25 règles validées par `promtool check rules`.
+- Correction des compteurs essayée par `promtool test rules` : alerte pour une série apparue avec 28 échecs, alerte pour une série ancienne en hausse de 25, aucune alerte hors fenêtre.
+- Premier essai d'abus, avant la correction : 25 échecs de connexion avec un compte inexistant et 400 requêtes rapides sur la bordure, dont 192 refusées en 429. Aucune alerte : les deux séries venaient d'apparaître.
+- Second essai après la correction, à 03:15 UTC : 25 échecs de connexion, 209 refus 429 sur 400 requêtes. `LoginFailures` et `EdgeRateLimited` publiées sur le sujet ntfy à 03:16:38.
+- Keycloak et la bordure redémarrés une fois par le déploiement. Aucune autre interruption.
+
+6B-b, prévu :
+
+- Activer `managementPort` avec les nouvelles images. Sonde blackbox de la gateway déplacée sur le port de gestion.
+- Constater les métriques des services servlet, des consommateurs et producteurs Kafka et des outbox, puis l'absence de faux positif.
+
 ### Phase 7 : sauvegardes et restauration
 
 - CronJob `pg_dump` de chaque base, sauvegarde Garage par `deploy/garage/backup.sh`, copies restic chiffrées hors machine. La cible est le Mac par le tailnet ou un stockage objet externe.

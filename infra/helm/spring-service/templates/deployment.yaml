@@ -15,6 +15,13 @@ spec:
     metadata:
       labels:
         {{- include "spring-service.labels" . | nindent 8 }}
+      {{- if gt (int .Values.managementPort) 0 }}
+      # Collecte par le job kubernetes-pods de Prometheus (phase 6, lot 6B).
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ .Values.managementPort | quote }}
+        prometheus.io/path: /actuator/prometheus
+      {{- end }}
     spec:
       enableServiceLinks: false
       automountServiceAccountToken: false
@@ -35,6 +42,16 @@ spec:
               value: {{ .Values.oidc.jwks | quote }}
             {{- end }}
             {{- include "spring-service.secretEnv" . | nindent 12 }}
+            {{- if gt (int .Values.managementPort) 0 }}
+            {{- if eq (int .Values.port) 0 }}{{ fail "managementPort exige port" }}{{ end }}
+            # Actuator sur son propre port, fermé au BFF et à la gateway : seule la supervision le joint.
+            - name: MANAGEMENT_SERVER_PORT
+              value: {{ .Values.managementPort | quote }}
+            - name: MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE
+              value: health,info,prometheus
+            - name: MANAGEMENT_METRICS_TAGS_APPLICATION
+              value: {{ .Release.Name | quote }}
+            {{- end }}
             {{- if .Values.temporalTls.secret }}
             {{- if not .Values.internalCa.enabled }}{{ fail "temporalTls exige internalCa.enabled" }}{{ end }}
             - name: TEMPORAL_TLS_CA_FILE
@@ -48,21 +65,25 @@ spec:
           ports:
             - name: http
               containerPort: {{ .Values.port }}
+            {{- if gt (int .Values.managementPort) 0 }}
+            - name: management
+              containerPort: {{ .Values.managementPort }}
+            {{- end }}
           startupProbe:
             httpGet:
               path: /actuator/health/liveness
-              port: http
+              port: {{ include "spring-service.probePort" . }}
             periodSeconds: 5
             failureThreshold: 36
           readinessProbe:
             httpGet:
               path: /actuator/health/readiness
-              port: http
+              port: {{ include "spring-service.probePort" . }}
             periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness
-              port: http
+              port: {{ include "spring-service.probePort" . }}
             periodSeconds: 20
           {{- end }}
           resources:

@@ -1,5 +1,13 @@
 # Journal des changements
 
+## 2026-10-27 : métriques Prometheus des services, phase 6 lot 6B-a
+
+- api-gateway, audit-service, notification-service et remediation-service exposent `/actuator/prometheus`. Spring Security l'admet sans jeton.
+- Chart `spring-service` : option `managementPort`, nulle par défaut, qui place Actuator sur un port réservé à la supervision, avec sondes, annotations de collecte et règle d'entrée. Rendu inchangé tant qu'elle reste nulle.
+- audit-service : jauges du nombre et de l'âge des événements non publiés de `assignment_outbox` et `review_workflow_outbox`.
+- Bordure Traefik et Keycloak : métriques activées, collectées par Prometheus seul. Neuf règles ajoutées : mémoire des JVM, erreurs 5xx, retard Kafka, DLT, outbox bloquée, refus 429, pic de trafic, échecs de connexion, refus de la gateway. Les compteurs comptent aussi une série qui vient d'apparaître.
+- Vérifié par tests : métriques servies sur le port de gestion seul, sans jeton, jauges des outbox. Vérifié dans le cluster : échecs de connexion et refus 429 provoqués, alertes publiées sur le sujet ntfy. Activation des métriques Spring au lot 6B-b. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-27 : socle de supervision et alertes ntfy, phase 6 lot 6A
 
 - ADR-0029 : Prometheus sans opérateur, Alertmanager vers un sujet ntfy.sh choisi par l'utilisateur, phase 6 découpée en trois lots.

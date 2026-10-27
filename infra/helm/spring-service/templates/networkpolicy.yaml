@@ -21,6 +21,20 @@ spec:
                   {{- toYaml .Values.allowFrom | nindent 18 }}
       ports:
         - port: {{ .Values.port }}
+    {{- if gt (int .Values.managementPort) 0 }}
+    # Port de gestion : Prometheus et l'exportateur blackbox du namespace monitoring seulement.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values: [prometheus, prometheus-blackbox-exporter]
+      ports:
+        - port: {{ .Values.managementPort }}
+    {{- end }}
   {{- else }}
   ingress: []
   {{- end }}

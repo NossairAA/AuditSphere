@@ -8,6 +8,10 @@ image:
 # Port HTTP du service. 0 pour un processus sans HTTP, comme le worker Temporal.
 port: 0
 
+# Port d'Actuator séparé, ouvert à la supervision seule (phase 6, lot 6B). 0 : Actuator reste sur le port HTTP,
+# sans métriques Prometheus exposées. Exige une image avec micrometer-registry-prometheus.
+managementPort: 0
+
 # Variables d'environnement en clair.
 env: {}
 

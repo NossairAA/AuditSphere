@@ -52,7 +52,7 @@ class GatewayConfig {
     return http.csrf(c -> c.disable())
         .authorizeExchange(
             a ->
-                a.pathMatchers("/actuator/health", "/actuator/health/**")
+                a.pathMatchers("/actuator/health", "/actuator/health/**", "/actuator/prometheus")
                     .permitAll()
                     .anyExchange()
                     .authenticated())
