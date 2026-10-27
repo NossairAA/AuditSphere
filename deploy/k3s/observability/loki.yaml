@@ -1,0 +1,67 @@
+# Loki d'une session d'observation (phase 6, lot 6C, ADR-0030) : binaire unique, stockage éphémère sur le pod.
+# Chart grafana/loki 7.3.0, installé et désinstallé par scripts/k3s-observability.sh.
+deploymentMode: SingleBinary
+fullnameOverride: loki
+loki:
+  auth_enabled: false
+  commonConfig:
+    replication_factor: 1
+  storage:
+    type: filesystem
+  schemaConfig:
+    configs:
+      - from: "2026-01-01"
+        store: tsdb
+        object_store: filesystem
+        schema: v13
+        index:
+          prefix: loki_index_
+          period: 24h
+  limits_config:
+    # Alloy reprend les journaux encore conservés par le nœud, parfois vieux de plusieurs jours.
+    reject_old_samples: false
+    retention_period: 168h
+  # Les journaux repris par Alloy peuvent dater de plusieurs heures et rester dans l'ingesteur, jamais vidé
+  # vers le stockage pendant une session courte. Par défaut, il n'est interrogé que sur les trois dernières heures.
+  querier:
+    query_ingesters_within: 0
+  pattern_ingester:
+    enabled: false
+  ui:
+    enabled: false
+singleBinary:
+  replicas: 1
+  resources:
+    requests: {cpu: 20m, memory: 128Mi}
+    limits: {memory: 512Mi}
+  persistence:
+    enabled: false
+  # Racine en lecture seule : données dans un volume éphémère, perdu à la fin de la session.
+  extraVolumes:
+    - name: data
+      emptyDir:
+        sizeLimit: 2Gi
+  extraVolumeMounts:
+    - name: data
+      mountPath: /var/loki
+read:
+  replicas: 0
+write:
+  replicas: 0
+backend:
+  replicas: 0
+gateway:
+  enabled: false
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
+lokiCanary:
+  enabled: false
+test:
+  enabled: false
+minio:
+  enabled: false
+sidecar:
+  rules:
+    enabled: false

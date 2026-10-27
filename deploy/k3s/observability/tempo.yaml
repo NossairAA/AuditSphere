@@ -1,0 +1,29 @@
+# Tempo d'une session d'observation (phase 6, lot 6C, ADR-0030) : processus unique, stockage éphémère.
+# Chart grafana-community/tempo 3.1.0, installé et désinstallé par scripts/k3s-observability.sh.
+fullnameOverride: tempo
+tempo:
+  reportingEnabled: false
+  retention: 6h
+  resources:
+    requests: {cpu: 10m, memory: 96Mi}
+    limits: {memory: 384Mi}
+  # Récepteurs par défaut du chart, qui en exige la liste. La règle d'entrée n'ouvre que l'OTLP en HTTP, port 4318.
+  extraVolumeMounts:
+    - name: data
+      mountPath: /var/tempo
+  storage:
+    trace:
+      backend: local
+      local:
+        path: /var/tempo/traces
+      wal:
+        path: /var/tempo/wal
+tempoQuery:
+  enabled: false
+persistence:
+  enabled: false
+# Données perdues à la fin de la session, comme le prévoit ADR-0030.
+extraVolumes:
+  - name: data
+    emptyDir:
+      sizeLimit: 1Gi
