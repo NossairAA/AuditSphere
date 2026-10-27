@@ -26,7 +26,7 @@ L'utilisateur a choisi l'option 2 le 2026-10-27.
 
 ## Conséquences et risques
 
-- Ouvrir ou fermer une session redémarre les quatre services Spring, environ une minute d'indisponibilité partielle. À éviter une fois l'application publique, ou à réserver aux moments calmes.
+- Ouvrir ou fermer une session redémarre les quatre services Spring. Mesure du 2026-10-27 : 19 minutes en série à l'ouverture, 51 secondes en parallèle à la fermeture. À éviter une fois l'application publique, ou à réserver aux moments calmes.
 - Hors session, aucune trace n'existe : un incident passé ne peut être tracé qu'en le reproduisant.
 - Échantillonnage complet pendant une session : acceptable pour une session courte, coûteux s'il restait actif.
 - Journaux limités à ce que le nœud conserve encore. Les journaux plus anciens sont perdus.

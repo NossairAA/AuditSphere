@@ -126,7 +126,7 @@ La migration vers Spring Boot 4.0.9 et Spring Framework 7.0.10, décidée par [A
 
 Après ces corrections, les quatre images Java ne présentent aucune vulnérabilité haute ou critique corrigeable. La commande de la CI avec `--exit-code 1` renvoie 0 pour chacune.
 
-L'analyse est désormais bloquante dans la CI. Le rapport JSON, le tableau du résumé et le SBOM sont produits d'abord, puis l'étape de blocage échoue sur toute vulnérabilité haute ou critique corrigeable. Une image bloquée n'est pas publiée dans GHCR mais laisse ses preuves en artefact. Une vulnérabilité publiée après la fusion peut donc bloquer une pull request sans rapport avec elle : il faut alors mettre à jour la dépendance concernée. L'image du frontend ne présentait aucune vulnérabilité haute ou critique corrigeable lors de la phase 1. Elle n'a pas été réanalysée par TECH-009.
+L'analyse est désormais bloquante dans la CI. Le rapport JSON, le tableau du résumé et le SBOM sont produits d'abord, puis l'étape de blocage échoue sur toute vulnérabilité haute ou critique corrigeable. Une image bloquée n'est pas publiée dans GHCR mais laisse ses preuves en artefact. Une vulnérabilité publiée après la fusion peut donc bloquer une pull request sans rapport avec elle : il faut alors mettre à jour la dépendance concernée. Cas du 2026-10-27, sur la pull request du lot 6C-b, sans changement de code Java : CVE-2026-102554 dans `guava` 33.4.8-android, tiré par le SDK Temporal dans audit-service, et CVE-2026-108106 et CVE-2026-93451 dans `snappy-java` 1.1.10.7, tiré par le client Kafka dans audit-service et notification-service. Le parent Maven force `guava` 33.7.2-android, même variante, et `snappy-java` 1.1.10.9. L'image du frontend ne présentait aucune vulnérabilité haute ou critique corrigeable lors de la phase 1. Elle n'a pas été réanalysée par TECH-009.
 
 ### Phase 2 : installation de k3s
 
@@ -598,7 +598,7 @@ Suivi : la mémoire de travail montait encore lentement à la fin de la mesure, 
 
 #### Lot 6C : traces et journaux à la demande
 
-Statut : 6C-a, code et chart, implémenté et vérifié par tests le 2026-10-27. 6C-b, pile à la demande et requête tracée dans le cluster, à faire. Décision : [ADR-0030](../decisions/ADR-0030-traces-journaux-a-la-demande.md).
+Statut : implémenté et vérifié le 2026-10-27. 6C-a, code et chart, fusionné par #18, images de `119bb1e` publiées. 6C-b, session d'observation et requête tracée, vérifié le même jour. Sortie de la phase 6 atteinte. Décision : [ADR-0030](../decisions/ADR-0030-traces-journaux-a-la-demande.md).
 
 6C-a :
 
@@ -614,6 +614,38 @@ Vérifications de 6C-a, le 2026-10-27, dans l'image Maven de construction :
 - Non vérifié localement : la propagation de la gateway vers un service et par Kafka. Elle sera constatée dans le cluster en 6C-b.
 
 Incident de 6C-a : la première CI a échoué sur les 66 tests d'intégration d'audit-service. Le starter apporte aussi `micrometer-registry-otlp`, qui pousse les métriques en OTLP par défaut et exige protobuf 4, alors que le SDK Temporal impose protobuf 3.25.8. Le contexte ne démarrait plus, avec `NoClassDefFoundError: com/google/protobuf/RuntimeVersion$RuntimeDomain`. Ce registre est exclu des quatre services : les métriques restent sur Prometheus. `./mvnw verify` réussi ensuite en local avec Testcontainers : 124 tests, aucun échec.
+
+6C-b, [scripts/k3s-observability.sh](../../../scripts/k3s-observability.sh) et [deploy/k3s/observability](../../../deploy/k3s/observability) :
+
+- `up` installe Tempo, Loki, Alloy et Grafana dans `monitoring`, applique les règles d'entrée de la session, puis active les traces dans les quatre services Spring par `helm upgrade --reuse-values`. `down` coupe les traces, retire les règles et désinstalle la pile. `grafana` ouvre Grafana sur `http://127.0.0.1:13000` par `port-forward`.
+- Tempo 3.1.0, chart `grafana-community/tempo` 3.1.0, processus unique, stockage local dans un volume éphémère de 1 Gio. Loki 3.6.11, chart `grafana/loki` 7.3.0, binaire unique, système de fichiers dans un volume éphémère de 2 Gio, sans passerelle, caches, canari ni MinIO. Alloy 1.20.1, chart `grafana/alloy` 1.13.1, en Deployment. Grafana 13.2.4, chart `grafana-community/grafana` 13.5.1. Versions publiées au moins deux semaines avant. Les charts `grafana` et `tempo` du dépôt de Grafana Labs sont dépréciés au profit de `grafana-community`.
+- Alloy lit les journaux des pods de `auditsphere` et `data` par l'API Kubernetes, sans montage de l'hôte. Ses droits sont des Roles limités à ces deux namespaces, lecture des pods et de leurs journaux. Les règles par défaut du chart lisaient aussi les secrets à l'échelle du cluster.
+- Grafana : sources Prometheus, Tempo et Loki provisionnées. Lien des journaux vers les traces par l'expression `[traceId-spanId]` que Spring Boot écrit dans chaque ligne d'une requête tracée. Accès anonyme en éditeur, formulaire de connexion désactivé : Grafana n'est joignable que par `port-forward`.
+- Règles d'entrée de la session : pods de `auditsphere` vers l'OTLP de Tempo, port 4318. Alloy et Grafana vers Loki. Grafana vers Tempo et Prometheus.
+- Valeurs des services : images de `119bb1e`, tirées par empreinte.
+
+Vérifications de 6C-b, le 2026-10-27 :
+
+- Session ouverte de 19:58 à 20:17 UTC. Les trois sources de Grafana répondent. Journaux repris depuis le démarrage de chaque conteneur, Keycloak depuis 03:04.
+- Smoke de l'API réussi pendant la session. Tempo trouve 12 traces contenant la gateway et audit-service. Dans la trace `173f40a4`, la portée serveur `http get /missions` d'audit-service a pour parent la portée cliente `HTTP GET` de la gateway : requête tracée de la gateway au service, critère de sortie de la phase 6.
+- Kafka : une trace part de l'éditeur d'outbox d'audit-service, et la portée consommateur de notification-service a pour parent sa portée productrice.
+- 22 lignes de journaux portent un identifiant de trace, dans audit-service, notification-service et remediation-service. L'identifiant lu dans une ligne ouvre bien la trace dans Tempo.
+- Mémoire pendant la session : pile 580 Mio, dont Grafana 314 Mio. audit-service à 429 Mio sur 512 avec les traces actives. Nœud à 96 % de sa mémoire allouable.
+- Session fermée en 51 secondes : traces coupées, pile et règles retirées, aucun volume restant. Nœud revenu à 84 %. Smoke de l'API réussi ensuite.
+- Neuf missions de test de la journée retirées par `cleanup-test-data.py`, sauvegarde privée préalable : 40 missions de démonstration, dont 7 en attente de revue.
+
+Incidents :
+
+- Premiers journaux absents de Loki : Loki n'interroge son ingesteur que sur les trois dernières heures par défaut, et les journaux repris par Alloy datent souvent de plus loin. `query_ingesters_within` mis à zéro.
+- Grafana à 298 Mio pour une limite de 320 dès les premières minutes. Limite portée à 448 Mio.
+- Ouverture trop lente : les services redémarraient l'un après l'autre, 19 minutes au total. Ils redémarrent désormais en parallèle. Fermeture mesurée ensuite : 51 secondes. Ouverture en parallèle non encore mesurée.
+- Un smoke lancé juste après la fermeture est resté bloqué plus de dix minutes, sans cause établie. Relancé seul, il a réussi en 42 secondes.
+
+Limites :
+
+- Pendant une session, le nœud monte à 96 % de sa mémoire allouable. Une session doit rester courte et ne pas coïncider avec une charge forte.
+- Ouvrir ou fermer une session redémarre les quatre services Spring.
+- Alloy lit seulement le fichier de journal courant de chaque conteneur. Les journaux déjà tournés par le nœud ne sont pas repris.
 
 ### Phase 7 : sauvegardes et restauration
 
@@ -1010,6 +1042,7 @@ Seule la phase 7 pourrait être reportée, puisque l'instance publique ne porte 
 ## Vérifications effectuées
 
 - Correctif de la mémoire de Kafka, le 2026-10-27 sur le serveur : table du nettoyeur ramenée de 128 à 16 Mio, mémoire de travail passée de 400 à 240 Mio, test avec pannes réussi. Détails dans le correctif.
+- Phase 6 lot 6C, le 2026-10-27 sur le serveur : session d'observation ouverte et fermée, requête tracée de la gateway à audit-service et par Kafka, journaux reliés aux traces. Sortie de la phase 6 atteinte. Détails dans le lot 6C.
 - Phase 6 lot 6B, le 2026-10-27 sur le serveur : métriques des quatre services Spring sur un port réservé à la supervision, isolation vérifiée, alertes d'abus, de DLT et d'arrêt par manque de mémoire reçues, tests des notifications et de Temporal réussis. Détails dans le lot 6B.
 - Phase 6 lot 6A, le 2026-10-27 sur le serveur : Prometheus, Alertmanager, node-exporter, kube-state-metrics et sondes blackbox. Toutes les cibles actives, alerte réelle et alerte de test publiées sur le sujet ntfy, alerte de test reçue sur le téléphone. Détails dans le lot 6A.
 - Relevé matériel et logiciel du serveur par SSH le 2026-10-24, sans sudo ni modification.

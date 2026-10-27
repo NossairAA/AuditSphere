@@ -1,0 +1,52 @@
+# Grafana d'une session d'observation (phase 6, lot 6C, ADR-0030). Chart grafana-community/grafana 13.5.1.
+# Jamais publié : consulté par port-forward depuis le poste, d'où l'accès anonyme. Aucune donnée conservée.
+fullnameOverride: grafana
+testFramework:
+  enabled: false
+persistence:
+  enabled: false
+# Pointe mesurée à 298 Mio dans les dix premières minutes, le 2026-10-27.
+resources:
+  requests: {cpu: 20m, memory: 128Mi}
+  limits: {memory: 448Mi}
+grafana.ini:
+  analytics:
+    check_for_updates: false
+    reporting_enabled: false
+  auth.anonymous:
+    enabled: true
+    org_role: Editor
+  auth:
+    disable_login_form: true
+  users:
+    allow_sign_up: false
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        uid: prometheus
+        type: prometheus
+        url: http://prometheus-server.monitoring.svc.cluster.local
+        isDefault: true
+      - name: Tempo
+        uid: tempo
+        type: tempo
+        url: http://tempo.monitoring.svc.cluster.local:3200
+        jsonData:
+          tracesToLogsV2:
+            datasourceUid: loki
+            filterByTraceID: true
+            spanStartTimeShift: -5m
+            spanEndTimeShift: 5m
+      - name: Loki
+        uid: loki
+        type: loki
+        url: http://loki.monitoring.svc.cluster.local:3100
+        jsonData:
+          # Spring Boot écrit [traceId-spanId] dans chaque ligne d'une requête tracée.
+          derivedFields:
+            - name: traceId
+              matcherRegex: '\[([0-9a-f]{32})-[0-9a-f]{16}\]'
+              url: '$${__value.raw}'
+              datasourceUid: tempo

@@ -1,0 +1,62 @@
+# Alloy d'une session d'observation (phase 6, lot 6C, ADR-0030) : lit les journaux des pods par l'API
+# Kubernetes, sans montage de l'hôte, et les envoie à Loki. Chart grafana/alloy 1.13.1.
+fullnameOverride: alloy
+crds:
+  create: false
+controller:
+  type: deployment
+  replicas: 1
+rbac:
+  create: true
+  # Rôles limités aux deux namespaces lus, sur les pods et leurs journaux seulement.
+  # Les règles par défaut, à l'échelle du cluster, lisent aussi les secrets.
+  namespaces: [auditsphere, data]
+  rules:
+    - apiGroups: [""]
+      resources: ["pods", "pods/log"]
+      verbs: ["get", "list", "watch"]
+alloy:
+  enableReporting: false
+  resources:
+    requests: {cpu: 10m, memory: 64Mi}
+    limits: {memory: 256Mi}
+  configMap:
+    create: true
+    content: |
+      discovery.kubernetes "pods" {
+        role = "pod"
+        namespaces {
+          names = ["auditsphere", "data"]
+        }
+      }
+
+      discovery.relabel "pods" {
+        targets = discovery.kubernetes.pods.targets
+        rule {
+          source_labels = ["__meta_kubernetes_namespace"]
+          target_label  = "namespace"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_name"]
+          target_label  = "pod"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_container_name"]
+          target_label  = "container"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+          target_label  = "app"
+        }
+      }
+
+      loki.source.kubernetes "pods" {
+        targets    = discovery.relabel.pods.output
+        forward_to = [loki.write.session.receiver]
+      }
+
+      loki.write "session" {
+        endpoint {
+          url = "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
+        }
+      }

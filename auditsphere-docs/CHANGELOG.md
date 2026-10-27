@@ -1,5 +1,13 @@
 # Journal des changements
 
+## 2026-10-27 : session d'observation et requête tracée, phase 6 lot 6C-b
+
+- `scripts/k3s-observability.sh up|down|grafana` : Tempo, Loki, Alloy et Grafana installés à la demande dans `monitoring`, traces activées dans les services pendant la session. Valeurs dans `deploy/k3s/observability`.
+- Alloy lit les journaux des pods par l'API Kubernetes, avec des droits limités à deux namespaces. Grafana relie les journaux aux traces.
+- Services passés aux images de `119bb1e`.
+- Analyse Trivy bloquante sur des vulnérabilités publiées entre-temps : le parent Maven force `guava` 33.7.2-android et `snappy-java` 1.1.10.9.
+- Vérifié : requête tracée de la gateway à audit-service, trace suivie par Kafka jusqu'à notification-service, journaux reliés aux traces, session fermée en 51 secondes, smoke réussi. Phase 6 terminée. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-27 : traces OpenTelemetry à la demande, phase 6 lot 6C-a
 
 - ADR-0030 : traces et journaux à la demande. L'export est coupé par défaut et activé pendant une session d'observation, choix de l'utilisateur.
