@@ -1,5 +1,11 @@
 # Journal des changements
 
+## 2026-10-27 : profils de démonstration et de production proposés
+
+- ADR-0031 proposé : deux profils de déploiement distincts. `demo` offre une entrée en un clic par rôle, sans OTP pour ces seuls comptes, sur des données synthétiques réinitialisées chaque nuit. `production` reprend le royaume isolé de C1 et C17.
+- Passage d'un profil à l'autre par redéploiement sur une base vide. Un seul profil à la fois sur le serveur actuel, qui sert `demo`. De vraies données exigent un hébergement adapté et un nouvel ADR.
+- Répond à la question d'ADR-0025 sur les visiteurs anonymes. Phase 10 du [guide d'hébergement](docs/technique/28-hebergement-k3s.md) et backlog HOST-011 mis à jour. Rien n'est implémenté.
+
 ## 2026-10-27 : images corrigées déployées
 
 - api-gateway, audit-service, notification-service, remediation-service et workflow-worker passent aux images de `3066fbc`, avec `guava` 33.7.2-android et `snappy-java` 1.1.10.9.
@@ -639,8 +645,6 @@ Royaume sans utilisateurs de démonstration, projet Compose et volumes distincts
 
 ## [0.6.0] : 2026-10-16
 
-- Retrait du suivi Git des consignes locales pour assistants IA, documentation du projet conservée.
-
 - Préparation de la publication des correctifs, vérification CI distante en attente et accès de maintenance pgAdmin documenté.
 
 - Accès pgAdmin aux trois bases sur la boucle locale, ports retirés du profil production et connexions authentifiées vérifiées.
@@ -680,7 +684,6 @@ Royaume sans utilisateurs de démonstration, projet Compose et volumes distincts
 ## Harmonisation documentaire : 2026-10-16
 
 - Remplacement des tirets cadratins et des points-virgules dans tous les fichiers Markdown.
-- Ajout de la règle de rédaction dans AGENTS.md pour les prochaines interventions.
 
 
 ## Publication initiale : 2026-10-16
@@ -704,7 +707,6 @@ Royaume sans utilisateurs de démonstration, projet Compose et volumes distincts
 - Orientation Spring Boot, microservices, Kafka, workflows distribués et Kubernetes confirmée par l’utilisateur.
 - Ajout de la stack de référence et ADR-0002, technologies complémentaires explicitement proposées.
 - Alignement architecture, DevOps, roadmap et backlog sur cette orientation.
-- Ajout de `AGENTS.md` à la racine pour enrichir la documentation à chaque intervention.
 - Aucun code applicatif, test d’intégration ou déploiement effectué.
 
 ## [0.1.0] : 2026-10-16

@@ -62,4 +62,4 @@ Privilégier réseau privé/VPN/Zero Trust, segmentation, ingress TLS, politique
 
 ## Contenu publié dans Git
 
-Le dépôt publie le code, les tests, les configurations nécessaires et la documentation du projet. Les consignes et configurations locales des assistants IA restent exclues du suivi Git et des images Docker. Les fichiers déjà présents dans les anciens commits restent dans l’historique.
+Le dépôt publie le code, les tests, les configurations nécessaires et la documentation du projet. Les fichiers de configuration propres au poste restent exclus du suivi Git et des images Docker.
