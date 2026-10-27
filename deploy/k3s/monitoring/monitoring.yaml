@@ -68,6 +68,33 @@ spec:
         - port: 8000
         - port: 8080
 ---
+# Métriques de la bordure Traefik et de Keycloak (lot 6B), depuis Prometheus seul. Les services Spring
+# déclarent leur propre règle pour leur port de gestion dans le chart spring-service.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: metrics-from-prometheus
+  namespace: auditsphere
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values: [edge, keycloak]
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+              app.kubernetes.io/component: server
+      ports:
+        - port: 8082
+        - port: 9000
+---
 # Métriques de cert-manager, dont l'expiration des certificats. Ses trois pods les exposent sur 9402.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -369,6 +396,70 @@ spec:
                 annotations:
                   summary: "Cible {{ $labels.job }} injoignable : {{ $labels.instance }}"
                   description: Depuis plus de 10 minutes.
+          # Compteurs : une série apparue dans la fenêtre compte pour sa valeur entière, car increase()
+          # ignore la première valeur d'une série. Sans cela, la première rafale d'une attaque passerait inaperçue.
+          - name: applications
+            rules:
+              - alert: JvmHeapHigh
+                expr: sum by (application) (jvm_memory_used_bytes{area="heap"}) / sum by (application) (jvm_memory_max_bytes{area="heap"} > 0) > 0.9
+                for: 15m
+                labels: {severity: warning}
+                annotations:
+                  summary: "Tas de {{ $labels.application }} occupé à plus de 90 %"
+                  description: "Occupation : {{ $value | humanizePercentage }}."
+              - alert: HttpServerErrors
+                expr: sum by (application) ((http_server_requests_seconds_count{status=~"5.."} unless http_server_requests_seconds_count offset 10m) or increase(http_server_requests_seconds_count{status=~"5.."}[10m])) >= 10
+                labels: {severity: warning}
+                annotations:
+                  summary: "{{ $labels.application }} a renvoyé au moins 10 erreurs 5xx en 10 minutes"
+                  description: "Erreurs : {{ $value | humanize }}."
+              - alert: KafkaConsumerLag
+                expr: max by (application, topic) (kafka_consumer_fetch_manager_records_lag_max) > 100
+                for: 10m
+                labels: {severity: warning}
+                annotations:
+                  summary: "Retard de {{ $labels.application }} sur {{ $labels.topic }}"
+                  description: "Retard maximal : {{ $value | humanize }} messages."
+              - alert: KafkaDeadLetter
+                expr: sum by (application, topic) ((kafka_producer_topic_record_send_total{topic=~".+[.]DLT"} unless kafka_producer_topic_record_send_total offset 15m) or increase(kafka_producer_topic_record_send_total{topic=~".+[.]DLT"}[15m])) > 0
+                labels: {severity: warning}
+                annotations:
+                  summary: "Message envoyé en DLT : {{ $labels.topic }}"
+                  description: Un message n'a pas pu être traité et attend une reprise manuelle.
+              - alert: OutboxStuck
+                expr: auditsphere_outbox_oldest_age_seconds > 600
+                for: 5m
+                labels: {severity: critical}
+                annotations:
+                  summary: "Outbox {{ $labels.outbox }} bloquée depuis plus de 10 minutes"
+                  description: "Événement le plus ancien en attente : {{ $value | humanizeDuration }}."
+          - name: abus
+            rules:
+              - alert: EdgeRateLimited
+                expr: sum((traefik_entrypoint_requests_total{entrypoint="web",code="429"} unless traefik_entrypoint_requests_total offset 5m) or increase(traefik_entrypoint_requests_total{entrypoint="web",code="429"}[5m])) > 50
+                labels: {severity: warning}
+                annotations:
+                  summary: Plus de 50 requêtes refusées par la limite de débit de la bordure en 5 minutes
+                  description: "Refus : {{ $value | humanize }}."
+              - alert: EdgeTrafficSpike
+                expr: sum(rate(traefik_entrypoint_requests_total{entrypoint="web"}[5m])) > 20
+                for: 10m
+                labels: {severity: warning}
+                annotations:
+                  summary: Plus de 20 requêtes par seconde sur la bordure depuis 10 minutes
+                  description: "Débit : {{ $value | humanize }} requêtes par seconde."
+              - alert: LoginFailures
+                expr: sum by (realm) ((keycloak_user_events_total{event="login",error!=""} unless keycloak_user_events_total offset 10m) or increase(keycloak_user_events_total{event="login",error!=""}[10m])) > 20
+                labels: {severity: warning}
+                annotations:
+                  summary: "Plus de 20 échecs de connexion en 10 minutes sur {{ $labels.realm }}"
+                  description: "Échecs : {{ $value | humanize }}."
+              - alert: GatewayAuthRejections
+                expr: sum((http_server_requests_seconds_count{application="api-gateway",status=~"401|403|429"} unless http_server_requests_seconds_count offset 10m) or increase(http_server_requests_seconds_count{application="api-gateway",status=~"401|403|429"}[10m])) > 50
+                labels: {severity: warning}
+                annotations:
+                  summary: Plus de 50 réponses 401, 403 ou 429 de la gateway en 10 minutes
+                  description: "Réponses : {{ $value | humanize }}."
           - name: supervision
             rules:
               - alert: AlertmanagerNotificationsFailing

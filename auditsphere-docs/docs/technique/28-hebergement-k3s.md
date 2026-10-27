@@ -514,7 +514,7 @@ Limites :
 
 #### Lot 6B : métriques applicatives et alertes d'abus
 
-Statut : 6B-a, code et chart, implémenté et vérifié par tests le 2026-10-27. 6B-b, activation dans le cluster avec les nouvelles images, à faire.
+Statut : 6B-a, code et chart, implémenté et vérifié par tests le 2026-10-27. Métriques de la bordure et de Keycloak et alertes d'abus en service et vérifiées le même jour. 6B-b, activation des métriques des services Spring avec les nouvelles images, à faire.
 
 Comme aux lots C2 et E2, le lot est découpé : 6B-a change le code et produit de nouvelles images, 6B-b les déploie et ajoute les règles.
 
@@ -532,11 +532,27 @@ Vérifications de 6B-a, le 2026-10-27, dans l'image Maven de construction :
 - `OutboxMetricsTest` : jauges enregistrées pour chaque outbox, lecture des seuls événements non publiés, absence de valeur en cas d'échec. Trois cas réussis.
 - Non vérifié localement : le même comportement dans les services servlet. Il sera constaté dans le cluster en 6B-b.
 
+Bordure, Keycloak et règles, configuration seule, déployées le 2026-10-27 :
+
+- Bordure Traefik : métriques Prometheus sur l'écoute `ping`, port 8082, jamais sur l'écoute web. Compteur par code de réponse, dont les refus 429 de la limite de débit.
+- Keycloak : `KC_METRICS_ENABLED` et `KC_EVENT_METRICS_USER_ENABLED`, servis sur le port de gestion 9000. Compteur `keycloak_user_events_total` par événement, erreur et royaume.
+- Annotations de collecte sur les deux pods. Règle d'entrée `metrics-from-prometheus` dans `auditsphere` : Prometheus seul vers les ports 8082 de la bordure et 9000 de Keycloak.
+- Neuf règles ajoutées, 25 au total. Applications : tas des JVM au-delà de 90 %, au moins 10 erreurs 5xx en 10 minutes, retard d'un consommateur Kafka au-delà de 100 messages, message envoyé en DLT, outbox bloquée depuis plus de 10 minutes. Abus : plus de 50 refus 429 de la bordure en 5 minutes, plus de 20 requêtes par seconde sur la bordure pendant 10 minutes, plus de 20 échecs de connexion en 10 minutes, plus de 50 réponses 401, 403 ou 429 de la gateway en 10 minutes.
+- Les règles des applications et celle de la gateway restent sans données jusqu'à 6B-b.
+- Compteurs : `increase()` ignore la première valeur d'une série. Une série qui apparaît avec la première rafale d'une attaque, comme le premier code 429, comptait donc pour zéro. Les règles comptent désormais une série absente au début de la fenêtre pour sa valeur entière.
+
+Vérifications, le 2026-10-27 :
+
+- 18 cibles sur 18 actives, dont la bordure et Keycloak. 25 règles validées par `promtool check rules`.
+- Correction des compteurs essayée par `promtool test rules` : alerte pour une série apparue avec 28 échecs, alerte pour une série ancienne en hausse de 25, aucune alerte hors fenêtre.
+- Premier essai d'abus, avant la correction : 25 échecs de connexion avec un compte inexistant et 400 requêtes rapides sur la bordure, dont 192 refusées en 429. Aucune alerte : les deux séries venaient d'apparaître.
+- Second essai après la correction, à 03:15 UTC : 25 échecs de connexion, 209 refus 429 sur 400 requêtes. `LoginFailures` et `EdgeRateLimited` publiées sur le sujet ntfy à 03:16:38.
+- Keycloak et la bordure redémarrés une fois par le déploiement. Aucune autre interruption.
+
 6B-b, prévu :
 
 - Activer `managementPort` avec les nouvelles images. Sonde blackbox de la gateway déplacée sur le port de gestion.
-- Bordure Traefik : métriques par code de réponse, pour les refus 429 de sa limite de débit. Keycloak : métriques et événements de connexion, pour les échecs d'authentification.
-- Règles : mémoire des JVM, taux d'erreurs 5xx, retard des consommateurs Kafka, messages en DLT, outbox bloquée, et pour les abus, refus 429, échecs de connexion et réponses 401 ou 403 en hausse.
+- Constater les métriques des services servlet, des consommateurs et producteurs Kafka et des outbox, puis l'absence de faux positif.
 
 ### Phase 7 : sauvegardes et restauration
 

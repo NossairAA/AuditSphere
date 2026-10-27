@@ -18,6 +18,14 @@ data:
         address: ":8082"
     ping:
       entryPoint: ping
+    # Métriques par code de réponse, dont les refus 429 de la limite de débit (phase 6, lot 6B).
+    # Servies sur l'écoute ping, jamais sur l'écoute web.
+    metrics:
+      prometheus:
+        entryPoint: ping
+        addEntryPointsLabels: true
+        addRoutersLabels: false
+        addServicesLabels: false
     providers:
       file:
         filename: /etc/traefik/dynamic.yml
@@ -81,6 +89,9 @@ spec:
         app.kubernetes.io/part-of: auditsphere
       annotations:
         checksum/config: {{ printf "%v%v%v" .Values.edge.rateAverage .Values.edge.rateBurst .Release.Namespace | sha256sum }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8082"
+        prometheus.io/path: /metrics
     spec:
       enableServiceLinks: false
       automountServiceAccountToken: false

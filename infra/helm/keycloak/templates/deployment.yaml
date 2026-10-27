@@ -17,6 +17,9 @@ spec:
         {{- include "keycloak.labels" . | nindent 8 }}
       annotations:
         checksum/realm: {{ .Values.realm | sha256sum }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9000"
+        prometheus.io/path: /metrics
     spec:
       enableServiceLinks: false
       automountServiceAccountToken: false
@@ -54,6 +57,11 @@ spec:
             - name: KC_PROXY_HEADERS
               value: xforwarded
             - name: KC_HEALTH_ENABLED
+              value: "true"
+            # Métriques et événements de connexion par erreur, sur le port de gestion (phase 6, lot 6B).
+            - name: KC_METRICS_ENABLED
+              value: "true"
+            - name: KC_EVENT_METRICS_USER_ENABLED
               value: "true"
             - name: KC_BOOTSTRAP_ADMIN_USERNAME
               valueFrom:
