@@ -56,7 +56,8 @@ Utiliser le modèle dans [`docs/templates/adr.md`](../templates/adr.md).
 - [ADR-0026 : autorité interne à racine hors ligne](ADR-0026-autorite-interne-racine-hors-ligne.md), accepté, implémenté
 - [ADR-0027 : sauvegardes tirées par le poste](ADR-0027-sauvegardes-tirees-par-le-poste.md), accepté, implémenté
 - [ADR-0028 : Garage en HTTPS par Caddy et un certificat du tailnet](ADR-0028-garage-https-caddy-tailscale.md), accepté, implémenté
-- [ADR-0029 : supervision par Prometheus et alertes par ntfy](ADR-0029-supervision-prometheus-ntfy.md), accepté, lot 6A implémenté
+- [ADR-0029 : supervision par Prometheus et alertes par ntfy](ADR-0029-supervision-prometheus-ntfy.md), accepté, lots 6A et 6B implémentés
+- [ADR-0030 : traces et journaux à la demande](ADR-0030-traces-journaux-a-la-demande.md), accepté, lot 6C en cours
 
 - [ADR-0018 : séparation validateur et auditeur](ADR-0018-separation-validateur-auditeur.md).
 - [ADR-0019 : sessions et accès web](ADR-0019-sessions-et-acces-web.md).

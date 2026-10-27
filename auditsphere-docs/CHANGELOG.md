@@ -1,5 +1,12 @@
 # Journal des changements
 
+## 2026-10-27 : traces OpenTelemetry à la demande, phase 6 lot 6C-a
+
+- ADR-0030 : traces et journaux à la demande. L'export est coupé par défaut et activé pendant une session d'observation, choix de l'utilisateur.
+- `spring-boot-starter-opentelemetry` dans les quatre services Spring, export coupé par défaut. Observation de Kafka dans audit-service et notification-service.
+- Chart `spring-service` : option `tracing.enabled`, fausse par défaut, qui active l'export vers Tempo avec un échantillonnage complet.
+- Vérifié par tests : span exportée par la gateway vers un collecteur OTLP local. Suivi de Kafka : mémoire stabilisée vers 285 Mio. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-27 : mémoire de Kafka corrigée
 
 - Cause des arrêts de Kafka par manque de mémoire : la table du nettoyeur des topics compactés réservait 128 Mio de tas en permanence, la moitié du tas. Tas saturé, collecte complète toutes les 13 minutes.
