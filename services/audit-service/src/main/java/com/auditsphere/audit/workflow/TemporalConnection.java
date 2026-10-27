@@ -3,6 +3,8 @@ package com.auditsphere.audit.workflow;
 import io.grpc.netty.shaded.io.grpc.netty.GrpcSslContexts;
 import io.temporal.serviceclient.WorkflowServiceStubsOptions;
 import java.io.File;
+import java.nio.file.Path;
+import java.security.GeneralSecurityException;
 import java.util.List;
 import java.util.Map;
 import javax.net.ssl.SSLException;
@@ -26,12 +28,13 @@ public final class TemporalConnection {
       if (!new File(file).canRead()) throw new IllegalStateException("Unreadable TLS file: " + file);
     try {
       // The key must be PKCS#8. The server name is checked against the target host.
+      // The client certificate is reread at each handshake, so a renewal needs no restart.
       return builder.setSslContext(
           GrpcSslContexts.forClient()
               .trustManager(new File(files.get(0)))
-              .keyManager(new File(files.get(1)), new File(files.get(2)))
+              .keyManager(new ReloadingKeyManager(Path.of(files.get(1)), Path.of(files.get(2))))
               .build());
-    } catch (SSLException | IllegalArgumentException e) {
+    } catch (SSLException | GeneralSecurityException | IllegalArgumentException e) {
       throw new IllegalStateException("Invalid Temporal TLS material", e);
     }
   }

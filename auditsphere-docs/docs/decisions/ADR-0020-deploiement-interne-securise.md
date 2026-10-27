@@ -1,7 +1,7 @@
 # ADR-0020 : sécurisation du déploiement interne
 
 - Date : 2026-10-23
-- Statut : proposé, non déployé
+- Statut : proposé le 2026-10-23, implémenté dans k3s par la phase 8 du [guide d'hébergement](../technique/28-hebergement-k3s.md). Critères de sortie revus le 2026-10-27 : trois remplis, un partiel, un non rempli
 - Constat : C7 de la revue de sécurité du 22 octobre 2026
 
 ## Contexte
