@@ -569,12 +569,32 @@ Vérifications de 6B-b, le 2026-10-27 :
 Incidents :
 
 - audit-service arrêté par manque de mémoire à 13:47 UTC, 15 minutes après le déploiement. L'ancienne image se stabilisait à 400 Mio pour une limite de 448. La nouvelle est montée à 423 Mio, puis a dépassé la limite. Le serveur du port de gestion et le registre Prometheus en sont la cause probable : la mémoire hors du tas atteignait 186 Mio pour 53 Mio de tas. Alerte `ContainerOOMKilled` reçue. Limite portée à 512 Mio, demande inchangée. Mesure sur les 16 minutes suivantes : stable vers 393 Mio, aucun redémarrage. Nœud à 85 % de sa mémoire allouable, aucune alerte active à 14:06 UTC.
-- Kafka arrêté par manque de mémoire à 13:36 UTC pendant le test avec pannes, et déjà une fois avant l'installation de la supervision. Sa mémoire de travail reste vers 400 Mio pour une limite de 512. Alerte `ContainerOOMKilled` reçue, puis résolue. Non corrigé dans ce lot : dimensionnement de Kafka à revoir.
+- Kafka arrêté par manque de mémoire à 13:36 UTC pendant le test avec pannes, et déjà une fois avant l'installation de la supervision. Sa mémoire de travail restait vers 400 Mio pour une limite de 512. Alerte `ContainerOOMKilled` reçue, puis résolue. Corrigé le même jour, voir ci-dessous.
 
 Limites :
 
 - Les compteurs d'un producteur Kafka disparaissent avec son pod. Une DLT suivie d'un redémarrage avant la collecte suivante n'est pas signalée.
 - Le worker Temporal n'expose aucune métrique. Ses pannes restent visibles par `WorkloadUnavailable`, `PodCrashLooping` et `OutboxStuck` côté audit-service.
+
+#### Correctif : mémoire de Kafka
+
+Statut : implémenté et vérifié le 2026-10-27. Constat issu des alertes du lot 6B.
+
+Diagnostic, sur le pod en service avant le correctif :
+
+- Mémoire anonyme du conteneur : 400 Mio sur 512, cache de fichiers négligeable. Le processus Java en occupe l'essentiel.
+- Journal du ramasse-miettes : tas plein. Une collecte jeune ne libère rien, de 244 à 244 Mio, puis une collecte complète laisse 166 à 179 Mio vivants dans un tas de 247 Mio. 34 collectes complètes en deux heures, une toutes les 13 minutes, de 110 à 150 ms chacune. Métaspace : 17 Mio seulement.
+- Cause : `log.cleaner.dedupe.buffer.size` vaut 128 Mio par défaut. Le nettoyeur des topics compactés, comme `__consumer_offsets`, garde cette table en permanence dans le tas, soit la moitié des 256 Mio. Le broker n'a que 74 partitions et quelques groupes.
+- Le tas étant saturé, toute hausse de la mémoire hors du tas, par exemple lors des reconnexions après une panne, franchissait la limite du conteneur.
+
+Correctif, [deploy/k3s/data/kafka.yaml](../../../deploy/k3s/data/kafka.yaml) : `KAFKA_LOG_CLEANER_DEDUPE_BUFFER_SIZE` à 16 Mio, soit environ 700 000 clés. Tas et limite du conteneur inchangés. Valeur active constatée dans la configuration du broker.
+
+Vérifications, le 2026-10-27 :
+
+- Test des notifications avec pannes réussi après le correctif, dont l'arrêt et la reprise de Kafka qui avaient provoqué l'arrêt par manque de mémoire.
+- Nouveau pod, démarré à 15:39:35 UTC, mesuré 26 minutes plus tard : environ 60 Mio vivants après chaque collecte jeune, tas resté à 123 Mio réservés, aucune collecte complète, pauses jeunes vers 25 ms. Mémoire anonyme 236 Mio, mémoire de travail 240 Mio, contre 400 Mio avant. Aucun redémarrage, aucun événement OOM, aucune alerte active.
+
+Limite : la mémoire de travail montait encore lentement à la fin de la mesure, de 226 à 240 Mio en 20 minutes, par remplissage de la vieille génération. À confirmer sur une journée par la supervision.
 
 ### Phase 7 : sauvegardes et restauration
 
@@ -970,6 +990,7 @@ Seule la phase 7 pourrait être reportée, puisque l'instance publique ne porte 
 
 ## Vérifications effectuées
 
+- Correctif de la mémoire de Kafka, le 2026-10-27 sur le serveur : table du nettoyeur ramenée de 128 à 16 Mio, mémoire de travail passée de 400 à 240 Mio, test avec pannes réussi. Détails dans le correctif.
 - Phase 6 lot 6B, le 2026-10-27 sur le serveur : métriques des quatre services Spring sur un port réservé à la supervision, isolation vérifiée, alertes d'abus, de DLT et d'arrêt par manque de mémoire reçues, tests des notifications et de Temporal réussis. Détails dans le lot 6B.
 - Phase 6 lot 6A, le 2026-10-27 sur le serveur : Prometheus, Alertmanager, node-exporter, kube-state-metrics et sondes blackbox. Toutes les cibles actives, alerte réelle et alerte de test publiées sur le sujet ntfy, alerte de test reçue sur le téléphone. Détails dans le lot 6A.
 - Relevé matériel et logiciel du serveur par SSH le 2026-10-24, sans sudo ni modification.
