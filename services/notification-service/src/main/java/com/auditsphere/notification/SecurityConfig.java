@@ -15,7 +15,7 @@ class SecurityConfig {
         .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(
             a ->
-                a.requestMatchers("/actuator/health", "/actuator/health/**")
+                a.requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/prometheus")
                     .permitAll()
                     .anyRequest()
                     .authenticated())

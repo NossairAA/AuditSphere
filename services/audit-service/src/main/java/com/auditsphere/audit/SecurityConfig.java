@@ -36,7 +36,8 @@ class SecurityConfig {
                     .hasRole("SUPER_ADMIN")
                     .requestMatchers("/internal/**")
                     .hasRole("REMEDIATION_SYNC")
-                    .requestMatchers("/actuator/health", "/actuator/health/**")
+                    .requestMatchers(
+                        "/actuator/health", "/actuator/health/**", "/actuator/prometheus")
                     .permitAll()
                     .requestMatchers(org.springframework.http.HttpMethod.POST, "/missions")
                     .hasAnyRole("AUDIT_MANAGER", "SUPER_ADMIN")

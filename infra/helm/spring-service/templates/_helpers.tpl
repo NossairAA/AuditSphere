@@ -34,3 +34,8 @@ capabilities:
       key: {{ .key }}
 {{- end }}
 {{- end -}}
+
+{{/* Les sondes suivent Actuator : port de gestion s'il est séparé, sinon port HTTP. */}}
+{{- define "spring-service.probePort" -}}
+{{- if gt (int .Values.managementPort) 0 }}management{{ else }}http{{ end }}
+{{- end }}

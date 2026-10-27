@@ -512,6 +512,32 @@ Limites :
 - La sonde de la bordure suit le chemin interne. Le tunnel Cloudflare sera sondé à la phase 10.
 - Comme cert-manager et l'opérateur Tailscale, les charts sont épinglés par version, pas les images par empreinte. Les applications restent épinglées par empreinte.
 
+#### Lot 6B : métriques applicatives et alertes d'abus
+
+Statut : 6B-a, code et chart, implémenté et vérifié par tests le 2026-10-27. 6B-b, activation dans le cluster avec les nouvelles images, à faire.
+
+Comme aux lots C2 et E2, le lot est découpé : 6B-a change le code et produit de nouvelles images, 6B-b les déploie et ajoute les règles.
+
+6B-a :
+
+- `micrometer-registry-prometheus` dans api-gateway, audit-service, notification-service et remediation-service. Spring Security admet `/actuator/prometheus` sans jeton, comme la santé.
+- Chart `spring-service`, option `managementPort`, nulle par défaut. Active, elle place Actuator sur ce port, y expose `prometheus`, étiquette les métriques avec le nom du service, déplace les sondes de Kubernetes sur ce port et ajoute les annotations de collecte. Une règle d'entrée admet sur ce port Prometheus et l'exportateur blackbox du namespace `monitoring`, et personne d'autre. Le port routé reste fermé aux métriques.
+- Option nulle : rendu du chart identique octet pour octet à celui de `main` pour les cinq services, vérifié par `diff`. Le déploiement actuel ne change pas tant que les valeurs n'activent pas l'option.
+- audit-service, `OutboxMetrics` : nombre d'événements non publiés et âge du plus ancien, pour `assignment_outbox`, vers Kafka, et `review_workflow_outbox`, vers Temporal. Lus en base à chaque collecte. Une lecture en échec donne une absence de valeur, pas un zéro trompeur.
+- `remediation_outbox` existe en base mais aucun code ne la publie encore : pas de mesure.
+
+Vérifications de 6B-a, le 2026-10-27, dans l'image Maven de construction :
+
+- `ManagementPortTest`, gateway démarrée avec les réglages du chart : métriques servies sans jeton sur le port de gestion avec l'étiquette du service, refusées sur le port routé, santé servie sur le port de gestion. Trois cas réussis.
+- `OutboxMetricsTest` : jauges enregistrées pour chaque outbox, lecture des seuls événements non publiés, absence de valeur en cas d'échec. Trois cas réussis.
+- Non vérifié localement : le même comportement dans les services servlet. Il sera constaté dans le cluster en 6B-b.
+
+6B-b, prévu :
+
+- Activer `managementPort` avec les nouvelles images. Sonde blackbox de la gateway déplacée sur le port de gestion.
+- Bordure Traefik : métriques par code de réponse, pour les refus 429 de sa limite de débit. Keycloak : métriques et événements de connexion, pour les échecs d'authentification.
+- Règles : mémoire des JVM, taux d'erreurs 5xx, retard des consommateurs Kafka, messages en DLT, outbox bloquée, et pour les abus, refus 429, échecs de connexion et réponses 401 ou 403 en hausse.
+
 ### Phase 7 : sauvegardes et restauration
 
 - CronJob `pg_dump` de chaque base, sauvegarde Garage par `deploy/garage/backup.sh`, copies restic chiffrées hors machine. La cible est le Mac par le tailnet ou un stockage objet externe.
