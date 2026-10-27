@@ -1012,6 +1012,7 @@ Mise en œuvre, après les phases 4, 6, 7 et 8 :
 - Console d'administration de Keycloak sur un nom du tailnet, chemins `/admin` refusés sur le nom public.
 - Règles Cloudflare : TLS 1.2 minimum, HSTS, règles gérées du pare-feu applicatif, limitation de débit sur la connexion.
 - Keycloak : inscription désactivée, détection de force brute, MFA pour les administrateurs.
+- Si ADR-0031 est accepté : comptes et boutons de démonstration en un clic, CronJob de réinitialisation nocturne, bandeau de démonstration.
 
 Sortie : application servie en HTTPS sur le domaine, aucun port entrant ouvert sur l'hôte ni sur la box, gateway et services internes injoignables depuis Internet, console Keycloak refusée sur le nom public.
 
@@ -1028,7 +1029,7 @@ Ordre retenu : lots D et E, puis phases 8, 6, 7 et 10. Révisé le 2026-10-26 pa
 
 Préparation possible sans attendre, par l'utilisateur : délégation DNS du domaine à Cloudflare, après recopie des enregistrements existants, et création du tunnel sans nom public.
 
-Décision restant à prendre avant l'ouverture : ce qu'un visiteur anonyme peut faire, par exemple un compte de démonstration en lecture seule.
+Accès des visiteurs anonymes : proposé le 2026-10-27 par [ADR-0031](../decisions/ADR-0031-profils-demonstration-production.md), à valider par l'utilisateur. Deux profils de déploiement distincts, `demo` et `production`. Le serveur actuel sert le profil `demo` : entrée en un clic par rôle, auditeur, validateur et audité, par le flux OIDC normal du BFF, sans OTP pour ces seuls comptes, sans rôle d'administration, données synthétiques réinitialisées chaque nuit et bandeau de démonstration. Le profil `production` reprend le royaume isolé de C1 et C17. Le passage de l'un à l'autre se fait par redéploiement sur une base vide, jamais par un réglage dans une instance en marche. Un seul profil tourne à la fois sur ce serveur, faute de mémoire. De vraies données d'audit exigent un hébergement adapté et un nouvel ADR.
 
 Seule la phase 7 pourrait être reportée, puisque l'instance publique ne porte que des données de démonstration. Ce report exigerait un amendement d'ADR-0025. Les phases 6 et 8 ne sont pas négociables.
 
