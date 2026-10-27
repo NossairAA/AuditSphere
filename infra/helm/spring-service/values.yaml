@@ -12,6 +12,14 @@ port: 0
 # sans métriques Prometheus exposées. Exige une image avec micrometer-registry-prometheus.
 managementPort: 0
 
+# Traces OpenTelemetry vers Tempo (phase 6, lot 6C). Activées à la demande par scripts/k3s-observability.sh,
+# qui redémarre alors le service. Exige une image avec spring-boot-starter-opentelemetry.
+tracing:
+  enabled: false
+  endpoint: http://tempo.monitoring.svc.cluster.local:4318/v1/traces
+  # Toutes les requêtes pendant une session d'observation, qui reste courte.
+  sampling: "1.0"
+
 # Variables d'environnement en clair.
 env: {}
 

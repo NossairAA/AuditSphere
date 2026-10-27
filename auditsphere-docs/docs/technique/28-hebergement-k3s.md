@@ -594,7 +594,24 @@ Vérifications, le 2026-10-27 :
 - Test des notifications avec pannes réussi après le correctif, dont l'arrêt et la reprise de Kafka qui avaient provoqué l'arrêt par manque de mémoire.
 - Nouveau pod, démarré à 15:39:35 UTC, mesuré 26 minutes plus tard : environ 60 Mio vivants après chaque collecte jeune, tas resté à 123 Mio réservés, aucune collecte complète, pauses jeunes vers 25 ms. Mémoire anonyme 236 Mio, mémoire de travail 240 Mio, contre 400 Mio avant. Aucun redémarrage, aucun événement OOM, aucune alerte active.
 
-Limite : la mémoire de travail montait encore lentement à la fin de la mesure, de 226 à 240 Mio en 20 minutes, par remplissage de la vieille génération. À confirmer sur une journée par la supervision.
+Suivi : la mémoire de travail montait encore lentement à la fin de la mesure, par remplissage de la vieille génération. Relevé par Prometheus : 246 Mio à 16:19 UTC, 282 Mio à 17:04, 287 Mio à 17:49, donc un palier vers 285 Mio. À confirmer sur une journée.
+
+#### Lot 6C : traces et journaux à la demande
+
+Statut : 6C-a, code et chart, implémenté et vérifié par tests le 2026-10-27. 6C-b, pile à la demande et requête tracée dans le cluster, à faire. Décision : [ADR-0030](../decisions/ADR-0030-traces-journaux-a-la-demande.md).
+
+6C-a :
+
+- `spring-boot-starter-opentelemetry` dans api-gateway, audit-service, notification-service et remediation-service. Export coupé par défaut, `management.tracing.export.enabled=false` : aucun service n'exporte en local ni dans le cluster tant que la session n'est pas ouverte.
+- Kafka : observation du producteur dans audit-service, du producteur et du consommateur dans notification-service. Le contexte de trace suit les événements.
+- Chart `spring-service`, option `tracing.enabled`, fausse par défaut : export activé, échantillonnage à 100 %, point d'accès OTLP de Tempo dans `monitoring`. Option fausse : rendu identique octet pour octet à celui de `main` pour les cinq services, vérifié par `diff`.
+- Noms des propriétés lus dans les métadonnées de Spring Boot 4.0.9 : `management.tracing.export.enabled`, vrai par défaut, `management.tracing.sampling.probability`, 0,1 par défaut, `management.opentelemetry.tracing.export.otlp.endpoint`, sans valeur par défaut.
+
+Vérifications de 6C-a, le 2026-10-27, dans l'image Maven de construction :
+
+- `TracingExportTest`, gateway démarrée avec les réglages de l'option : une requête refusée en 401 produit un envoi OTLP vers un collecteur local, avec le nom du service, en sept secondes. Un dernier envoi échoue à l'arrêt du test, après la fermeture du collecteur : sans effet.
+- `ManagementPortTest`, `OutboxMetricsTest` et `RequestLimitsTest` toujours réussis.
+- Non vérifié localement : la propagation de la gateway vers un service et par Kafka. Elle sera constatée dans le cluster en 6C-b.
 
 ### Phase 7 : sauvegardes et restauration
 
