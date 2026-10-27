@@ -613,6 +613,8 @@ Vérifications de 6C-a, le 2026-10-27, dans l'image Maven de construction :
 - `ManagementPortTest`, `OutboxMetricsTest` et `RequestLimitsTest` toujours réussis.
 - Non vérifié localement : la propagation de la gateway vers un service et par Kafka. Elle sera constatée dans le cluster en 6C-b.
 
+Incident de 6C-a : la première CI a échoué sur les 66 tests d'intégration d'audit-service. Le starter apporte aussi `micrometer-registry-otlp`, qui pousse les métriques en OTLP par défaut et exige protobuf 4, alors que le SDK Temporal impose protobuf 3.25.8. Le contexte ne démarrait plus, avec `NoClassDefFoundError: com/google/protobuf/RuntimeVersion$RuntimeDomain`. Ce registre est exclu des quatre services : les métriques restent sur Prometheus. `./mvnw verify` réussi ensuite en local avec Testcontainers : 124 tests, aucun échec.
+
 ### Phase 7 : sauvegardes et restauration
 
 - CronJob `pg_dump` de chaque base, sauvegarde Garage par `deploy/garage/backup.sh`, copies restic chiffrées hors machine. La cible est le Mac par le tailnet ou un stockage objet externe.
