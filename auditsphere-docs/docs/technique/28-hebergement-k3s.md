@@ -470,7 +470,7 @@ Sortie : une alerte de test reçue, une requête tracée de la gateway au servic
 
 #### Lot 6A : socle de supervision et alertes d'infrastructure
 
-Statut : implémenté et vérifié le 2026-10-27, sauf la réception sur le téléphone, à confirmer par l'utilisateur. Décision : [ADR-0029](../decisions/ADR-0029-supervision-prometheus-ntfy.md). Lots suivants : 6B, métriques applicatives et alertes d'abus, avec de nouvelles images, puis 6C, Grafana, Loki et Tempo à la demande et une requête tracée.
+Statut : implémenté et vérifié le 2026-10-27, réception sur le téléphone confirmée par l'utilisateur le même jour. Décision : [ADR-0029](../decisions/ADR-0029-supervision-prometheus-ntfy.md). Lots suivants : 6B, métriques applicatives et alertes d'abus, avec de nouvelles images, puis 6C, Grafana, Loki et Tempo à la demande et une requête tracée.
 
 [deploy/k3s/monitoring/monitoring.yaml](../../../deploy/k3s/monitoring/monitoring.yaml), installé par le contrôleur Helm de k3s comme cert-manager :
 
@@ -494,6 +494,7 @@ Vérifications, le 2026-10-27 :
 - Avant l'installation : 16 règles validées par `promtool check rules`, configuration d'Alertmanager validée par `amtool check-config`, rendu des deux charts relu. Gabarit `alertmanager` de ntfy essayé sur un sujet jetable avec une alerte synthétique : titre et résumé corrects.
 - Après correction : 15 cibles de collecte sur 15 actives, quatre sondes réussies, aucune alerte active. 13 160 échantillons par cycle, contre environ 98 000 avant le filtrage des métriques de k3s.
 - Chaîne complète par une vraie règle : les deux premières sondes visaient de mauvais ports. `ProbeFailed` est partie à 02:07:57 UTC en priorité maximale, puis sa résolution à 02:12:58 après correction. Alerte de test publiée à 02:13:27. Ces trois messages sont relus sur le sujet ntfy. Alertmanager compte trois envois réussis et aucun échec.
+- Après abonnement de l'utilisateur au sujet dans l'application ntfy, une nouvelle alerte de test par `scripts/k3s-monitoring.sh test` est reçue sur son téléphone, confirmé par l'utilisateur. Critère de sortie de la phase 6 « une alerte de test reçue » atteint.
 - Mémoire après installation : supervision 422 Mio, dont Prometheus 333 Mio sur une limite de 448 Mio. Prometheus garde encore en mémoire les séries d'avant le filtrage, jusqu'à sa prochaine compaction. Nœud : demandes à 66 % de la mémoire allouable, limites à 101 %. 1,8 Gio disponibles sur l'hôte, 95 Mio d'échange utilisés.
 
 Incidents :
@@ -905,7 +906,7 @@ Seule la phase 7 pourrait être reportée, puisque l'instance publique ne porte 
 
 ## Vérifications effectuées
 
-- Phase 6 lot 6A, le 2026-10-27 sur le serveur : Prometheus, Alertmanager, node-exporter, kube-state-metrics et sondes blackbox. Toutes les cibles actives, alerte réelle et alerte de test publiées sur le sujet ntfy. Détails dans le lot 6A.
+- Phase 6 lot 6A, le 2026-10-27 sur le serveur : Prometheus, Alertmanager, node-exporter, kube-state-metrics et sondes blackbox. Toutes les cibles actives, alerte réelle et alerte de test publiées sur le sujet ntfy, alerte de test reçue sur le téléphone. Détails dans le lot 6A.
 - Relevé matériel et logiciel du serveur par SSH le 2026-10-24, sans sudo ni modification.
 - Tarifs cloud relevés le 2026-10-24 pour l'arbitrage d'ADR-0023. Ils ne sont pas vérifiés sur les pages officielles d'AWS et d'Azure.
 - Aucune installation, aucun déploiement et aucun test sur le serveur à la date du relevé.
