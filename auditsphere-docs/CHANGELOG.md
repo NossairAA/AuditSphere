@@ -1,5 +1,10 @@
 # Journal des changements
 
+## 2026-10-28 : entrée de démonstration déployée
+
+- Image du BFF de `87d5848` épinglée par empreinte et déployée avec `demo.enabled`.
+- Vérifié par le nom public : un clic par rôle ouvre la session de l'auditeur, du validateur et de l'audité. Session renouvelée par une nouvelle assertion au-delà des 5 minutes du jeton. Smoke de l'API et du BFF réussis. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-28 : profil de démonstration, phase 10 lot C
 
 - ADR-0031 accepté. ADR-0035 : entrée en un clic par octroi par assertion JWT de Keycloak. Le BFF signe une assertion courte pour `auditor`, `validator` ou `auditee`. Ni mot de passe, ni session Keycloak dans le navigateur, ni verrouillage de force brute. `superadmin` garde l'OTP obligatoire.
