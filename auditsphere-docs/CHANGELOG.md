@@ -4,6 +4,7 @@
 
 - Quatrième bouton : le responsable `manager`, seul rôle qui crée une mission et la soumet au validateur. Lien au fournisseur `demo-entry` par `scripts/k3s-setup-keycloak.py`. ADR-0031 et ADR-0035 révisés.
 - Le responsable n'a aucun droit d'administration. Ses écritures dans les données partagées disparaissent à la réinitialisation nocturne.
+- Image du BFF de `41c1c94` épinglée et déployée. Vérifié par le nom public : un clic ouvre la session du responsable, avec la création de mission.
 
 ## 2026-10-28 : entrée de démonstration déployée
 

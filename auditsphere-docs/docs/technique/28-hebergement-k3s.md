@@ -1163,6 +1163,8 @@ Déploiement du BFF le 2026-10-28, image de `87d5848` et `demo.enabled` à vrai 
 
 Responsable ajouté le 2026-10-28, à la demande de l'utilisateur. Seul ce rôle crée une mission et la soumet au validateur. `manager` lié au fournisseur par `k3s-setup-keycloak.py`, quatrième bouton dans le BFF. Octroi vérifié : jeton de `manager` avec le rôle `AUDIT_MANAGER`, `outsider` et `superadmin` toujours refusés.
 
+Image du BFF de `41c1c94` déployée le même jour. Par le nom public, le bouton du responsable ouvre la session de Claire Martin : 42 missions, bouton de création de mission présent. Déconnexion sans passage par Keycloak.
+
 Non vérifié :
 
 - Exécution planifiée de 5 h et mémoire réelle des trois conteneurs du Job.
