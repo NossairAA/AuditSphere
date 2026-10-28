@@ -1093,6 +1093,7 @@ Console de compte fermée le 2026-10-28, selon [ADR-0034](../decisions/ADR-0034-
 - Constat : `/realms/auditsphere/account/` répondait 200 sur le nom public. Le paramètre `kc_action` ouvrait aussi les formulaires du mot de passe et de l'OTP depuis la page de connexion, sans ressaisie du mot de passe pendant la session Keycloak.
 - `k3s-setup-keycloak.py` désactive les clients `account` et `account-console` et règle `max_auth_age` à 0 sur les actions que `kc_action` peut lancer.
 - Sonde `blackbox-public-refused` étendue à `/realms/auditsphere/account/` par `k3s-monitoring.sh`.
+- Console d'administration bloquée par le tailnet : sa connexion passait par le royaume `master` sur le nom public, refusé en 403. `k3s-setup-keycloak.py` règle l'URL frontale de `master` sur `KEYCLOAK_ADMIN_ORIGIN`, voir ADR-0033. Vérifié : console servie et connectée par le tailnet, `/realms/master/` toujours en 403 sur le nom public.
 - Vérifié : 404 de Keycloak sur la console et son API par les deux noms, mot de passe redemandé avant `kc_action` dans une session ouverte, inscription de l'OTP de `superadmin` toujours proposée, smoke de l'API et du BFF réussis par `k3s-check.sh`, sonde à 1, aucune alerte active.
 
 Bascule, dans cet ordre, pour mémoire :

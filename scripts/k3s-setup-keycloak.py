@@ -213,5 +213,9 @@ for realm in ['auditsphere', 'master']:
                 'adminEventsEnabled': True, 'adminEventsDetailsEnabled': False, 'sslRequired': 'all'}
     if realm == 'auditsphere':
         settings.update({'revokeRefreshToken': True, 'refreshTokenMaxReuse': 0, 'registrationAllowed': False})
+    else:
+        # The admin console signs in through the master realm, refused on the public name: serve this realm on the tailnet name.
+        # It changes the issuer of the token used here, so master stays the last call of the script.
+        settings['attributes'] = {'frontendUrl': admin_origin if admin_origin != identity_origin else ''}
     call('/admin/realms/' + realm, settings, 'PUT', token)
 print('Protection contre la force brute, journal des événements et rotation des refresh tokens activés.')
