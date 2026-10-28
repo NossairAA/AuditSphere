@@ -35,9 +35,12 @@ edge:
     digest: sha256:c8a121e4bb1347e8fd52657fab12f2cb70b68f8a018895e2068f92c9e519b9c2
   # Nom de l'entrée Tailscale. Il devient public dans les journaux Certificate Transparency.
   ingressHost: app
-  # Requêtes par seconde et rafale, par adresse source vue par Traefik.
+  # Requêtes par seconde et rafale, par valeur de clientIpHeader.
   rateAverage: 50
   rateBurst: 100
+  # Derrière le tunnel, l'adresse source vue par Traefik est celle de cloudflared. Cloudflare écrase
+  # Cf-Connecting-Ip avec l'adresse réelle du visiteur. Par le tailnet, l'en-tête manque et la limite est commune.
+  clientIpHeader: Cf-Connecting-Ip
   resources:
     requests:
       cpu: 20m

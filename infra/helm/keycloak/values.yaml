@@ -6,6 +6,10 @@ image:
 # Origine publique vue par le navigateur, par exemple https://auth.<tailnet>.ts.net. Passée à l'installation.
 origin: ""
 
+# Origine de la console d'administration, sur le nom du tailnet, quand origin est le nom public (ADR-0033).
+# Vide : la console suit origin. Passée à l'installation depuis KEYCLOAK_ADMIN_ORIGIN.
+adminOrigin: ""
+
 # Nom de l'entrée Tailscale. Il devient public dans les journaux Certificate Transparency.
 ingressHost: auth
 

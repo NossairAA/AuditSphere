@@ -13,7 +13,8 @@ import base64, json, os, subprocess, sys, urllib.parse, urllib.request
 root = Path(__file__).resolve().parents[1]
 os.environ.setdefault('KUBECONFIG', str(Path.home() / '.kube' / 'auditsphere.yaml'))
 local = dict(line.split('=', 1) for line in (root / '.local' / 'k3s.env').read_text().splitlines() if '=' in line and not line.startswith('#'))
-identity_origin = local['OIDC_ORIGIN']
+# The admin API is refused on the public name (ADR-0033): use the tailnet name when set.
+identity_origin = local.get('KEYCLOAK_ADMIN_ORIGIN') or local['OIDC_ORIGIN']
 CLIENT = 'auditsphere-demo'
 
 

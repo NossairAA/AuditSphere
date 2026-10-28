@@ -52,6 +52,11 @@ spec:
               value: {{ required "origin est obligatoire" .Values.origin | quote }}
             - name: KC_HOSTNAME_BACKCHANNEL_DYNAMIC
               value: "true"
+            {{- with .Values.adminOrigin }}
+            # Console d'administration sur le nom du tailnet quand origin est public (phase 10, lot B, ADR-0033).
+            - name: KC_HOSTNAME_ADMIN
+              value: {{ . | quote }}
+            {{- end }}
             - name: KC_HTTP_ENABLED
               value: "true"
             - name: KC_PROXY_HEADERS

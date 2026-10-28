@@ -41,10 +41,13 @@ data:
           service: web
           middlewares: [rate-limit, security-headers]
       middlewares:
+        # Par visiteur, selon l'en-tête edge.clientIpHeader (phase 10, lot B).
         rate-limit:
           rateLimit:
             average: {{ .Values.edge.rateAverage }}
             burst: {{ .Values.edge.rateBurst }}
+            sourceCriterion:
+              requestHeaderName: {{ .Values.edge.clientIpHeader }}
         security-headers:
           headers:
             stsSeconds: 31536000
@@ -88,7 +91,7 @@ spec:
         app.kubernetes.io/name: edge
         app.kubernetes.io/part-of: auditsphere
       annotations:
-        checksum/config: {{ printf "%v%v%v" .Values.edge.rateAverage .Values.edge.rateBurst .Release.Namespace | sha256sum }}
+        checksum/config: {{ printf "%v%v%v%v" .Values.edge.rateAverage .Values.edge.rateBurst .Values.edge.clientIpHeader .Release.Namespace | sha256sum }}
         prometheus.io/scrape: "true"
         prometheus.io/port: "8082"
         prometheus.io/path: /metrics
@@ -146,10 +149,17 @@ spec:
       app.kubernetes.io/name: edge
   policyTypes: [Ingress]
   ingress:
+    # Proxy de l'entrée Tailscale, et connecteur du tunnel Cloudflare pour le nom public (phase 10, lot B).
     - from:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: tailscale
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflared
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: cloudflared
       ports:
         - port: 8000
 ---
