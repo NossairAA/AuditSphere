@@ -1131,7 +1131,7 @@ Limites :
 Arrêtée le 2026-10-26 avec l'utilisateur, conformément à ADR-0023 et ADR-0025. Aucun nom public ne sert l'application avant que ces quatre éléments soient vérifiés :
 
 1. HOST-004, lots D et E : connexion de bout en bout, comptes de démonstration et smoke réussi dans le cluster. Vérifié le 2026-10-26.
-2. HOST-008, sécurité C7 : Kafka en SASL_SSL avec ACL, vérifié le 2026-10-26 au lot D, NetworkPolicy autour de la gateway, de PostgreSQL, de Kafka et de Temporal, vérifiées le 2026-10-26 au lot A, TLS et authentification de Temporal, vérifiés le 2026-10-26 au lot C2, console Keycloak refusée sur le nom public, MFA des administrateurs, inscription libre désactivée. MFA de `superadmin` exigé et inscription vérifiée désactivée le 2026-10-28 au lot A de la phase 10. Console refusée sur le nom public : vérifiée le 2026-10-28 au lot B de la phase 10.
+2. HOST-008, sécurité C7 : Kafka en SASL_SSL avec ACL, vérifié le 2026-10-26 au lot D, NetworkPolicy autour de la gateway, de PostgreSQL, de Kafka et de Temporal, vérifiées le 2026-10-26 au lot A, TLS et authentification de Temporal, vérifiés le 2026-10-26 au lot C2, console Keycloak refusée sur le nom public, MFA des administrateurs, inscription libre désactivée. MFA de `superadmin` exigé et inscription vérifiée désactivée le 2026-10-28 au lot A de la phase 10. OTP de `superadmin` et de `kc-admin` configurés par l'utilisateur le 2026-10-28, aucune action en attente. Console refusée sur le nom public : vérifiée le 2026-10-28 au lot B de la phase 10.
 3. HOST-006 : supervision avec alertes de disponibilité et d'abus.
 4. HOST-007 : sauvegardes hors machine et restauration vérifiée.
 
