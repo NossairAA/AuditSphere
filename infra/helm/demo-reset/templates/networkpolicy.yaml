@@ -1,0 +1,44 @@
+# Les règles s'ajoutent à celles des services : seul le pod de réinitialisation est admis en plus.
+{{- range $target := list (dict "name" "keycloak" "port" 8080) (dict "name" "api-gateway" "port" 8080) }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: demo-reset-to-{{ $target.name }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $target.name }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: demo-reset
+      ports:
+        - port: {{ $target.port }}
+---
+{{- end }}
+{{- range $target := list (dict "name" "postgres" "port" 5432) (dict "name" "temporal" "port" 7233) }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: demo-reset-to-{{ $target.name }}
+  namespace: data
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ $target.name }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $.Release.Namespace }}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: demo-reset
+      ports:
+        - port: {{ $target.port }}
+---
+{{- end }}

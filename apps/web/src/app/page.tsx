@@ -1,6 +1,20 @@
 import { redirect } from "next/navigation";
 import { session } from "@/lib/auth";
-import { ShieldCheck, ArrowUpRight, Check, Layers } from "lucide-react";
+import { demoAccounts, demoEnabled } from "@/lib/demo";
+import {
+  ShieldCheck,
+  ArrowUpRight,
+  Check,
+  Layers,
+  ClipboardCheck,
+  BadgeCheck,
+  UserRound,
+} from "lucide-react";
+const demoIcons = {
+  auditor: ClipboardCheck,
+  validator: BadgeCheck,
+  auditee: UserRound,
+};
 export const dynamic = "force-dynamic";
 export default async function Home({
   searchParams,
@@ -78,9 +92,38 @@ export default async function Home({
           <a className="button primary login-button" href="/auth/login">
             Se connecter <ArrowUpRight size={19} />
           </a>
-          <div className="login-note">
-            <ShieldCheck size={15} /> Accès réservé aux utilisateurs autorisés
-          </div>
+          {demoEnabled() ? (
+            <form className="demo-entry" method="post" action="/auth/demo">
+              <span className="demo-entry-title">
+                Ou explorez la démonstration
+              </span>
+              {Object.entries(demoAccounts).map(([account, role]) => {
+                const Icon = demoIcons[account as keyof typeof demoIcons];
+                return (
+                  <button
+                    key={account}
+                    className="button secondary demo-button"
+                    name="account"
+                    value={account}
+                  >
+                    <Icon size={18} />
+                    <span>
+                      <strong>Entrer comme {role.label.toLowerCase()}</strong>
+                      <small>{role.detail}</small>
+                    </span>
+                    <ArrowUpRight size={16} />
+                  </button>
+                );
+              })}
+              <div className="login-note">
+                Comptes fictifs partagés, sans mot de passe à saisir
+              </div>
+            </form>
+          ) : (
+            <div className="login-note">
+              <ShieldCheck size={15} /> Accès réservé aux utilisateurs autorisés
+            </div>
+          )}
         </div>
         <span className="login-bottom">
           AuditSphere · Espace de travail interne

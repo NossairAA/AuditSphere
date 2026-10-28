@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-reset-scripts
+  labels:
+    app.kubernetes.io/name: demo-reset
+data:
+  demo-reset.py: {{ required "scripts.reset est obligatoire (--set-file scripts.reset=scripts/demo-reset.py)" .Values.scripts.reset | quote }}
+  demo_accounts.py: {{ required "scripts.accounts est obligatoire" .Values.scripts.accounts | quote }}
+  seed-demo-missions.py: {{ required "scripts.seed est obligatoire" .Values.scripts.seed | quote }}
+  evidence_storage.py: {{ required "scripts.evidence est obligatoire" .Values.scripts.evidence | quote }}
+  temporal.sh: {{ .Files.Get "files/temporal.sh" | quote }}
+  database.sh: {{ .Files.Get "files/database.sh" | quote }}

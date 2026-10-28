@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-"""Configure idempotently the Keycloak of the k3s cluster for the demo profile (phase 4, lot D, hardened in phase 10).
+"""Configure idempotently the Keycloak of the k3s cluster (phase 4, lot D, hardened in phase 10).
+
+AUDITSPHERE_PROFILE in .local/k3s.env selects demo, the default, or production (ADR-0031).
 
 Secrets come from the cluster and demo passwords from .local/k3s-demo-accounts.env. Nothing secret is printed.
 """
 from pathlib import Path
 import base64, json, os, secrets, subprocess, sys, urllib.error, urllib.parse, urllib.request
+import demo_accounts
 
 root = Path(__file__).resolve().parents[1]
 os.umask(0o077)
@@ -22,6 +25,10 @@ app_origin, identity_origin = local['APP_ORIGIN'], local['OIDC_ORIGIN']
 admin_origin = local.get('KEYCLOAK_ADMIN_ORIGIN') or identity_origin
 if not all(origin.startswith('https://') for origin in (app_origin, identity_origin, admin_origin)):
     raise SystemExit('APP_ORIGIN, OIDC_ORIGIN et KEYCLOAK_ADMIN_ORIGIN HTTPS sont obligatoires dans .local/k3s.env.')
+# Deployment profile (ADR-0031): demo opens the one-click entry, production removes it.
+profile = local.get('AUDITSPHERE_PROFILE', 'demo')
+if profile not in ('demo', 'production'):
+    raise SystemExit('AUDITSPHERE_PROFILE vaut demo ou production dans .local/k3s.env.')
 
 
 def kubectl(*args, stdin=None):
@@ -133,10 +140,9 @@ for role, description in [('AUDIT_VALIDATOR', 'Validation des missions'), ('SUPE
             raise
         call(base + '/roles', {'name': role, 'description': description}, 'POST', token)
 
-demo = [('manager', 'Claire', 'Martin', ['AUDIT_MANAGER']), ('auditor', 'Julien', 'Moreau', ['AUDITOR']), ('outsider', 'Sarah', 'Benali', ['AUDITOR']),
-        ('validator', 'Thomas', 'Laurent', ['AUDIT_VALIDATOR']), ('superadmin', 'Alexandre', 'Bernard', ['SUPER_ADMIN']), ('auditee', 'Nadia', 'Rousseau', ['AUDITEE'])]
+demo = [(username, *profile) for username, profile in demo_accounts.PROFILES.items()] + [('superadmin', 'Alexandre', 'Bernard', ['SUPER_ADMIN'])]
 for username, first, last, roles in demo:
-    ensure_user('auditsphere', username, username + '@example.invalid', first, last, accounts[username.upper() + '_PASSWORD'], roles)
+    ensure_user('auditsphere', username, demo_accounts.email(username), first, last, accounts[username.upper() + '_PASSWORD'], roles)
 print('Six comptes de démonstration synthétiques prêts.')
 
 audience = [{'name': 'api-audience', 'protocol': 'openid-connect', 'protocolMapper': 'oidc-audience-mapper',
@@ -197,6 +203,53 @@ for action in ['UPDATE_PASSWORD', 'CONFIGURE_TOTP', 'CONFIGURE_RECOVERY_AUTHN_CO
     config = {'max_auth_age': '0', **({'warning_threshold': '4'} if action == 'CONFIGURE_RECOVERY_AUTHN_CODES' else {})}
     call(base + '/authentication/required-actions/' + action + '/config', {'config': config}, 'PUT', token)
 print('Console de compte fermée, mot de passe redemandé avant toute action lancée par kc_action.')
+
+# One-click demo entry (ADR-0035): the BFF signs a short assertion, Keycloak exchanges it through the JWT authorization grant.
+# No password and no Keycloak session in the visitor's browser. Only the linked accounts of demo_accounts.ENTRY are reachable.
+web_client = call(base + '/clients?clientId=auditsphere-web', token=token)[0]
+providers = {p['alias'] for p in call(base + '/identity-provider/instances', token=token)}
+provider_path = base + '/identity-provider/instances/' + demo_accounts.PROVIDER
+reset_client = call(base + '/clients?clientId=demo-reset', token=token)
+if profile == 'demo':
+    entry = secret('web-demo-entry')
+    if not entry:
+        key = subprocess.run(['openssl', 'genpkey', '-algorithm', 'EC', '-pkeyopt', 'ec_paramgen_curve:P-256'], text=True, capture_output=True, check=True).stdout
+        entry = {'DEMO_ASSERTION_KEY': key}
+        save_secret('web-demo-entry', entry)
+    public = subprocess.run(['openssl', 'pkey', '-pubout'], input=entry['DEMO_ASSERTION_KEY'], text=True, capture_output=True, check=True).stdout
+    # The issuer must be a URL. The BFF signs with the same value, derived from APP_ORIGIN.
+    provider = {'alias': demo_accounts.PROVIDER, 'providerId': 'jwt-authorization-grant', 'enabled': True, 'hideOnLogin': True,
+                'config': {'issuer': app_origin + '/auth/demo', 'useJwksUrl': 'false', 'publicKeySignatureVerifier': public,
+                           'jwtAuthorizationGrantEnabled': 'true', 'jwtAuthorizationGrantAssertionSignatureAlg': 'ES256',
+                           'jwtAuthorizationGrantMaxAllowedAssertionExpiration': '60'}}
+    if demo_accounts.PROVIDER in providers:
+        call(provider_path, provider, 'PUT', token)
+    else:
+        call(base + '/identity-provider/instances', provider, 'POST', token)
+    for username in demo_accounts.ENTRY:
+        user = call(base + '/users?username=' + username + '&exact=true', token=token)[0]
+        links = call(base + '/users/' + user['id'] + '/federated-identity', token=token)
+        if not any(link['identityProvider'] == demo_accounts.PROVIDER for link in links):
+            call(base + '/users/' + user['id'] + '/federated-identity/' + demo_accounts.PROVIDER,
+                 {'identityProvider': demo_accounts.PROVIDER, 'userId': username, 'userName': username}, 'POST', token)
+    web_client['attributes'].update({'oauth2.jwt.authorization.grant.enabled': 'true', 'oauth2.jwt.authorization.grant.idp': demo_accounts.PROVIDER})
+    call(base + '/clients/' + web_client['id'], web_client, 'PUT', token)
+    # Nightly reset (ADR-0031): users of this realm only, and the demo passwords it restores. Never superadmin, see demo-reset.py.
+    reset = secret('keycloak-demo-reset') or {'client_secret': secrets.token_urlsafe(32)}
+    service_account(ensure_client({**server, 'clientId': 'demo-reset', 'secret': reset['client_secret']}), ['view-users', 'query-users', 'manage-users'])
+    save_secret('keycloak-demo-reset', reset)
+    save_secret('demo-accounts', {'accounts.env': ''.join(name.upper() + '_PASSWORD=' + accounts[name.upper() + '_PASSWORD'] + '\n'
+                                                          for name in demo_accounts.PROFILES)})
+    print('Entrée de démonstration en un clic configurée pour ' + ', '.join(demo_accounts.ENTRY) + '. Compte de réinitialisation prêt.')
+else:
+    if demo_accounts.PROVIDER in providers:
+        call(provider_path, method='DELETE', token=token)
+    web_client['attributes'].update({'oauth2.jwt.authorization.grant.enabled': 'false', 'oauth2.jwt.authorization.grant.idp': ''})
+    call(base + '/clients/' + web_client['id'], web_client, 'PUT', token)
+    if reset_client:
+        call(base + '/clients/' + reset_client[0]['id'], method='DELETE', token=token)
+    kubectl('delete', 'secret', 'web-demo-entry', 'keycloak-demo-reset', 'demo-accounts', '--ignore-not-found')
+    print('Profil production : entrée de démonstration et compte de réinitialisation retirés.')
 
 # OTP for the super administrator, enrolled at the next browser sign-in. A configured OTP is left untouched.
 superadmin = call(base + '/users?username=superadmin&exact=true', token=token)[0]

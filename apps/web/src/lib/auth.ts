@@ -5,6 +5,7 @@ import { Pool } from "pg";
 import * as oidc from "openid-client";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { decryptSession, encryptSession, type StoredSession } from "./session-crypto";
+import { demoAssertion, jwtBearer, type DemoAccount } from "./demo";
 
 export const origin = process.env.APP_ORIGIN || "http://localhost:3000";
 const issuer =
@@ -70,6 +71,8 @@ export type Session = Identity & {
   expiresAt: number;
   csrf: string;
   absoluteExpiry: number;
+  // Demo account entered in one click: no refresh token, a new assertion renews the access token (ADR-0035).
+  demo?: DemoAccount;
 };
 export async function identity(token: string): Promise<Identity> {
   const { payload } = await jwtVerify(token, jwks, {
@@ -86,19 +89,28 @@ export async function identity(token: string): Promise<Identity> {
       : [],
   };
 }
+// The JWT authorization grant never issues a refresh token and only opens a transient Keycloak session.
+export async function demoTokens(account: DemoAccount) {
+  return oidc.genericGrantRequest(await oidcConfig(), jwtBearer, {
+    assertion: await demoAssertion(account, origin, issuer),
+    scope: "openid profile email",
+  });
+}
 export async function saveSession(
   tokens: oidc.TokenEndpointResponse,
+  demo?: DemoAccount,
 ): Promise<string> {
-  if (!tokens.refresh_token || !tokens.expires_in)
+  if ((!tokens.refresh_token && !demo) || !tokens.expires_in)
     throw new Error("Incomplete token response");
   const id = random();
   const data: Session = {
     ...(await identity(tokens.access_token)),
     accessToken: tokens.access_token,
-    refreshToken: tokens.refresh_token,
+    refreshToken: tokens.refresh_token || "",
     expiresAt: Date.now() + tokens.expires_in * 1000,
     csrf: random(),
     absoluteExpiry: Date.now() + 8 * 3600_000,
+    ...(demo && { demo }),
   };
   await pool.query(
     "INSERT INTO web_sessions(id_hash,kind,data,expires_at) VALUES($1,'session',$2,now()+interval '30 minutes')",
@@ -179,10 +191,9 @@ export async function session(): Promise<Session | null> {
     }
     if (data.expiresAt <= Date.now() + 30_000) {
       try {
-        const tokens = await oidc.refreshTokenGrant(
-          await oidcConfig(),
-          data.refreshToken,
-        );
+        const tokens = data.demo
+          ? await demoTokens(data.demo)
+          : await oidc.refreshTokenGrant(await oidcConfig(), data.refreshToken);
         data = {
           ...data,
           ...(await identity(tokens.access_token)),

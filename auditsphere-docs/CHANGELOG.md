@@ -1,5 +1,12 @@
 # Journal des changements
 
+## 2026-10-28 : profil de démonstration, phase 10 lot C
+
+- ADR-0031 accepté. ADR-0035 : entrée en un clic par octroi par assertion JWT de Keycloak. Le BFF signe une assertion courte pour `auditor`, `validator` ou `auditee`. Ni mot de passe, ni session Keycloak dans le navigateur, ni verrouillage de force brute. `superadmin` garde l'OTP obligatoire.
+- Page de connexion avec trois boutons d'entrée et bandeau permanent de démonstration, par la valeur `demo.enabled` du chart web. Variable `AUDITSPHERE_PROFILE` : `demo` par défaut, `production` retire tout le dispositif.
+- Chart `demo-reset` : CronJob nocturne qui rétablit les comptes, arrête les workflows Temporal, vide les bases, retire les preuves et recrée 40 missions. Aucun accès à l'API Kubernetes.
+- Vérifié dans le cluster : octroi des trois comptes, refus des autres et du rejeu, deux exécutions du CronJob dont une après modification de `auditor`, smoke de l'API et du BFF réussis. Image du BFF à déployer après la fusion. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-28 : console de compte de Keycloak fermée
 
 - ADR-0034 : clients `account` et `account-console` désactivés par `scripts/k3s-setup-keycloak.py`. La console de compte et son API répondent 404 sur les deux noms.

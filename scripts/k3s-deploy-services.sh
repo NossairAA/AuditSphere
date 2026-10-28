@@ -32,11 +32,25 @@ deploy remediation-service
 deploy workflow-worker
 deploy api-gateway
 
+# Profil de déploiement (ADR-0031) : demo par défaut, production sans entrée en un clic ni réinitialisation.
+profile=${AUDITSPHERE_PROFILE:-demo}
+case "$profile" in demo | production) ;; *) echo "AUDITSPHERE_PROFILE vaut demo ou production." >&2; exit 1 ;; esac
+
 # Frontend et Traefik en bordure, derrière l'entrée Tailscale app.
 : "${APP_ORIGIN:?}"
 helm upgrade --install web "$root/infra/helm/web" --namespace auditsphere \
   --set-string appOrigin="$APP_ORIGIN" --set-string oidcOrigin="$OIDC_ORIGIN" \
+  --set demo.enabled="$([ "$profile" = demo ] && echo true || echo false)" \
   --set-file sessionsSql="$root/apps/web/db/001-sessions.sql" \
   --set-file encryptedSessionsSql="$root/apps/web/db/002-encrypted-sessions.sql" \
   --wait --wait-for-jobs --timeout 10m
+# Réinitialisation nocturne du profil demo. Ses secrets viennent de scripts/k3s-setup-keycloak.py.
+if [ "$profile" = demo ]; then
+  helm upgrade --install demo-reset "$root/infra/helm/demo-reset" --namespace auditsphere \
+    --set-file scripts.reset="$root/scripts/demo-reset.py" --set-file scripts.accounts="$root/scripts/demo_accounts.py" \
+    --set-file scripts.seed="$root/scripts/seed-demo-missions.py" --set-file scripts.evidence="$root/scripts/evidence_storage.py" \
+    --set-string evidence.endpoint="$GARAGE_ENDPOINT" --wait --timeout 5m
+else
+  helm uninstall demo-reset --namespace auditsphere --ignore-not-found
+fi
 kubectl --namespace auditsphere get pods
