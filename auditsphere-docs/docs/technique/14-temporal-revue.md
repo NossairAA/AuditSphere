@@ -29,6 +29,19 @@ python3 scripts/test-temporal.py --faults arrête le worker, enregistre une déc
 
 Le test de pannes doit finir avant de lancer les tests navigateur. La CI exécute ces étapes séquentiellement. La vérification de disponibilité après redémarrage interroge les missions via la gateway, pas uniquement son endpoint de santé.
 
+## Démarrage du worker avant Temporal
+
+Constat du 2026-10-28 dans k3s : après un redémarrage de l'hôte vers 22:38 UTC, le worker a démarré avant Temporal. `factory.start()` interrogeait le namespace une seule fois et quittait sur `UNAVAILABLE: io exception`, connexion refusée sur le port 7233. Trois arrêts en deux minutes ont déclenché l'alerte `PodRestartingOften`. Le worker est reparti seul vers 22:40 UTC, une fois Temporal prêt.
+
+Comportement implémenté dans `ReviewWorker` :
+
+- Avant `factory.start()`, le worker décrit son namespace avec une échéance de 5 secondes par appel.
+- Seuls `UNAVAILABLE` et `DEADLINE_EXCEEDED` sont réessayés. Une erreur de droits ou de certificat reste immédiatement fatale.
+- Délai doublé à chaque échec : 1, 2, 4, 8, 16 puis 30 secondes au plus. Chaque attente est journalisée en `WARN`.
+- Au-delà de 5 minutes d'attente cumulée, la dernière erreur est levée. Le conteneur s'arrête et Kubernetes reprend la main, si bien qu'une vraie panne de Temporal reste visible.
+
+Vérifié localement : `ReviewWorkerTest`, trois tests sur la progression des délais, la limite et le refus de réessayer une erreur permanente. `ReloadingKeyManagerTest` reste vert. Non vérifié : le comportement dans le cluster, qui demande une nouvelle image et un redémarrage de l'hôte ou de Temporal.
+
 ## Limites
 
 Le serveur est destiné au développement local. Les historiques terminés sont conservés 24 heures par le namespace local. L’outbox n’est pas purgée automatiquement. Il n’y a pas encore de délai, Activity de mise à jour métier ni reprise après perte de volume. Voir [ADR-0011](../decisions/ADR-0011-temporal-revue-durable.md).

@@ -6,6 +6,12 @@
 - Vérifié par le nom public : la page de connexion contient la ligne « Conçu et développé par », avec le lien vers le profil GitHub.
 - Chart `demo-reset` mis à jour avec le jeu v2 dans le même déploiement. Les données en place restent celles du jeu précédent jusqu'à la prochaine réinitialisation.
 
+## 2026-10-28 : le worker Temporal attend Temporal au démarrage
+
+- Alerte `PodRestartingOften` sur `workflow-worker` : après un redémarrage de l'hôte, le worker démarrait avant Temporal et s'arrêtait sur une connexion refusée. Trois arrêts en deux minutes, retour seul une fois Temporal prêt.
+- `ReviewWorker` décrit son namespace avant de démarrer et réessaie `UNAVAILABLE` et `DEADLINE_EXCEEDED` avec un délai doublé de 1 à 30 secondes, pendant 5 minutes au plus. Les autres erreurs restent fatales.
+- Vérifié localement : `ReviewWorkerTest`, trois tests réussis. Image non publiée, non déployé. Détails dans le [guide Temporal](docs/technique/14-temporal-revue.md).
+
 ## 2026-10-28 : jeu de démonstration v2 réaliste
 
 - 40 missions réécrites pour le Groupe Alvéane, entreprise fictive : 122 risques, 176 contrôles, 121 résultats, 63 constats et 137 justificatifs PDF ou PNG générés à chaque peuplement.
