@@ -1,5 +1,12 @@
 # Journal des changements
 
+## 2026-10-28 : nouveau logo de l’application web
+
+- Logo AuditSphere en SVG : tuile vert pâle à trois couches empilées, mot-symbole en gras suivi d’un point vert pâle. Composant `BrandLockup` sur la page de connexion et dans la barre latérale.
+- Icônes de l’application : `icon.svg`, `favicon.ico` et `apple-icon.png`. Fichiers autonomes pour fond clair et fond sombre dans `public/brand/`.
+- Point du mot-symbole corrigé à la largeur d’un téléphone.
+- Vérifié localement : TypeScript, build Next.js et inspection navigateur sur ordinateur et à 375 pixels. Non déployé. Détails dans le [guide du frontend](docs/technique/05-frontend-bff.md).
+
 ## 2026-10-28 : responsable dans l'entrée de démonstration
 
 - Quatrième bouton : le responsable `manager`, seul rôle qui crée une mission et la soumet au validateur. Lien au fournisseur `demo-entry` par `scripts/k3s-setup-keycloak.py`. ADR-0031 et ADR-0035 révisés.

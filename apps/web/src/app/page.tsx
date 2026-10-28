@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 import { session } from "@/lib/auth";
 import { demoAccounts, demoEnabled } from "@/lib/demo";
+import { BrandLockup } from "@/components/brand";
 import {
   ShieldCheck,
   ArrowUpRight,
   Check,
-  Layers,
   ClipboardCheck,
   BriefcaseBusiness,
   BadgeCheck,
@@ -33,10 +33,7 @@ export default async function Home({
     <main className="login">
       <section className="login-story">
         <a className="brand" href="/">
-          <span className="brand-mark">
-            <Layers size={23} />
-          </span>
-          AuditSphere<span className="brand-dot">.</span>
+          <BrandLockup />
         </a>
         <div className="login-copy">
           <span className="eyebrow light">VOTRE ESPACE D’AUDIT</span>

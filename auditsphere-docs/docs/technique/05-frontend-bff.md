@@ -53,6 +53,19 @@ La session expose au navigateur le nom, le sub, les rôles et un jeton CSRF, uni
 
 Pas de déploiement de production. Restent à traiter : TLS de bout en bout, sauvegarde du stockage de session, supervision et vérification du modèle de révocation en exploitation. L’expiration du jeton et la session BFF sont deux durées distinctes. La CSP à nonce impose un rendu dynamique. La limite de connexion distingue les IP seulement avec un proxy de confiance configuré. Sans ce proxy, elle partage une clé `direct` car Next.js ne fournit pas l’adresse de socket aux routes.
 
+## Identité visuelle
+
+**Date :** 2026-10-28
+
+Le logo AuditSphere associe une tuile carrée arrondie vert pâle `#D9E7C1` à une icône de trois couches empilées en vert profond `#2B4736`. Le mot-symbole « AuditSphere » est en sans-serif gras, suivi d’un point vert pâle `#BBD5A1`. Couleurs relevées sur l’image de référence fournie par l’utilisateur.
+
+- Composant `src/components/brand.tsx` : `BrandMark` dessine la tuile en SVG en ligne, `BrandLockup` y ajoute le mot-symbole en texte HTML. Utilisé par la page de connexion et par la barre latérale de l’espace de travail. Le mot-symbole reste du texte : il garde la police du site et reste lisible par les lecteurs d’écran.
+- Fichiers SVG autonomes dans `public/brand/` : `auditsphere-mark.svg` pour l’icône seule, `auditsphere-logo.svg` pour un fond clair avec mot-symbole encre et point vert, `auditsphere-logo-inverse.svg` pour un fond sombre avec mot-symbole blanc. Le texte de ces deux fichiers dépend des polices Arial ou Helvetica de la machine qui les affiche.
+- Icônes de l’application par les conventions de Next.js : `src/app/icon.svg`, `src/app/favicon.ico` en 16, 32 et 48 pixels, `src/app/apple-icon.png` en 180 pixels sur fond plein, car iOS arrondit lui-même les angles. Les deux images matricielles sont produites à partir du SVG par Chromium de Playwright.
+- Le point ne dépend plus de l’espacement de la tuile. Il chevauchait la dernière lettre à la largeur d’un téléphone.
+
+Vérifié localement le 2026-10-28 : TypeScript strict et build Next.js réussis, page de connexion et barre latérale inspectées à la largeur d’un ordinateur et à 375 pixels, sans défilement horizontal. Les cinq fichiers d’icône et de logo répondent 200 avec le bon type de contenu, et les balises `icon` et `apple-touch-icon` sont présentes dans la page. Non déployé : l’image du BFF reste à reconstruire et à épingler après la fusion.
+
 ## Démarrage
 
 Suivre le [README racine](../../../README.md). La base du BFF est publiée uniquement sur 127.0.0.1:5544 pour le processus Next.js exécuté sur l’hôte. Tous les exemples utilisent des données synthétiques.
