@@ -1145,6 +1145,7 @@ Livré :
 - Chart [infra/helm/demo-reset](../../../infra/helm/demo-reset) : CronJob à 5 h, heure de Paris, après la sauvegarde. Étapes dans l'ordre : comptes, workflows Temporal en cours, bases, preuves et 40 missions par `seed-demo-missions.py`. Pas d'accès à l'API Kubernetes. NetworkPolicy ajoutées vers Keycloak, la gateway, PostgreSQL et Temporal. Certificat client Temporal `temporal-client-demo-reset`.
 - [scripts/demo-reset.py](../../../scripts/demo-reset.py) `accounts|seed` : mots de passe, noms et adresses rétablis, actions requises vidées, OTP, WebAuthn et codes de récupération retirés, sessions fermées, verrouillage levé. Le client `auditsphere-demo` n'est actif que pendant le peuplement, et le Job échoue s'il l'est déjà.
 - `evidence_storage.py` accepte les variables `EVIDENCE_S3_*` de l'environnement, pour retirer les preuves depuis le cluster.
+- Depuis le jeu v2 du 2026-10-28, le ConfigMap porte aussi `demo_documents.py`, `demo_font.py` et `demo_dataset.py.gz`, compressé pour rester sous 1 Mio. Le peuplement dépose 137 justificatifs et 63 constats. Détails dans le [jeu de démonstration](17-donnees-demonstration.md).
 
 Vérifications du 2026-10-28 :
 
