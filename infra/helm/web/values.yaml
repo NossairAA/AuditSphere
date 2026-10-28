@@ -1,7 +1,7 @@
 image:
   repository: ghcr.io/nossairaa/auditsphere-web
-  tag: 294a0ff6efb6bb7b304e82ccfeb6fe937b28660b
-  digest: sha256:689399e20db2a50ea2a0c62fa37bde4800dc4a9e35f87121debd2e57b9787468
+  tag: 04baf82f7d0c4c4abd52a7f8c04552ed964381be
+  digest: sha256:eb6d096e656c542368165877c6cce5d32a4407fddd2945062aef47226285a7ed
 
 # Origines HTTPS du tailnet, passées à l'installation depuis .local/k3s.env.
 appOrigin: ""
@@ -10,8 +10,8 @@ oidcClientId: auditsphere-web
 apiOrigin: http://api-gateway.auditsphere.svc.cluster.local:8080
 
 # Adresse du visiteur pour les limites du BFF. Par le tunnel, Cloudflare écrase cf-connecting-ip.
-# Par le tailnet, Traefik pose x-real-ip. La liste exige une image du BFF qui la comprend (phase 10, lot B).
-trustedProxyIpHeaders: x-real-ip
+# Par le tailnet, Traefik pose x-real-ip. La liste exige l'image de 04baf82 ou plus récente (phase 10, lot B).
+trustedProxyIpHeaders: cf-connecting-ip,x-real-ip
 
 # Schéma des sessions, passé par --set-file depuis apps/web/db.
 sessionsSql: ""
