@@ -32,6 +32,8 @@ env:
   EVIDENCE_S3_BUCKET: auditsphere-evidence-k3s
   EVIDENCE_S3_PATH_STYLE: "true"
   # EVIDENCE_S3_ENDPOINT est passé à l'installation depuis .local/k3s.env.
+  # Tas à 50 % de la limite au lieu des 60 % de l'image : environ 384 Mio, le reste pour le hors-tas (2026-10-28).
+  JAVA_TOOL_OPTIONS: -XX:+UseSerialGC -XX:MaxRAMPercentage=50 -Xss512k
 secretEnv:
   - {name: DB_PASSWORD, secret: db-credentials, key: audit_runtime}
   - {name: SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG, secret: kafka-audit-service, key: jaas}
@@ -42,12 +44,14 @@ secretEnv:
 # Hibernate, Kafka, Temporal et le client S3 demandent environ 140 Mio hors du tas.
 # 448 Mio suffisaient sans le port de gestion. Avec lui et le registre Prometheus, le conteneur a atteint
 # sa limite et a été arrêté le 2026-10-27 (phase 6, lot 6B) : 64 Mio de plus.
+# Le 2026-10-28, le conteneur restait à 505 Mio sur 512 au repos et a été arrêté par OOM pendant le
+# seed de demo-reset. Hors du tas, il mesure environ 300 Mio en k3s : limite à 768 Mio.
 resources:
   requests:
     cpu: 100m
-    memory: 384Mi
-  limits:
     memory: 512Mi
+  limits:
+    memory: 768Mi
 internalCa:
   enabled: true
 
