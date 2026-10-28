@@ -128,6 +128,8 @@ Les textes utilisent des jetons tels que `{date:-30}`, `{month:-1}`, `{quarter:-
 
 Le jeu de données pèse 1,07 Mo en clair, au-delà de la limite de 1 Mio d’un ConfigMap. `scripts/k3s-deploy-services.sh` le transmet compressé par gzip et encodé en base64. Le chart le monte sous `demo_dataset.py.gz`. Le ConfigMap rendu pèse 356 ko.
 
+`.gitattributes` marque `scripts/demo_dataset.py` et `scripts/demo_font.py` en `linguist-generated`. GitHub les exclut ainsi des statistiques de langages et replie leurs diffs dans les pull requests. Sans ce marquage, le jeu de données comptait pour l’essentiel des 61 % de Python affichés, alors qu’il ne contient aucun code. Les fichiers restent suivis par Git, car le déploiement du chart `demo-reset` les lit dans le dépôt.
+
 ### Reprise
 
 La reprise reste idempotente. Les risques sont retrouvés par titre, les contrôles par objectif, les justificatifs par nom de fichier et les constats par titre. Un renvoi déjà joué est détecté dans l’historique du constat. Résultats, preuves et constats ne sont plus touchés après un rejet ou un retrait de la mission.
