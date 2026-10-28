@@ -162,6 +162,27 @@ spec:
             valid_status_codes: [400, 401]
             fail_if_body_not_matches_regexp: ['"error":"invalid_client"']
             preferred_ip_protocol: ip4
+        # Nom public servi par le tunnel (phase 10, lot B) : HTTPS et passage par Cloudflare, prouvé par Cf-Ray.
+        https_tunnel:
+          prober: http
+          timeout: 10s
+          http:
+            follow_redirects: false
+            valid_status_codes: [200, 301, 302, 303, 307, 308]
+            fail_if_not_ssl: true
+            fail_if_header_not_matches:
+              - header: Cf-Ray
+                regexp: '.+'
+            preferred_ip_protocol: ip4
+        # Console et royaume master refusés sur le nom public : 403 de la règle Cloudflare, 404 du tunnel.
+        https_public_refused:
+          prober: http
+          timeout: 10s
+          http:
+            follow_redirects: false
+            valid_status_codes: [403, 404]
+            fail_if_not_ssl: true
+            preferred_ip_protocol: ip4
 ---
 apiVersion: helm.cattle.io/v1
 kind: HelmChart
@@ -200,7 +221,7 @@ spec:
       resources:
         requests: {cpu: 50m, memory: 192Mi}
         limits: {memory: 448Mi}
-      # Cibles propres au tailnet, comme Garage, écrites par scripts/k3s-monitoring.sh.
+      # Cibles hors Git, Garage et noms publics du tunnel, écrites par scripts/k3s-monitoring.sh.
       extraSecretMounts:
         - name: private-targets
           mountPath: /etc/prometheus-private
@@ -308,6 +329,34 @@ spec:
             target_label: __param_target
           - target_label: instance
             replacement: garage
+          - target_label: __address__
+            replacement: blackbox-exporter:9115
+      # Chemin complet par Internet et le tunnel (phase 10, lot B). Cibles écrites par scripts/k3s-monitoring.sh,
+      # vides tant que les origines sont celles du tailnet.
+      - job_name: blackbox-tunnel
+        metrics_path: /probe
+        params:
+          module: [https_tunnel]
+        file_sd_configs:
+          - files: [/etc/prometheus-private/tunnel.json]
+        relabel_configs:
+          - source_labels: [__address__]
+            target_label: __param_target
+          - source_labels: [__param_target]
+            target_label: instance
+          - target_label: __address__
+            replacement: blackbox-exporter:9115
+      - job_name: blackbox-public-refused
+        metrics_path: /probe
+        params:
+          module: [https_public_refused]
+        file_sd_configs:
+          - files: [/etc/prometheus-private/public-refused.json]
+        relabel_configs:
+          - source_labels: [__address__]
+            target_label: __param_target
+          - source_labels: [__param_target]
+            target_label: instance
           - target_label: __address__
             replacement: blackbox-exporter:9115
     serverFiles:

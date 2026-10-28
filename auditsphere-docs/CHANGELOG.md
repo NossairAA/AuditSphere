@@ -1,5 +1,12 @@
 # Journal des changements
 
+## 2026-10-28 : tunnel et noms publics préparés, phase 10 lot B
+
+- ADR-0033 proposé : les noms publics deviennent l'origine unique du navigateur et de l'émetteur des jetons. La console de Keycloak reste sur le tailnet par `KC_HOSTNAME_ADMIN`.
+- `deploy/k3s/cloudflared.yaml` : connecteur du tunnel épinglé par empreinte, namespace `restricted`, métriques ouvertes à Prometheus seul. NetworkPolicy de `edge` et de Keycloak ouvertes au connecteur.
+- Scripts d'administration de Keycloak par `KEYCLOAK_ADMIN_ORIGIN`. Limite de débit de Traefik par `Cf-Connecting-Ip`. Sondes du tunnel et des chemins refusés sur le nom public.
+- Fait par l'utilisateur : zone DNS active chez Cloudflare, tunnel créé, secret du jeton dans le cluster. Vérifié à blanc dans le cluster, rien n'est déployé. Ordre de bascule dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-28 : durcissement de Keycloak, phase 10 lot A
 
 - ADR-0032 : le client `auditsphere-demo`, qui accepte le mot de passe direct, est désactivé au repos. `scripts/k3s-check.sh` l'active le temps d'une exécution et le désactive à la sortie.

@@ -20,8 +20,9 @@ deploy() {
 }
 
 # Keycloak d'abord : les services valident les jetons qu'il émet.
+# KEYCLOAK_ADMIN_ORIGIN, facultatif : console sur le nom du tailnet quand OIDC_ORIGIN est public (ADR-0033).
 helm upgrade --install keycloak "$root/infra/helm/keycloak" --namespace auditsphere \
-  --set-string origin="$OIDC_ORIGIN" --set-file realm="$root/deploy/keycloak/production-realm.json" \
+  --set-string origin="$OIDC_ORIGIN" --set-string adminOrigin="${KEYCLOAK_ADMIN_ORIGIN:-}" --set-file realm="$root/deploy/keycloak/production-realm.json" \
   --wait --timeout 10m
 
 # audit-service porte les migrations dont dépendent les autres services, il passe en premier.

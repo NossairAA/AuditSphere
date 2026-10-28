@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Supervision dans k3s (phase 6, lot 6A, ADR-0029). Aucune valeur secrète n'est affichée.
 #   apply : sujet ntfy aléatoire dans .local/ntfy.env s'il est absent, secrets d'alerte et cibles privées,
-#           puis deploy/k3s/monitoring/monitoring.yaml. GARAGE_ENDPOINT vient de .local/k3s.env.
+#           puis deploy/k3s/monitoring/monitoring.yaml. GARAGE_ENDPOINT, APP_ORIGIN et OIDC_ORIGIN viennent de .local/k3s.env.
 #   test  : alerte de test envoyée par Alertmanager, puis lecture du sujet pour confirmer sa publication.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
@@ -31,8 +31,18 @@ case "${1:-}" in
     kubectl --namespace monitoring create secret generic alertmanager-ntfy \
       --from-file=url=<(printf '%s' "$url") --from-file=url-urgent=<(printf '%s&priority=5' "$url") \
       --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+    # Sondes du tunnel (phase 10, lot B) : seulement quand les origines sont les noms publics, sinon listes vides.
+    tunnel='[]' refused='[]'
+    case "${APP_ORIGIN:-}${OIDC_ORIGIN:-}" in
+      *.ts.net*|'') ;;
+      *)
+        tunnel=$(printf '[{"targets":["%s/","%s/realms/auditsphere/.well-known/openid-configuration"]}]' "$APP_ORIGIN" "$OIDC_ORIGIN")
+        refused=$(printf '[{"targets":["%s/admin/","%s/realms/master/"]}]' "$OIDC_ORIGIN" "$OIDC_ORIGIN")
+        ;;
+    esac
     kubectl --namespace monitoring create secret generic prometheus-private-targets \
       --from-file=garage.json=<(printf '[{"targets":["%s"]}]' "$GARAGE_ENDPOINT") \
+      --from-file=tunnel.json=<(printf '%s' "$tunnel") --from-file=public-refused.json=<(printf '%s' "$refused") \
       --dry-run=client -o yaml | kubectl apply -f - >/dev/null
     unset url
     kubectl apply -f "$root/deploy/k3s/monitoring/monitoring.yaml"

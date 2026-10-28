@@ -18,8 +18,10 @@ def read_env(path):
 
 local = read_env(root / '.local' / 'k3s.env')
 app_origin, identity_origin = local['APP_ORIGIN'], local['OIDC_ORIGIN']
-if not app_origin.startswith('https://') or not identity_origin.startswith('https://'):
-    raise SystemExit('APP_ORIGIN et OIDC_ORIGIN HTTPS sont obligatoires dans .local/k3s.env.')
+# The admin API and the master realm are refused on the public name (ADR-0033): use the tailnet name when set.
+admin_origin = local.get('KEYCLOAK_ADMIN_ORIGIN') or identity_origin
+if not all(origin.startswith('https://') for origin in (app_origin, identity_origin, admin_origin)):
+    raise SystemExit('APP_ORIGIN, OIDC_ORIGIN et KEYCLOAK_ADMIN_ORIGIN HTTPS sont obligatoires dans .local/k3s.env.')
 
 
 def kubectl(*args, stdin=None):
@@ -49,7 +51,7 @@ def call(path, data=None, method=None, token=None, form=False):
     if data is not None:
         headers['Content-Type'] = 'application/x-www-form-urlencoded' if form else 'application/json'
     payload = (urllib.parse.urlencode(data) if form else json.dumps(data)).encode() if data is not None else None
-    request = urllib.request.Request(identity_origin + path, data=payload, headers=headers, method=method)
+    request = urllib.request.Request(admin_origin + path, data=payload, headers=headers, method=method)
     with urllib.request.urlopen(request, timeout=15) as response:
         body = response.read()
         return json.loads(body) if body else None

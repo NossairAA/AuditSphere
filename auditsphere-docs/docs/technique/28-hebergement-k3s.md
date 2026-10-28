@@ -509,7 +509,7 @@ Limites :
 - Toute personne qui connaît le sujet ntfy peut lire les alertes et en publier de fausses. Les messages ne contiennent ni secret ni donnée d'audit.
 - Les limites mémoire du nœud dépassent la mémoire allouable. Une pression mémoire forte peut provoquer des arrêts. La mémoire de Prometheus est à remesurer après sa compaction.
 - Pas encore de métriques applicatives : erreurs 5xx, mémoire des JVM, retard Kafka, DLT, workflows bloqués et tentatives d'abus viennent au lot 6B. Pas de journaux centralisés avant le lot 6C.
-- La sonde de la bordure suit le chemin interne. Le tunnel Cloudflare sera sondé à la phase 10.
+- La sonde de la bordure suit le chemin interne. Les sondes du tunnel sont préparées au lot B de la phase 10, non déployées.
 - Comme cert-manager et l'opérateur Tailscale, les charts sont épinglés par version, pas les images par empreinte. Les applications restent épinglées par empreinte.
 
 #### Lot 6B : métriques applicatives et alertes d'abus
@@ -997,7 +997,7 @@ Conclusion : C7 n'est pas clos. Il reste la phase 6. Mise à jour du 2026-10-27 
 
 ### Phase 10 : exposition publique
 
-Décidée par [ADR-0025](../decisions/ADR-0025-exposition-publique-cloudflare-tunnel.md). Statut : en cours depuis le 2026-10-28. Lot A, durcissement de Keycloak sans le tunnel, vérifié. Le tunnel et les noms publics ne sont pas configurés.
+Décidée par [ADR-0025](../decisions/ADR-0025-exposition-publique-cloudflare-tunnel.md). Statut : en cours depuis le 2026-10-28. Lot A, durcissement de Keycloak sans le tunnel, vérifié. Lot B, tunnel et noms publics : zone DNS active et tunnel créé par l'utilisateur, dépôt préparé, non déployé.
 
 Préparation possible dès maintenant, par l'utilisateur :
 
@@ -1042,7 +1042,60 @@ Vérifications du 2026-10-28 :
 
 Non vérifié : déclenchement réel de `DemoClientEnabled` après 30 minutes, et enrôlement de l'OTP de `superadmin`, qui revient à l'utilisateur.
 
-Reste en phase 10 : `cloudflared` et les deux noms publics, règles Cloudflare, console `/admin` refusée sur le nom public, sonde du tunnel.
+Reste en phase 10 au lot A : `cloudflared` et les deux noms publics, règles Cloudflare, console `/admin` refusée sur le nom public, sonde du tunnel.
+
+#### Lot B : tunnel et noms publics
+
+Statut : préparé dans le dépôt le 2026-10-28, non déployé. Décision : [ADR-0033](../decisions/ADR-0033-origine-publique-unique.md), proposée.
+
+Fait par l'utilisateur le 2026-10-28 :
+
+- Zone du domaine ajoutée à Cloudflare, offre gratuite. Enregistrements de la page de parking de Namecheap supprimés.
+- Serveurs de noms remplacés chez Namecheap. Vérifié : les serveurs du `.online` délèguent aux deux serveurs Cloudflare. Zone active.
+- Tunnel `auditsphere` créé dans Cloudflare, sans nom public. Offre Zero Trust Free.
+- Namespace `cloudflared` créé, et secret `cloudflared-token` créé par saisie masquée. Vérifié sans lire sa valeur : clé `token` présente.
+
+Préparé dans le dépôt :
+
+- [deploy/k3s/cloudflared.yaml](../../../deploy/k3s/cloudflared.yaml) : namespace au niveau `restricted`, refus par défaut en entrée, métriques ouvertes à Prometheus seul. `cloudflared` 2026.10.5 épinglé par empreinte, une réplique, 96 Mio au plus, racine en lecture seule.
+- NetworkPolicy : `edge` et Keycloak, port 8080 seul, acceptent le pod `cloudflared`. Le port de gestion de Keycloak reste fermé au tunnel.
+- Chart Keycloak : valeur `adminOrigin`, passée à `KC_HOSTNAME_ADMIN` depuis `KEYCLOAK_ADMIN_ORIGIN`. Vide, rien ne change.
+- `k3s-setup-keycloak.py` et `k3s-demo-client.py` appellent Keycloak par `KEYCLOAK_ADMIN_ORIGIN` quand elle existe.
+- Traefik : limite de débit par l'en-tête `Cf-Connecting-Ip`, valeur `edge.clientIpHeader`.
+- Supervision : modules `https_tunnel`, qui exige HTTPS et l'en-tête `Cf-Ray`, et `https_public_refused`, qui attend 403 ou 404. Jobs `blackbox-tunnel` et `blackbox-public-refused`. Leurs cibles sont écrites par `k3s-monitoring.sh` dans `prometheus-private-targets`, vides tant que les origines sont celles du tailnet. L'alerte `ProbeFailed` les couvre.
+
+Vérifications du 2026-10-28, sans déploiement :
+
+- Rendu Helm de Keycloak avec et sans `adminOrigin`, rendu du chart web.
+- Essai à blanc côté serveur de `cloudflared.yaml`, du chart Keycloak, du chart web et de `monitoring.yaml` : acceptés. Le namespace `restricted` admet le Deployment.
+- `test_image_pins.py` réussi. Syntaxe des scripts modifiés vérifiée.
+
+Bascule, dans cet ordre :
+
+1. `kubectl apply -f deploy/k3s/cloudflared.yaml`. Le tunnel passe à l'état sain dans Cloudflare.
+2. Dans Cloudflare, sur la zone : TLS 1.2 minimum, TLS 1.3, Always Use HTTPS, HSTS sur 6 mois sans preload, Bot Fight Mode désactivé.
+3. Règle personnalisée du pare-feu applicatif, action Block : nom `auth` et chemin commençant par `/admin` ou `/realms/master`.
+4. Règle de limitation de débit : nom `auth` et chemin contenant `/login-actions/`, 10 requêtes par 10 secondes et par adresse. Jamais sur le point de jeton.
+5. Règle de transformation des en-têtes de requête : sur le nom de l'application, `X-Real-Ip` fixé à la valeur dynamique `ip.src`.
+6. Noms publics du tunnel : le domaine vers `http://edge.auditsphere.svc.cluster.local:80`, `auth` vers `http://keycloak.auditsphere.svc.cluster.local:8080`. En premier, une entrée `auth` au chemin `^/(admin|realms/master)` vers `http_status:404`.
+7. Dans `.local/k3s.env` : `KEYCLOAK_ADMIN_ORIGIN` reçoit l'ancienne `OIDC_ORIGIN`, puis `APP_ORIGIN` et `OIDC_ORIGIN` reçoivent les noms publics.
+8. `scripts/k3s-deploy-services.sh`, puis `scripts/k3s-setup-keycloak.py` pour les adresses de retour, puis `scripts/k3s-monitoring.sh apply`.
+
+Sortie du lot :
+
+- Connexion de bout en bout par le nom public, et smoke par `k3s-check.sh`.
+- `/admin/` et `/realms/master/` refusés sur le nom public, console joignable par le tailnet.
+- Sondes du tunnel à 1, aucune alerte active.
+- Deux connexions depuis deux adresses différentes comptées séparément par Traefik et par le BFF.
+- Aucun port entrant ouvert, gateway et services internes injoignables depuis Internet.
+- Mémoire de `cloudflared` mesurée.
+
+Limites :
+
+- La connexion à l'application dépend de Cloudflare, même depuis le tailnet.
+- Les appels du BFF à Keycloak sortent du cluster et reviennent par le tunnel.
+- Le comportement de `KC_HOSTNAME_ADMIN` avec les scripts d'administration, et la conservation de `X-Real-Ip` par Traefik, ne sont pas encore vérifiés.
+- Le nom `www` n'est pas servi.
 
 #### Condition d'ouverture
 
