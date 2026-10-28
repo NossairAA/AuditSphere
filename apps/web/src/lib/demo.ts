@@ -4,6 +4,10 @@ import { SignJWT, importPKCS8 } from "jose";
 
 // One-click entry of the demo profile (ADR-0035). Keycloak links only these accounts to the demo-entry provider.
 export const demoAccounts = {
+  manager: {
+    label: "Responsable",
+    detail: "Crée les missions et les confie à l’équipe",
+  },
   auditor: { label: "Auditeur", detail: "Réalise les contrôles d’une mission" },
   validator: {
     label: "Validateur",

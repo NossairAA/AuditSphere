@@ -1,5 +1,10 @@
 # Journal des changements
 
+## 2026-10-28 : responsable dans l'entrée de démonstration
+
+- Quatrième bouton : le responsable `manager`, seul rôle qui crée une mission et la soumet au validateur. Lien au fournisseur `demo-entry` par `scripts/k3s-setup-keycloak.py`. ADR-0031 et ADR-0035 révisés.
+- Le responsable n'a aucun droit d'administration. Ses écritures dans les données partagées disparaissent à la réinitialisation nocturne.
+
 ## 2026-10-28 : entrée de démonstration déployée
 
 - Image du BFF de `87d5848` épinglée par empreinte et déployée avec `demo.enabled`.

@@ -7,10 +7,12 @@ import {
   Check,
   Layers,
   ClipboardCheck,
+  BriefcaseBusiness,
   BadgeCheck,
   UserRound,
 } from "lucide-react";
 const demoIcons = {
+  manager: BriefcaseBusiness,
   auditor: ClipboardCheck,
   validator: BadgeCheck,
   auditee: UserRound,

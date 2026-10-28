@@ -12,7 +12,7 @@ PROFILES = {
     'auditee': ('Nadia', 'Rousseau', ['AUDITEE']),
 }
 # Accounts reachable in one click from the sign-in page, through the JWT authorization grant.
-ENTRY = ['auditor', 'validator', 'auditee']
+ENTRY = ['manager', 'auditor', 'validator', 'auditee']
 # Identity provider that trusts the assertions signed by the BFF.
 PROVIDER = 'demo-entry'
 
