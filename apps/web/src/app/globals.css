@@ -920,9 +920,31 @@ td {
   font-size: 12px;
   text-align: center;
 }
+.demo-signature::before {
+  content: "·";
+  margin: 0 10px;
+}
+.demo-signature a {
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 /* The banner wraps on two lines on a phone. */
 body.demo {
   padding-bottom: 48px;
+}
+/* On a phone the signature takes its own line, below the notice. */
+@media (max-width: 760px) {
+  .demo-signature {
+    display: block;
+    margin-top: 2px;
+  }
+  .demo-signature::before {
+    content: none;
+  }
+  body.demo {
+    padding-bottom: 72px;
+  }
 }
 body.demo .sidebar {
   bottom: 32px;
