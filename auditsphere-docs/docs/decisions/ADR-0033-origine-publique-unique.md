@@ -32,7 +32,7 @@ Retenir l'option 2.
 - `scripts/k3s-setup-keycloak.py` et `scripts/k3s-demo-client.py` appellent Keycloak par `KEYCLOAK_ADMIN_ORIGIN` quand elle existe, sinon par `OIDC_ORIGIN`. La règle Cloudflare qui refuse `/admin` et `/realms/master` sur le nom public ne les bloque donc pas.
 - Les entrées Tailscale `app` et `auth` restent en place. `auth` sert la console. `app` reste utile au diagnostic, mais la connexion renvoie vers le nom public.
 - Limite de débit de Traefik par l'en-tête `Cf-Connecting-Ip`, que Cloudflare écrase avec l'adresse réelle du visiteur. Par le tailnet, l'en-tête manque et la limite est commune aux quelques utilisateurs.
-- Limite de débit du BFF : elle lit `X-Real-Ip`. Une règle de transformation Cloudflare fixe cet en-tête à l'adresse réelle du visiteur, `ip.src`, et écrase toute valeur envoyée par le client.
+- Limite de débit du BFF : `TRUSTED_PROXY_IP_HEADER` accepte une liste, et le premier en-tête présent l'emporte. Valeur visée : `cf-connecting-ip,x-real-ip`. Par le tunnel, Cloudflare écrase toujours `Cf-Connecting-Ip`. Par le tailnet, Traefik pose `X-Real-Ip`.
 - Le BFF joint l'émetteur public par Internet et le tunnel. Les services Spring ne vérifient que la chaîne de l'émetteur et lisent les clés par le service interne de Keycloak.
 
 ## Conséquences et risques
@@ -41,7 +41,8 @@ Retenir l'option 2.
 - Les appels du BFF à Keycloak sortent du cluster puis reviennent par le tunnel. Ils viennent tous de l'adresse du domicile. La règle de limitation de débit de Cloudflare ne doit donc viser que les formulaires de connexion, jamais le point de jeton. Bot Fight Mode reste désactivé pour ne pas bloquer ces appels.
 - Revenir au seul tailnet demande de rétablir les anciennes valeurs dans `.local/k3s.env`, de redéployer, puis de relancer `scripts/k3s-setup-keycloak.py`. Les sessions ouvertes sont perdues.
 - Le comportement de `KC_HOSTNAME_ADMIN` avec un jeton du royaume `master` demandé par le nom du tailnet reste à vérifier au déploiement.
-- La règle de transformation sur `X-Real-Ip` et sa conservation par Traefik restent à vérifier au déploiement. Sans elle, le BFF voit tous les visiteurs sous une seule adresse et sa limite de connexion devient commune.
+- Révisé le 2026-10-28 avant tout déploiement : la règle de transformation Cloudflare prévue d'abord sur `X-Real-Ip` est refusée par Cloudflare, qui interdit de modifier cet en-tête. Sans correction, un visiteur pourrait aussi envoyer son propre `X-Real-Ip` par le tunnel, que Traefik conserve car le pod `cloudflared` est dans un réseau de confiance. Le BFF lit donc `Cf-Connecting-Ip` en premier.
+- Un utilisateur du tailnet peut envoyer son propre `Cf-Connecting-Ip`. C'est accepté : le tailnet ne compte que des utilisateurs de confiance.
 
 ## Références
 

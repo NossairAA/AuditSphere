@@ -1070,13 +1070,19 @@ Vérifications du 2026-10-28, sans déploiement :
 - Essai à blanc côté serveur de `cloudflared.yaml`, du chart Keycloak, du chart web et de `monitoring.yaml` : acceptés. Le namespace `restricted` admet le Deployment.
 - `test_image_pins.py` réussi. Syntaxe des scripts modifiés vérifiée.
 
+Avancement de la bascule le 2026-10-28 :
+
+- `cloudflared` déployé : quatre connexions enregistrées vers Cloudflare, 19 Mio de mémoire mesurés, métrique `cloudflared_tunnel_ha_connections` à 4 dans Prometheus.
+- Limitation de débit sur les formulaires de connexion créée par l'utilisateur. La règle de refus de `/admin` et `/realms/master` reste à confirmer.
+- Règle de transformation sur `X-Real-Ip` refusée par Cloudflare. Remplacée par la lecture de `Cf-Connecting-Ip` dans le BFF, voir ADR-0033.
+
 Bascule, dans cet ordre :
 
 1. `kubectl apply -f deploy/k3s/cloudflared.yaml`. Le tunnel passe à l'état sain dans Cloudflare.
 2. Dans Cloudflare, sur la zone : TLS 1.2 minimum, TLS 1.3, Always Use HTTPS, HSTS sur 6 mois sans preload, Bot Fight Mode désactivé.
 3. Règle personnalisée du pare-feu applicatif, action Block : nom `auth` et chemin commençant par `/admin` ou `/realms/master`.
 4. Règle de limitation de débit : nom `auth` et chemin contenant `/login-actions/`, 10 requêtes par 10 secondes et par adresse. Jamais sur le point de jeton.
-5. Règle de transformation des en-têtes de requête : sur le nom de l'application, `X-Real-Ip` fixé à la valeur dynamique `ip.src`.
+5. Image du BFF qui comprend une liste d'en-têtes, et `trustedProxyIpHeaders` du chart web à `cf-connecting-ip,x-real-ip`, dans le même déploiement. La règle de transformation sur `X-Real-Ip` prévue d'abord est refusée par Cloudflare.
 6. Noms publics du tunnel : le domaine vers `http://edge.auditsphere.svc.cluster.local:80`, `auth` vers `http://keycloak.auditsphere.svc.cluster.local:8080`. En premier, une entrée `auth` au chemin `^/(admin|realms/master)` vers `http_status:404`.
 7. Dans `.local/k3s.env` : `KEYCLOAK_ADMIN_ORIGIN` reçoit l'ancienne `OIDC_ORIGIN`, puis `APP_ORIGIN` et `OIDC_ORIGIN` reçoivent les noms publics.
 8. `scripts/k3s-deploy-services.sh`, puis `scripts/k3s-setup-keycloak.py` pour les adresses de retour, puis `scripts/k3s-monitoring.sh apply`.
@@ -1094,7 +1100,7 @@ Limites :
 
 - La connexion à l'application dépend de Cloudflare, même depuis le tailnet.
 - Les appels du BFF à Keycloak sortent du cluster et reviennent par le tunnel.
-- Le comportement de `KC_HOSTNAME_ADMIN` avec les scripts d'administration, et la conservation de `X-Real-Ip` par Traefik, ne sont pas encore vérifiés.
+- Le comportement de `KC_HOSTNAME_ADMIN` avec les scripts d'administration n'est pas encore vérifié.
 - Le nom `www` n'est pas servi.
 
 #### Condition d'ouverture

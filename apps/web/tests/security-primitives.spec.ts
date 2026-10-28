@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { randomBytes } from "node:crypto";
 import { request as httpRequest } from "node:http";
-import { rateLimit } from "../src/lib/rate";
+import { clientAddress, rateLimit } from "../src/lib/rate";
 import { encryptSession, decryptSession } from "../src/lib/session-crypto";
 import { NextRequest } from "next/server";
 import { proxy, config as proxyConfig } from "../src/proxy";
@@ -16,6 +16,23 @@ test("login limits isolate trusted proxy client addresses", () => {
     for (let i = 0; i < 30; i++) expect(rateLimit(request("192.0.2.11"))).toBeNull();
     expect(rateLimit(request("192.0.2.11"))?.status).toBe(429);
     expect(rateLimit(request("192.0.2.12"))).toBeNull();
+  } finally {
+    if (previous === undefined) delete process.env.TRUSTED_PROXY_IP_HEADER;
+    else process.env.TRUSTED_PROXY_IP_HEADER = previous;
+  }
+});
+
+test("the first trusted header present wins and an unknown header is refused", () => {
+  const previous = process.env.TRUSTED_PROXY_IP_HEADER;
+  process.env.TRUSTED_PROXY_IP_HEADER = "cf-connecting-ip,x-real-ip";
+  try {
+    const both = new Request("http://localhost:3000/", { headers: { "cf-connecting-ip": "192.0.2.21", "x-real-ip": "10.42.0.9" } });
+    expect(clientAddress(both)).toBe("192.0.2.21");
+    const tailnet = new Request("http://localhost:3000/", { headers: { "x-real-ip": "10.42.0.9" } });
+    expect(clientAddress(tailnet)).toBe("10.42.0.9");
+    expect(clientAddress(new Request("http://localhost:3000/"))).toBe("unknown");
+    process.env.TRUSTED_PROXY_IP_HEADER = "cf-connecting-ip,true-client-ip";
+    expect(clientAddress(both)).toBe("direct");
   } finally {
     if (previous === undefined) delete process.env.TRUSTED_PROXY_IP_HEADER;
     else process.env.TRUSTED_PROXY_IP_HEADER = previous;
