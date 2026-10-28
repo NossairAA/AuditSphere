@@ -1088,6 +1088,14 @@ Vérifications du 2026-10-28 après la bascule :
 - Sondes `blackbox-tunnel` et `blackbox-public-refused` à 1, aucune alerte active.
 - Limite de connexion du BFF par le nom public : 30 requêtes acceptées, la 31e refusée en 429. Un `X-Real-Ip` forgé ne crée pas de nouveau compteur. Un `Cf-Connecting-Ip` forgé est refusé par Cloudflare en 403. Par le tailnet, le compteur est distinct.
 
+Console de compte fermée le 2026-10-28, selon [ADR-0034](../decisions/ADR-0034-console-compte-fermee.md) :
+
+- Constat : `/realms/auditsphere/account/` répondait 200 sur le nom public. Le paramètre `kc_action` ouvrait aussi les formulaires du mot de passe et de l'OTP depuis la page de connexion, sans ressaisie du mot de passe pendant la session Keycloak.
+- `k3s-setup-keycloak.py` désactive les clients `account` et `account-console` et règle `max_auth_age` à 0 sur les actions que `kc_action` peut lancer.
+- Sonde `blackbox-public-refused` étendue à `/realms/auditsphere/account/` par `k3s-monitoring.sh`.
+- Console d'administration bloquée par le tailnet : sa connexion passait par le royaume `master` sur le nom public, refusé en 403. `k3s-setup-keycloak.py` règle l'URL frontale de `master` sur `KEYCLOAK_ADMIN_ORIGIN`, voir ADR-0033. Vérifié : console servie et connectée par le tailnet, `/realms/master/` toujours en 403 sur le nom public.
+- Vérifié : 404 de Keycloak sur la console et son API par les deux noms, mot de passe redemandé avant `kc_action` dans une session ouverte, inscription de l'OTP de `superadmin` toujours proposée, smoke de l'API et du BFF réussis par `k3s-check.sh`, sonde à 1, aucune alerte active.
+
 Bascule, dans cet ordre, pour mémoire :
 
 1. `kubectl apply -f deploy/k3s/cloudflared.yaml`. Le tunnel passe à l'état sain dans Cloudflare.
@@ -1112,17 +1120,18 @@ Limites :
 
 - La connexion à l'application dépend de Cloudflare, même depuis le tailnet.
 - Les appels du BFF à Keycloak sortent du cluster et reviennent par le tunnel.
-- La console de compte de Keycloak, `/realms/auditsphere/account/`, est joignable sur le nom public. Un détenteur d'un compte de démonstration pourrait y changer le mot de passe ou l'OTP de ce compte. À traiter avant de publier des comptes de démonstration, avec ADR-0031.
 - La limite de Traefik par `Cf-Connecting-Ip` n'a pas été poussée jusqu'au refus. Elle a été vérifiée par configuration seulement.
 - Le nom `www` n'est pas servi.
 - Les scripts de vérification dépendent de l'agent `AuditSphere-checks`, accepté par Cloudflare aujourd'hui.
+- Plus de console de compte dans le royaume `auditsphere`, même par le tailnet. Un mot de passe se change par l'administration des comptes.
+- Qui connaît le mot de passe d'un compte peut encore le changer par `kc_action`. L'entrée en un clic d'ADR-0031 ne devra pas révéler ce mot de passe, et la remise à zéro nocturne devrait rétablir les mots de passe et retirer les OTP des comptes de démonstration.
 
 #### Condition d'ouverture
 
 Arrêtée le 2026-10-26 avec l'utilisateur, conformément à ADR-0023 et ADR-0025. Aucun nom public ne sert l'application avant que ces quatre éléments soient vérifiés :
 
 1. HOST-004, lots D et E : connexion de bout en bout, comptes de démonstration et smoke réussi dans le cluster. Vérifié le 2026-10-26.
-2. HOST-008, sécurité C7 : Kafka en SASL_SSL avec ACL, vérifié le 2026-10-26 au lot D, NetworkPolicy autour de la gateway, de PostgreSQL, de Kafka et de Temporal, vérifiées le 2026-10-26 au lot A, TLS et authentification de Temporal, vérifiés le 2026-10-26 au lot C2, console Keycloak refusée sur le nom public, MFA des administrateurs, inscription libre désactivée. MFA de `superadmin` exigé et inscription vérifiée désactivée le 2026-10-28 au lot A de la phase 10. Console refusée sur le nom public : vérifiée le 2026-10-28 au lot B de la phase 10.
+2. HOST-008, sécurité C7 : Kafka en SASL_SSL avec ACL, vérifié le 2026-10-26 au lot D, NetworkPolicy autour de la gateway, de PostgreSQL, de Kafka et de Temporal, vérifiées le 2026-10-26 au lot A, TLS et authentification de Temporal, vérifiés le 2026-10-26 au lot C2, console Keycloak refusée sur le nom public, MFA des administrateurs, inscription libre désactivée. MFA de `superadmin` exigé et inscription vérifiée désactivée le 2026-10-28 au lot A de la phase 10. OTP de `superadmin` et de `kc-admin` configurés par l'utilisateur le 2026-10-28, aucune action en attente. Console refusée sur le nom public : vérifiée le 2026-10-28 au lot B de la phase 10.
 3. HOST-006 : supervision avec alertes de disponibilité et d'abus.
 4. HOST-007 : sauvegardes hors machine et restauration vérifiée.
 

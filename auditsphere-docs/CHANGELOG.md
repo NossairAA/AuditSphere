@@ -1,5 +1,14 @@
 # Journal des changements
 
+## 2026-10-28 : console de compte de Keycloak fermée
+
+- ADR-0034 : clients `account` et `account-console` désactivés par `scripts/k3s-setup-keycloak.py`. La console de compte et son API répondent 404 sur les deux noms.
+- Le paramètre `kc_action` ouvrait les formulaires du mot de passe et de l'OTP sans ressaisie du mot de passe. `max_auth_age` réglé à 0 sur ces actions : Keycloak redemande le mot de passe.
+- Sonde de refus étendue à `/realms/auditsphere/account/`.
+- Console d'administration réparée par le tailnet : URL frontale du royaume `master` réglée sur `KEYCLOAK_ADMIN_ORIGIN`. ADR-0033 révisé.
+- OTP de `superadmin` et de `kc-admin` configurés par l'utilisateur.
+- Vérifié dans le cluster : smoke de l'API et du BFF réussis, sonde à 1, aucune alerte active. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-28 : application publique par le tunnel, phase 10 lot B
 
 - Bascule vers les noms publics : émetteur des jetons public, console et API d'administration de Keycloak sur le tailnet. ADR-0025 et ADR-0033 implémentés.
