@@ -46,9 +46,15 @@ helm upgrade --install web "$root/infra/helm/web" --namespace auditsphere \
   --wait --wait-for-jobs --timeout 10m
 # Réinitialisation nocturne du profil demo. Ses secrets viennent de scripts/k3s-setup-keycloak.py.
 if [ "$profile" = demo ]; then
+  # Le jeu de données dépasse 1 Mio en clair : le ConfigMap le reçoit compressé.
+  dataset=$(mktemp)
+  trap 'rm -f "$dataset"' EXIT
+  gzip -9nc "$root/scripts/demo_dataset.py" | base64 | tr -d '\n' > "$dataset"
   helm upgrade --install demo-reset "$root/infra/helm/demo-reset" --namespace auditsphere \
     --set-file scripts.reset="$root/scripts/demo-reset.py" --set-file scripts.accounts="$root/scripts/demo_accounts.py" \
     --set-file scripts.seed="$root/scripts/seed-demo-missions.py" --set-file scripts.evidence="$root/scripts/evidence_storage.py" \
+    --set-file scripts.dataset="$dataset" --set-file scripts.documents="$root/scripts/demo_documents.py" \
+    --set-file scripts.font="$root/scripts/demo_font.py" \
     --set-string evidence.endpoint="$GARAGE_ENDPOINT" --wait --timeout 5m
 else
   helm uninstall demo-reset --namespace auditsphere --ignore-not-found

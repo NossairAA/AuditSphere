@@ -9,5 +9,10 @@ data:
   demo_accounts.py: {{ required "scripts.accounts est obligatoire" .Values.scripts.accounts | quote }}
   seed-demo-missions.py: {{ required "scripts.seed est obligatoire" .Values.scripts.seed | quote }}
   evidence_storage.py: {{ required "scripts.evidence est obligatoire" .Values.scripts.evidence | quote }}
+  demo_documents.py: {{ required "scripts.documents est obligatoire" .Values.scripts.documents | quote }}
+  demo_font.py: {{ required "scripts.font est obligatoire" .Values.scripts.font | quote }}
   temporal.sh: {{ .Files.Get "files/temporal.sh" | quote }}
   database.sh: {{ .Files.Get "files/database.sh" | quote }}
+# Jeu de données compressé : en clair, il dépasserait la limite de 1 Mio d'un ConfigMap.
+binaryData:
+  demo_dataset.py.gz: {{ required "scripts.dataset est obligatoire (base64 de demo_dataset.py compressé)" .Values.scripts.dataset | quote }}
