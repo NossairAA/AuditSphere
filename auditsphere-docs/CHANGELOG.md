@@ -1,5 +1,11 @@
 # Journal des changements
 
+## 2026-10-28 : le worker Temporal attend Temporal au démarrage
+
+- Alerte `PodRestartingOften` sur `workflow-worker` : après un redémarrage de l'hôte, le worker démarrait avant Temporal et s'arrêtait sur une connexion refusée. Trois arrêts en deux minutes, retour seul une fois Temporal prêt.
+- `ReviewWorker` décrit son namespace avant de démarrer et réessaie `UNAVAILABLE` et `DEADLINE_EXCEEDED` avec un délai doublé de 1 à 30 secondes, pendant 5 minutes au plus. Les autres erreurs restent fatales.
+- Vérifié localement : `ReviewWorkerTest`, trois tests réussis. Image non publiée, non déployé. Détails dans le [guide Temporal](docs/technique/14-temporal-revue.md).
+
 ## 2026-10-28 : nouveau logo de l’application web
 
 - Logo AuditSphere en SVG : tuile vert pâle à trois couches empilées, mot-symbole en gras suivi d’un point vert pâle. Composant `BrandLockup` sur la page de connexion et dans la barre latérale.
