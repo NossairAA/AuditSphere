@@ -2,11 +2,11 @@
 import { isSuperAdmin, roleLabels } from "@/lib/types";
 import Link from "next/link";
 import UnreadCount from "./unread-count";
+import { BrandLockup } from "./brand";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, createContext, useContext } from "react";
 import {
   Bell,
-  Layers,
   ClipboardList,
   ShieldCheck,
   LogOut,
@@ -42,10 +42,7 @@ export default function Workspace({ children }: { children: React.ReactNode }) {
     <div className="workspace">
       <aside className="sidebar">
         <Link className="brand" href="/missions">
-          <span className="brand-mark">
-            <Layers size={22} />
-          </span>
-          AuditSphere<span className="brand-dot">.</span>
+          <BrandLockup />
         </Link>
         <div className="workspace-label">ESPACE DE TRAVAIL</div>
         <nav>

@@ -78,23 +78,19 @@ p {
   display: flex;
   align-items: center;
   font-size: 22px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: -0.8px;
   color: white;
   gap: 9px;
 }
 .brand-dot {
-  color: #b4d69b;
-  margin-left: -8px;
+  color: #bbd5a1;
 }
 .brand-mark {
-  display: grid;
-  place-items: center;
-  background: #d6e8bd;
-  color: #214835;
+  display: block;
+  flex: none;
   width: 37px;
   height: 37px;
-  border-radius: 10px;
 }
 .sidebar {
   position: fixed;
@@ -924,9 +920,31 @@ td {
   font-size: 12px;
   text-align: center;
 }
+.demo-signature::before {
+  content: "·";
+  margin: 0 10px;
+}
+.demo-signature a {
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 /* The banner wraps on two lines on a phone. */
 body.demo {
   padding-bottom: 48px;
+}
+/* On a phone the signature takes its own line, below the notice. */
+@media (max-width: 760px) {
+  .demo-signature {
+    display: block;
+    margin-top: 2px;
+  }
+  .demo-signature::before {
+    content: none;
+  }
+  body.demo {
+    padding-bottom: 72px;
+  }
 }
 body.demo .sidebar {
   bottom: 32px;
