@@ -1166,6 +1166,8 @@ Responsable ajouté le 2026-10-28, à la demande de l'utilisateur. Seul ce rôle
 
 Image du BFF de `41c1c94` déployée le même jour. Par le nom public, le bouton du responsable ouvre la session de Claire Martin : 42 missions, bouton de création de mission présent. Déconnexion sans passage par Keycloak.
 
+Image du BFF de `f01f9d0` déployée le 2026-10-29, après le build vert de `main`. Elle ajoute la signature de l'auteur au bandeau. Vérifié par le nom public : réponse 200, ligne « Conçu et développé par » et lien vers le profil GitHub présents. Déploiement en révision 11 du release `web`, déploiement `web` sorti sans erreur. Chart `demo-reset` en révision 3 avec le jeu v2, appliqué à la prochaine réinitialisation.
+
 Première exécution planifiée, le 2026-10-28 à 04:00 UTC : échec.
 
 - Comptes, workflows et bases réussis. Le peuplement s'arrête après 33 missions sur `PUT /missions/{id}/controls: HTTP 500`. Alerte `JobFailed` reçue.

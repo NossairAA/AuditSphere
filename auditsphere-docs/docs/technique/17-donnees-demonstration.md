@@ -1,7 +1,7 @@
 # Jeu de démonstration métier
 
 **Date :** 2026-10-19, révisé le 2026-10-28
-**Statut :** jeu v2 implémenté et vérifié en local le 2026-10-28, non déployé dans k3s
+**Statut :** jeu v2 implémenté et vérifié en local le 2026-10-28. Chart `demo-reset` déployé dans k3s le 2026-10-29, peuplement v2 non encore exécuté dans le cluster
 
 ## Nettoyage réalisé
 
