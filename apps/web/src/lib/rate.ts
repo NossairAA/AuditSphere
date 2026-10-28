@@ -21,10 +21,15 @@ function rejected() {
   );
 }
 
+const TRUSTED_HEADERS = new Set(["cf-connecting-ip", "x-real-ip", "x-forwarded-for"]);
+
 export function clientAddress(request: Request) {
-  // A trusted reverse proxy must overwrite this single-value header and block direct BFF access.
-  const header = process.env.TRUSTED_PROXY_IP_HEADER;
-  if (header !== "x-real-ip" && header !== "x-forwarded-for") return "direct";
+  // Trusted reverse proxies must overwrite these single-value headers and block direct BFF access.
+  // A list such as "cf-connecting-ip,x-real-ip" uses the first header present: Cloudflare always
+  // overwrites cf-connecting-ip on the public name, Traefik sets x-real-ip on the tailnet.
+  const headers = (process.env.TRUSTED_PROXY_IP_HEADER || "").split(",").map((h) => h.trim().toLowerCase());
+  if (!headers[0] || !headers.every((h) => TRUSTED_HEADERS.has(h))) return "direct";
+  const header = headers.find((h) => request.headers.has(h)) ?? headers[0];
   const value = request.headers.get(header)?.trim() || "";
   return isIP(value) ? value : "unknown";
 }

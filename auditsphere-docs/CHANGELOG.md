@@ -1,5 +1,11 @@
 # Journal des changements
 
+## 2026-10-28 : tunnel déployé et adresse des visiteurs par Cloudflare
+
+- `cloudflared` déployé dans le cluster : quatre connexions au tunnel, 19 Mio de mémoire. Limitation de débit des formulaires de connexion créée par l'utilisateur dans Cloudflare.
+- Cloudflare refuse de modifier `X-Real-Ip`. Le BFF accepte désormais une liste d'en-têtes de confiance et lit `Cf-Connecting-Ip` en premier. ADR-0033 révisé.
+- Valeur `trustedProxyIpHeaders` du chart web, laissée à `x-real-ip` jusqu'au déploiement de la nouvelle image. Test ajouté sur l'ordre des en-têtes. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-28 : tunnel et noms publics préparés, phase 10 lot B
 
 - ADR-0033 proposé : les noms publics deviennent l'origine unique du navigateur et de l'émetteur des jetons. La console de Keycloak reste sur le tailnet par `KC_HOSTNAME_ADMIN`.

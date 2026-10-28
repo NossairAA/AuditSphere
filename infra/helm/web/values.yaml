@@ -9,6 +9,10 @@ oidcOrigin: ""
 oidcClientId: auditsphere-web
 apiOrigin: http://api-gateway.auditsphere.svc.cluster.local:8080
 
+# Adresse du visiteur pour les limites du BFF. Par le tunnel, Cloudflare écrase cf-connecting-ip.
+# Par le tailnet, Traefik pose x-real-ip. La liste exige une image du BFF qui la comprend (phase 10, lot B).
+trustedProxyIpHeaders: x-real-ip
+
 # Schéma des sessions, passé par --set-file depuis apps/web/db.
 sessionsSql: ""
 encryptedSessionsSql: ""
