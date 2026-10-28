@@ -997,7 +997,7 @@ Conclusion : C7 n'est pas clos. Il reste la phase 6. Mise à jour du 2026-10-27 
 
 ### Phase 10 : exposition publique
 
-Décidée par [ADR-0025](../decisions/ADR-0025-exposition-publique-cloudflare-tunnel.md). Statut : proposée le 2026-10-25, rien n'est configuré.
+Décidée par [ADR-0025](../decisions/ADR-0025-exposition-publique-cloudflare-tunnel.md). Statut : en cours depuis le 2026-10-28. Lot A, durcissement de Keycloak sans le tunnel, vérifié. Le tunnel et les noms publics ne sont pas configurés.
 
 Préparation possible dès maintenant, par l'utilisateur :
 
@@ -1016,12 +1016,40 @@ Mise en œuvre, après les phases 4, 6, 7 et 8 :
 
 Sortie : application servie en HTTPS sur le domaine, aucun port entrant ouvert sur l'hôte ni sur la box, gateway et services internes injoignables depuis Internet, console Keycloak refusée sur le nom public.
 
+#### Lot A : durcissement de Keycloak
+
+Statut : implémenté et vérifié le 2026-10-28. Décision : [ADR-0032](../decisions/ADR-0032-client-demonstration-bascule.md).
+
+Livré :
+
+- `auditsphere-demo`, client du mot de passe direct, est désactivé au repos. `scripts/k3s-setup-keycloak.py` le remet désactivé à chaque passage.
+- [scripts/k3s-demo-client.py](../../../scripts/k3s-demo-client.py) `status|enable|disable` bascule ce client avec le compte de service `k3s-demo-switch`, limité à `view-clients` et `manage-clients` du royaume `auditsphere`. Son secret est créé dans le cluster par `k3s-setup-keycloak.py`.
+- [scripts/k3s-check.sh](../../../scripts/k3s-check.sh) active le client avant le script et le désactive à la sortie. Il refuse de démarrer si le client est déjà actif. Il fournit aussi les variables `SEED_*` : `seed-demo-missions.py` se lance désormais par lui.
+- OTP exigé pour `superadmin`, enrôlé à sa prochaine connexion par le navigateur. Un OTP déjà configuré n'est pas modifié.
+- Sonde blackbox `demo_client_disabled`, toutes les 5 minutes, et alerte `DemoClientEnabled` après 30 minutes de client actif. `ProbeFailed` exclut cette sonde.
+- Déjà en place depuis le lot D de la phase 4 : inscription libre désactivée, détection de force brute, `kc-admin` avec OTP.
+
+Vérifications du 2026-10-28 :
+
+- Client désactivé : le jeton est refusé avec `invalid_client`, y compris en mot de passe direct.
+- Compte `k3s-demo-switch` : 200 sur les clients du royaume, 403 sur ses utilisateurs et sur le royaume `master`.
+- Smoke par `k3s-check.sh` réussi, client désactivé ensuite.
+- Activation refusée quand le client est déjà actif, sans le désactiver.
+- Interruption par Ctrl+C, simulée sur le groupe de processus pendant le smoke : client désactivé.
+- Sonde : `probe_success` vaut 1 client désactivé et 0 client actif. Règles chargées sans erreur, aucune alerte active ensuite.
+- `superadmin` en mot de passe direct, client actif : refusé avec `Account is not fully set up`.
+- Deux missions de smoke retirées par `cleanup-test-data.py`, sauvegarde privée préalable : 40 missions de démonstration.
+
+Non vérifié : déclenchement réel de `DemoClientEnabled` après 30 minutes, et enrôlement de l'OTP de `superadmin`, qui revient à l'utilisateur.
+
+Reste en phase 10 : `cloudflared` et les deux noms publics, règles Cloudflare, console `/admin` refusée sur le nom public, sonde du tunnel.
+
 #### Condition d'ouverture
 
 Arrêtée le 2026-10-26 avec l'utilisateur, conformément à ADR-0023 et ADR-0025. Aucun nom public ne sert l'application avant que ces quatre éléments soient vérifiés :
 
 1. HOST-004, lots D et E : connexion de bout en bout, comptes de démonstration et smoke réussi dans le cluster. Vérifié le 2026-10-26.
-2. HOST-008, sécurité C7 : Kafka en SASL_SSL avec ACL, vérifié le 2026-10-26 au lot D, NetworkPolicy autour de la gateway, de PostgreSQL, de Kafka et de Temporal, vérifiées le 2026-10-26 au lot A, TLS et authentification de Temporal, vérifiés le 2026-10-26 au lot C2, console Keycloak refusée sur le nom public, MFA des administrateurs, inscription libre désactivée.
+2. HOST-008, sécurité C7 : Kafka en SASL_SSL avec ACL, vérifié le 2026-10-26 au lot D, NetworkPolicy autour de la gateway, de PostgreSQL, de Kafka et de Temporal, vérifiées le 2026-10-26 au lot A, TLS et authentification de Temporal, vérifiés le 2026-10-26 au lot C2, console Keycloak refusée sur le nom public, MFA des administrateurs, inscription libre désactivée. MFA de `superadmin` exigé et inscription vérifiée désactivée le 2026-10-28 au lot A de la phase 10. Console refusée sur le nom public : avec le tunnel.
 3. HOST-006 : supervision avec alertes de disponibilité et d'abus.
 4. HOST-007 : sauvegardes hors machine et restauration vérifiée.
 
