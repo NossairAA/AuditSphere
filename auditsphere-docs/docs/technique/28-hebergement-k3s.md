@@ -997,7 +997,7 @@ Conclusion : C7 n'est pas clos. Il reste la phase 6. Mise à jour du 2026-10-27 
 
 ### Phase 10 : exposition publique
 
-Décidée par [ADR-0025](../decisions/ADR-0025-exposition-publique-cloudflare-tunnel.md). Statut : en cours depuis le 2026-10-28. Lot A, durcissement de Keycloak sans le tunnel, vérifié. Lot B, tunnel et noms publics, déployé et vérifié le même jour. L'application est servie sur le domaine public. Lot C, profil `demo` d'ADR-0031 : Keycloak et réinitialisation nocturne vérifiés dans le cluster, BFF en attente de son image.
+Décidée par [ADR-0025](../decisions/ADR-0025-exposition-publique-cloudflare-tunnel.md). Statut : en cours depuis le 2026-10-28. Lot A, durcissement de Keycloak sans le tunnel, vérifié. Lot B, tunnel et noms publics, déployé et vérifié le même jour. L'application est servie sur le domaine public. Lot C, profil `demo` d'ADR-0031, déployé et vérifié le même jour : entrée en un clic par le nom public.
 
 Préparation possible dès maintenant, par l'utilisateur :
 
@@ -1128,7 +1128,7 @@ Limites :
 
 #### Lot C : profil demo
 
-Statut : implémenté le 2026-10-28. Keycloak et réinitialisation nocturne déployés et vérifiés dans le cluster. Boutons et bandeau en attente de l'image du BFF, publiée dans GHCR après la fusion dans `main`. Décisions : [ADR-0031](../decisions/ADR-0031-profils-demonstration-production.md) et [ADR-0035](../decisions/ADR-0035-entree-demonstration-assertion.md).
+Statut : déployé et vérifié le 2026-10-28. Image du BFF du commit `87d5848` de `main`, tirée par empreinte. Décisions : [ADR-0031](../decisions/ADR-0031-profils-demonstration-production.md) et [ADR-0035](../decisions/ADR-0035-entree-demonstration-assertion.md).
 
 Choix du mécanisme, détaillé dans ADR-0035 :
 
@@ -1154,9 +1154,15 @@ Vérifications du 2026-10-28 :
 - `scripts/k3s-check.sh smoke.py` et `smoke-bff.py` réussis ensuite, avec l'image actuelle du BFF. La mission du smoke reste jusqu'à la réinitialisation suivante.
 - Page de connexion locale avec `DEMO_ENTRY` : trois boutons et bandeau, sur ordinateur et sur téléphone. Clé invalide : retour sur la page avec le message d'indisponibilité.
 
+Déploiement du BFF le 2026-10-28, image de `87d5848` et `demo.enabled` à vrai :
+
+- Par le nom public, un clic sur chaque bouton ouvre la liste des missions sous le bon compte : Julien Moreau, auditeur, 21 missions. Thomas Laurent, validateur, 25 missions. Nadia Rousseau, audité, aucune mission, comme attendu pour ce rôle. Bandeau présent, barre latérale au-dessus de lui.
+- Session de l'audité toujours ouverte après 5 minutes 30 secondes, au-delà des 300 secondes du jeton : renouvellement par une nouvelle assertion réussi.
+- Déconnexion de chaque compte : retour sur la page de connexion avec le message de déconnexion, sans passage par Keycloak.
+- `smoke.py` et `smoke-bff.py` réussis par `k3s-check.sh` avec la nouvelle image. 90 Mio de mémoire mesurés pour le BFF.
+
 Non vérifié :
 
-- Entrée en un clic par le nom public : l'image du BFF n'est publiée qu'après la fusion dans `main`. Ensuite : épingler son empreinte dans `infra/helm/web/values.yaml`, lancer `scripts/k3s-deploy-services.sh`, puis cliquer sur chaque bouton par le nom public.
 - Exécution planifiée de 5 h et mémoire réelle des trois conteneurs du Job.
 - Retrait d'un OTP ou d'une clé WebAuthn ajouté par un visiteur : l'API d'administration ne permet pas d'en créer pour le test. Le code retire tout identifiant autre que le mot de passe.
 

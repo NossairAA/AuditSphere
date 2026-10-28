@@ -1,6 +1,6 @@
 # ADR-0035 : entrée de démonstration par assertion signée
 
-**Statut :** Accepté le 2026-10-28, implémenté, déploiement du BFF en attente de son image  
+**Statut :** Accepté le 2026-10-28, implémenté et vérifié dans le cluster  
 **Date :** 2026-10-28  
 **Auteur :** équipe AuditSphere
 
