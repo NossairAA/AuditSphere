@@ -4,8 +4,15 @@
 
 - ADR-0034 : clients `account` et `account-console` désactivés par `scripts/k3s-setup-keycloak.py`. La console de compte et son API répondent 404 sur les deux noms.
 - Le paramètre `kc_action` ouvrait les formulaires du mot de passe et de l'OTP sans ressaisie du mot de passe. `max_auth_age` réglé à 0 sur ces actions : Keycloak redemande le mot de passe.
-- Sonde de refus étendue à `/realms/auditsphere/account/`. Scripts de vérification avec l'agent `AuditSphere-check/1.0`, car Cloudflare refuse celui de Python.
+- Sonde de refus étendue à `/realms/auditsphere/account/`.
 - Vérifié dans le cluster : smoke de l'API et du BFF réussis, sonde à 1, aucune alerte active. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
+## 2026-10-28 : application publique par le tunnel, phase 10 lot B
+
+- Bascule vers les noms publics : émetteur des jetons public, console et API d'administration de Keycloak sur le tailnet. ADR-0025 et ADR-0033 implémentés.
+- Image web de `04baf82` déployée, le BFF lit `cf-connecting-ip,x-real-ip`. Sondes du tunnel en service.
+- Les scripts de vérification envoient l'agent `AuditSphere-checks` : Cloudflare refuse `Python-urllib` avec l'erreur 1010.
+- Vérifié : smoke de l'API et du BFF par les noms publics, console refusée en 403, points internes en 404, sondes à 1, compteurs du BFF par visiteur et adresse forgée sans effet. Limite : la console de compte Keycloak reste joignable. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
 
 ## 2026-10-28 : tunnel déployé et adresse des visiteurs par Cloudflare
 

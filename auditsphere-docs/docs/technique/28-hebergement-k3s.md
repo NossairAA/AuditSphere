@@ -509,7 +509,7 @@ Limites :
 - Toute personne qui connaît le sujet ntfy peut lire les alertes et en publier de fausses. Les messages ne contiennent ni secret ni donnée d'audit.
 - Les limites mémoire du nœud dépassent la mémoire allouable. Une pression mémoire forte peut provoquer des arrêts. La mémoire de Prometheus est à remesurer après sa compaction.
 - Pas encore de métriques applicatives : erreurs 5xx, mémoire des JVM, retard Kafka, DLT, workflows bloqués et tentatives d'abus viennent au lot 6B. Pas de journaux centralisés avant le lot 6C.
-- La sonde de la bordure suit le chemin interne. Les sondes du tunnel sont préparées au lot B de la phase 10, non déployées.
+- La sonde de la bordure suit le chemin interne. Les sondes du tunnel sont en service depuis le lot B de la phase 10.
 - Comme cert-manager et l'opérateur Tailscale, les charts sont épinglés par version, pas les images par empreinte. Les applications restent épinglées par empreinte.
 
 #### Lot 6B : métriques applicatives et alertes d'abus
@@ -997,7 +997,7 @@ Conclusion : C7 n'est pas clos. Il reste la phase 6. Mise à jour du 2026-10-27 
 
 ### Phase 10 : exposition publique
 
-Décidée par [ADR-0025](../decisions/ADR-0025-exposition-publique-cloudflare-tunnel.md). Statut : en cours depuis le 2026-10-28. Lot A, durcissement de Keycloak sans le tunnel, vérifié. Lot B, tunnel et noms publics : zone DNS active et tunnel créé par l'utilisateur, dépôt préparé, non déployé.
+Décidée par [ADR-0025](../decisions/ADR-0025-exposition-publique-cloudflare-tunnel.md). Statut : en cours depuis le 2026-10-28. Lot A, durcissement de Keycloak sans le tunnel, vérifié. Lot B, tunnel et noms publics, déployé et vérifié le même jour. L'application est servie sur le domaine public. Reste, si ADR-0031 est accepté, le profil `demo`.
 
 Préparation possible dès maintenant, par l'utilisateur :
 
@@ -1046,7 +1046,7 @@ Reste en phase 10 au lot A : `cloudflared` et les deux noms publics, règles Clo
 
 #### Lot B : tunnel et noms publics
 
-Statut : préparé dans le dépôt le 2026-10-28, non déployé. Décision : [ADR-0033](../decisions/ADR-0033-origine-publique-unique.md), proposée.
+Statut : déployé et vérifié le 2026-10-28. Décision : [ADR-0033](../decisions/ADR-0033-origine-publique-unique.md), acceptée par l'utilisateur, qui a demandé la bascule.
 
 Fait par l'utilisateur le 2026-10-28 :
 
@@ -1070,21 +1070,32 @@ Vérifications du 2026-10-28, sans déploiement :
 - Essai à blanc côté serveur de `cloudflared.yaml`, du chart Keycloak, du chart web et de `monitoring.yaml` : acceptés. Le namespace `restricted` admet le Deployment.
 - `test_image_pins.py` réussi. Syntaxe des scripts modifiés vérifiée.
 
-Avancement de la bascule le 2026-10-28 :
+Bascule du 2026-10-28 :
 
 - `cloudflared` déployé : quatre connexions enregistrées vers Cloudflare, 19 Mio de mémoire mesurés, métrique `cloudflared_tunnel_ha_connections` à 4 dans Prometheus.
-- Limitation de débit sur les formulaires de connexion créée par l'utilisateur. La règle de refus de `/admin` et `/realms/master` reste à confirmer.
-- Règle de transformation sur `X-Real-Ip` refusée par Cloudflare. Remplacée par la lecture de `Cf-Connecting-Ip` dans le BFF, voir ADR-0033.
+- Règles Cloudflare créées par l'utilisateur : refus de `/admin` et `/realms/master` sur le nom `auth`, limitation de débit sur les formulaires de connexion. Routes du tunnel vers `edge` et Keycloak, sans route `http_status:404` : la règle du pare-feu suffit.
+- Règle de transformation sur `X-Real-Ip` refusée par Cloudflare. Remplacée par la lecture de `Cf-Connecting-Ip` dans le BFF, voir ADR-0033. Image web de `04baf82` déployée avec `trustedProxyIpHeaders` à `cf-connecting-ip,x-real-ip`.
+- Premières réponses 502 : les NetworkPolicy des charts n'étaient pas encore appliquées. Charts Keycloak et web mis à jour avec leurs valeurs, seul `edge` a redémarré.
+- `.local/k3s.env` passé aux noms publics, ancienne version gardée hors Git. `k3s-deploy-services.sh`, `k3s-setup-keycloak.py` et `k3s-monitoring.sh apply` réussis.
+- Les scripts de vérification recevaient `error code: 1010` : la vérification d'intégrité du navigateur de Cloudflare refuse l'agent `Python-urllib`. `scripts/target.py` et `seed-demo-missions.py` envoient désormais l'agent `AuditSphere-checks`. Node, utilisé par le BFF, n'est pas refusé.
+
+Vérifications du 2026-10-28 après la bascule :
+
+- Émetteur des jetons sur le nom public, console et API d'administration de Keycloak par le tailnet : `k3s-setup-keycloak.py` et `k3s-demo-client.py status` réussis.
+- Smoke de l'API et smoke du BFF par `k3s-check.sh`, par les noms publics : connexion OIDC, cookie `__Host-` sécurisé, en-têtes de sécurité, 41 missions servies, déconnexion. Smoke du BFF repassé sur l'image de `04baf82`. Client `auditsphere-demo` désactivé ensuite.
+- `/admin/`, `/admin/master/console/` et `/realms/master/` : 403 sur le nom public.
+- Points internes : `/metrics` et `/health` de Keycloak, `/actuator/health` et `/metrics` de l'application en 404. API sans session en 401.
+- Sondes `blackbox-tunnel` et `blackbox-public-refused` à 1, aucune alerte active.
+- Limite de connexion du BFF par le nom public : 30 requêtes acceptées, la 31e refusée en 429. Un `X-Real-Ip` forgé ne crée pas de nouveau compteur. Un `Cf-Connecting-Ip` forgé est refusé par Cloudflare en 403. Par le tailnet, le compteur est distinct.
 
 Console de compte fermée le 2026-10-28, selon [ADR-0034](../decisions/ADR-0034-console-compte-fermee.md) :
 
 - Constat : `/realms/auditsphere/account/` répondait 200 sur le nom public. Le paramètre `kc_action` ouvrait aussi les formulaires du mot de passe et de l'OTP depuis la page de connexion, sans ressaisie du mot de passe pendant la session Keycloak.
 - `k3s-setup-keycloak.py` désactive les clients `account` et `account-console` et règle `max_auth_age` à 0 sur les actions que `kc_action` peut lancer.
 - Sonde `blackbox-public-refused` étendue à `/realms/auditsphere/account/` par `k3s-monitoring.sh`.
-- Cloudflare refuse l'agent par défaut de Python, erreur 1010. Le smoke de l'API et celui du BFF échouaient par le nom public. `target.py` envoie désormais l'agent `AuditSphere-check/1.0`.
 - Vérifié : 404 de Keycloak sur la console et son API par les deux noms, mot de passe redemandé avant `kc_action` dans une session ouverte, inscription de l'OTP de `superadmin` toujours proposée, smoke de l'API et du BFF réussis par `k3s-check.sh`, sonde à 1, aucune alerte active.
 
-Bascule, dans cet ordre :
+Bascule, dans cet ordre, pour mémoire :
 
 1. `kubectl apply -f deploy/k3s/cloudflared.yaml`. Le tunnel passe à l'état sain dans Cloudflare.
 2. Dans Cloudflare, sur la zone : TLS 1.2 minimum, TLS 1.3, Always Use HTTPS, HSTS sur 6 mois sans preload, Bot Fight Mode désactivé.
@@ -1095,21 +1106,22 @@ Bascule, dans cet ordre :
 7. Dans `.local/k3s.env` : `KEYCLOAK_ADMIN_ORIGIN` reçoit l'ancienne `OIDC_ORIGIN`, puis `APP_ORIGIN` et `OIDC_ORIGIN` reçoivent les noms publics.
 8. `scripts/k3s-deploy-services.sh`, puis `scripts/k3s-setup-keycloak.py` pour les adresses de retour, puis `scripts/k3s-monitoring.sh apply`.
 
-Sortie du lot :
+Sortie du lot, atteinte le 2026-10-28 :
 
 - Connexion de bout en bout par le nom public, et smoke par `k3s-check.sh`.
 - `/admin/` et `/realms/master/` refusés sur le nom public, console joignable par le tailnet.
 - Sondes du tunnel à 1, aucune alerte active.
-- Deux connexions depuis deux adresses différentes comptées séparément par Traefik et par le BFF.
-- Aucun port entrant ouvert, gateway et services internes injoignables depuis Internet.
+- Compteurs du BFF séparés par visiteur, adresse forgée sans effet.
+- Gateway et services internes injoignables depuis Internet. Aucun port entrant ajouté : le tunnel est sortant. Le pare-feu de l'hôte n'a pas été revérifié.
 - Mémoire de `cloudflared` mesurée.
 
 Limites :
 
 - La connexion à l'application dépend de Cloudflare, même depuis le tailnet.
 - Les appels du BFF à Keycloak sortent du cluster et reviennent par le tunnel.
-- Le comportement de `KC_HOSTNAME_ADMIN` avec les scripts d'administration n'est pas encore vérifié.
+- La limite de Traefik par `Cf-Connecting-Ip` n'a pas été poussée jusqu'au refus. Elle a été vérifiée par configuration seulement.
 - Le nom `www` n'est pas servi.
+- Les scripts de vérification dépendent de l'agent `AuditSphere-checks`, accepté par Cloudflare aujourd'hui.
 - Plus de console de compte dans le royaume `auditsphere`, même par le tailnet. Un mot de passe se change par l'administration des comptes.
 - Qui connaît le mot de passe d'un compte peut encore le changer par `kc_action`. L'entrée en un clic d'ADR-0031 ne devra pas révéler ce mot de passe, et la remise à zéro nocturne devrait rétablir les mots de passe et retirer les OTP des comptes de démonstration.
 
@@ -1118,7 +1130,7 @@ Limites :
 Arrêtée le 2026-10-26 avec l'utilisateur, conformément à ADR-0023 et ADR-0025. Aucun nom public ne sert l'application avant que ces quatre éléments soient vérifiés :
 
 1. HOST-004, lots D et E : connexion de bout en bout, comptes de démonstration et smoke réussi dans le cluster. Vérifié le 2026-10-26.
-2. HOST-008, sécurité C7 : Kafka en SASL_SSL avec ACL, vérifié le 2026-10-26 au lot D, NetworkPolicy autour de la gateway, de PostgreSQL, de Kafka et de Temporal, vérifiées le 2026-10-26 au lot A, TLS et authentification de Temporal, vérifiés le 2026-10-26 au lot C2, console Keycloak refusée sur le nom public, MFA des administrateurs, inscription libre désactivée. MFA de `superadmin` exigé et inscription vérifiée désactivée le 2026-10-28 au lot A de la phase 10. Console refusée sur le nom public : avec le tunnel.
+2. HOST-008, sécurité C7 : Kafka en SASL_SSL avec ACL, vérifié le 2026-10-26 au lot D, NetworkPolicy autour de la gateway, de PostgreSQL, de Kafka et de Temporal, vérifiées le 2026-10-26 au lot A, TLS et authentification de Temporal, vérifiés le 2026-10-26 au lot C2, console Keycloak refusée sur le nom public, MFA des administrateurs, inscription libre désactivée. MFA de `superadmin` exigé et inscription vérifiée désactivée le 2026-10-28 au lot A de la phase 10. Console refusée sur le nom public : vérifiée le 2026-10-28 au lot B de la phase 10.
 3. HOST-006 : supervision avec alertes de disponibilité et d'abus.
 4. HOST-007 : sauvegardes hors machine et restauration vérifiée.
 

@@ -15,6 +15,18 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+# Cloudflare's browser integrity check refuses the default Python-urllib agent on the public names
+# (phase 10, lot B, error 1010). Every opener, including the one behind urlopen, sends a named agent.
+_opener_init = urllib.request.OpenerDirector.__init__
+
+
+def _named_opener(self):
+    _opener_init(self)
+    self.addheaders = [('User-agent', 'AuditSphere-checks')]
+
+
+urllib.request.OpenerDirector.__init__ = _named_opener
+
 ROOT = Path(__file__).resolve().parents[1]
 # Les valeurs par défaut visent la pile locale. Le cluster k3s les remplace par des variables d'environnement.
 MANIFEST = Path(os.environ.get('SEED_MANIFEST', ROOT / '.local' / 'demo-missions-manifest.json'))

@@ -1,6 +1,6 @@
 # ADR-0033 : origine publique unique et administration par le tailnet
 
-**Statut :** Proposé le 2026-10-28, implémenté dans le dépôt, non déployé  
+**Statut :** Accepté le 2026-10-28 par l'utilisateur, qui a demandé la bascule. Implémenté et vérifié le même jour  
 **Date :** 2026-10-28  
 **Auteur :** équipe AuditSphere
 
@@ -40,7 +40,8 @@ Retenir l'option 2.
 - Une panne de Cloudflare ou du tunnel empêche toute connexion à l'application, y compris depuis le tailnet. La console de Keycloak, `kubectl`, Grafana et les sondes internes restent joignables.
 - Les appels du BFF à Keycloak sortent du cluster puis reviennent par le tunnel. Ils viennent tous de l'adresse du domicile. La règle de limitation de débit de Cloudflare ne doit donc viser que les formulaires de connexion, jamais le point de jeton. Bot Fight Mode reste désactivé pour ne pas bloquer ces appels.
 - Revenir au seul tailnet demande de rétablir les anciennes valeurs dans `.local/k3s.env`, de redéployer, puis de relancer `scripts/k3s-setup-keycloak.py`. Les sessions ouvertes sont perdues.
-- Le comportement de `KC_HOSTNAME_ADMIN` avec un jeton du royaume `master` demandé par le nom du tailnet reste à vérifier au déploiement.
+- `KC_HOSTNAME_ADMIN` avec un jeton du royaume `master` demandé par le nom du tailnet : vérifié le 2026-10-28, `k3s-setup-keycloak.py` réussit.
+- La vérification d'intégrité du navigateur de Cloudflare refuse l'agent `Python-urllib`. Les scripts de vérification envoient l'agent `AuditSphere-checks`.
 - Révisé le 2026-10-28 avant tout déploiement : la règle de transformation Cloudflare prévue d'abord sur `X-Real-Ip` est refusée par Cloudflare, qui interdit de modifier cet en-tête. Sans correction, un visiteur pourrait aussi envoyer son propre `X-Real-Ip` par le tunnel, que Traefik conserve car le pod `cloudflared` est dans un réseau de confiance. Le BFF lit donc `Cf-Connecting-Ip` en premier.
 - Un utilisateur du tailnet peut envoyer son propre `Cf-Connecting-Ip`. C'est accepté : le tailnet ne compte que des utilisateurs de confiance.
 

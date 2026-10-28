@@ -8,6 +8,18 @@ import subprocess
 import urllib.request
 from pathlib import Path
 
+# Cloudflare's browser integrity check refuses the default Python-urllib agent on the public names
+# (phase 10, lot B, error 1010). Every opener, including the one behind urlopen, sends a named agent.
+_opener_init = urllib.request.OpenerDirector.__init__
+
+
+def _named_opener(self):
+    _opener_init(self)
+    self.addheaders = [('User-agent', 'AuditSphere-checks')]
+
+
+urllib.request.OpenerDirector.__init__ = _named_opener
+
 ROOT = Path(__file__).resolve().parents[1]
 K3S = os.environ.get('AUDITSPHERE_TARGET') == 'k3s'
 API_BASE = os.environ.get('AUDITSPHERE_API_BASE', 'http://localhost:8080')
@@ -23,17 +35,6 @@ _env = dict(line.split('=', 1) for line in _accounts.read_text().splitlines() if
 KAFKA_BOOTSTRAP = 'localhost:9094' if K3S else 'localhost:9092'
 # PostgreSQL is a single instance in k3s: one database cannot be stopped alone.
 WORKLOADS = {'kafka': ('data', 'statefulset/kafka'), 'temporal': ('data', 'deployment/temporal')}
-
-
-def opener(*handlers):
-    """urllib opener with a named user agent: Cloudflare refuses the default Python-urllib one on the public names (error 1010)."""
-    result = urllib.request.build_opener(*handlers)
-    result.addheaders = [('User-Agent', 'AuditSphere-check/1.0')]
-    return result
-
-
-# urlopen in the check scripts goes through the same user agent.
-urllib.request.install_opener(opener())
 
 
 def api_healthy():
