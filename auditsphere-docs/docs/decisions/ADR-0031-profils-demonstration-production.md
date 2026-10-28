@@ -29,7 +29,7 @@ Retenir l'option 3.
 
 Profil `demo` :
 
-- Boutons d'entrée en un clic sur la page de connexion : auditeur, validateur, audité. Comptes synthétiques dédiés, sans aucun rôle d'administration.
+- Boutons d'entrée en un clic sur la page de connexion : responsable, auditeur, validateur, audité. Le responsable est ajouté le 2026-10-28, voir ADR-0035. Comptes synthétiques dédiés, sans aucun rôle d'administration.
 - Connexion par le BFF, qui garde la session comme pour une connexion normale. Aucun mot de passe direct, le client `auditsphere-demo` reste désactivé comme prévu en phase 10. Mécanisme retenu par ADR-0035 : octroi par assertion JWT, sans mot de passe ni session Keycloak dans le navigateur.
 - OTP non exigé pour ces seuls comptes. Le `superadmin` garde l'OTP obligatoire et reste hors du nom public.
 - Données synthétiques remises à zéro chaque nuit par un CronJob, à partir de `scripts/seed-demo-missions.py` et `scripts/cleanup-test-data.py`. Le même CronJob rétablit les mots de passe et le profil des comptes de démonstration et retire leurs OTP et clés WebAuthn.

@@ -28,11 +28,11 @@ Keycloak 26.8 tourne dans le cluster. Inventaire relevé le 2026-10-28 par l'API
 
 Retenir l'option 5.
 
-- `scripts/k3s-setup-keycloak.py`, profil `demo` : clé ES256 créée une fois dans le secret `web-demo-entry`, fournisseur `demo-entry` avec la clé publique, l'émetteur `APP_ORIGIN/auth/demo`, l'algorithme ES256, des assertions à usage unique et 60 secondes au plus. Liens de `auditor`, `validator` et `auditee` à ce fournisseur. Octroi autorisé au seul client `auditsphere-web`.
+- `scripts/k3s-setup-keycloak.py`, profil `demo` : clé ES256 créée une fois dans le secret `web-demo-entry`, fournisseur `demo-entry` avec la clé publique, l'émetteur `APP_ORIGIN/auth/demo`, l'algorithme ES256, des assertions à usage unique et 60 secondes au plus. Liens de `manager`, `auditor`, `validator` et `auditee` à ce fournisseur. Octroi autorisé au seul client `auditsphere-web`.
 - BFF : route `POST /auth/demo`, refusée sans l'en-tête `Origin` de l'application. Elle signe l'assertion, appelle le point de jeton avec le secret du client, puis enregistre la session chiffrée comme après une connexion normale. La session garde le compte choisi et le renouvelle par une nouvelle assertion. La déconnexion d'une session de démonstration ne passe pas par Keycloak.
 - Boutons et bandeau affichés par la variable `DEMO_ENTRY`, posée par la valeur `demo.enabled` du chart web. Les boutons restent masqués tant que la clé manque.
 - Profil `production` : `k3s-setup-keycloak.py` retire le fournisseur, l'octroi du client, le compte `demo-reset` et les secrets de démonstration. `k3s-deploy-services.sh` désinstalle la réinitialisation nocturne.
-- Pas d'OTP pour `auditor`, `validator` et `auditee` : l'octroi ne le demande pas. `superadmin` n'est lié à aucun fournisseur et garde l'OTP obligatoire.
+- Pas d'OTP pour `manager`, `auditor`, `validator` et `auditee` : l'octroi ne le demande pas. `superadmin` n'est lié à aucun fournisseur et garde l'OTP obligatoire.
 
 Réinitialisation nocturne, chart `infra/helm/demo-reset`, à 5 h, heure de Paris, après la sauvegarde :
 
@@ -46,12 +46,14 @@ Le Job n'a aucun accès à l'API Kubernetes et n'exécute rien dans un autre pod
 ## Conséquences et risques
 
 - Ce n'est pas le flux par code d'autorisation : la connexion de démonstration passe par le point de jeton. Les jetons ont le même émetteur, la même audience et la même vérification dans le BFF et la gateway.
-- La clé `web-demo-entry` permet d'entrer dans les trois comptes liés, et dans aucun autre. Sa fuite ne donne rien de plus que les boutons publics. La remplacer : supprimer le secret, relancer `k3s-setup-keycloak.py`, puis redémarrer le BFF.
+- La clé `web-demo-entry` permet d'entrer dans les quatre comptes liés, et dans aucun autre. Sa fuite ne donne rien de plus que les boutons publics. La remplacer : supprimer le secret, relancer `k3s-setup-keycloak.py`, puis redémarrer le BFF.
 - Le compte `demo-reset` porte `manage-users` : il pourrait modifier tout compte du royaume, y compris `superadmin`. Son secret reste dans le cluster. Les permissions fines de Keycloak pourraient le limiter aux comptes de démonstration plus tard.
 - Les mots de passe de démonstration sont copiés dans le secret `demo-accounts` pour que la réinitialisation les rétablisse. Ils ne quittent jamais le cluster ni le poste.
 - La réinitialisation n'arrête pas les services. Un événement Kafka en vol pendant la suppression peut recréer une notification orpheline, invisible jusqu'à la nuit suivante.
 - Pendant environ 5 minutes chaque nuit, `auditsphere-demo` accepte le mot de passe direct, comme pendant `k3s-check.sh`. Le Job échoue sans nouvel essai si le client est déjà actif.
 - Le profil des comptes reste modifiable par l'administration des comptes de `superadmin`. La réinitialisation le rétablit chaque nuit.
+
+- Révisé le 2026-10-28 par l'utilisateur : le responsable `manager` rejoint l'entrée en un clic. C'est le seul rôle qui crée une mission, l'affecte et la soumet au validateur. Sans lui, le visiteur ne voit pas le début du parcours, et les missions en revue s'épuisent dans la journée. `AUDIT_MANAGER` n'a aucun droit d'administration : `/admin`, la dérogation et le journal d'actions restent réservés à `SUPER_ADMIN`. En contrepartie, un visiteur peut supprimer les brouillons, retirer ou clôturer des missions et en créer jusqu'à la réinitialisation suivante. `outsider` reste hors de l'entrée.
 
 ## Références
 
