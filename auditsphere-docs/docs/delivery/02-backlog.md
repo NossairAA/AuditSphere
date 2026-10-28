@@ -233,4 +233,4 @@ La navigation par onglets, les filtres de missions, le détail des contrôles et
 
 - DEMO-02 : extension du jeu fictif avec 40 missions, 120 risques et 160 contrôles pour exercer pagination, filtres, retards et parcours de revue. Voir le [jeu de démonstration](../technique/17-donnees-demonstration.md).
 
-- UX-BRAND-01 : nouveau logo AuditSphere en SVG sur la page de connexion, la barre latérale, le favicon et l’icône Apple. Vérifié localement le 2026-10-28 par TypeScript, build et inspection navigateur sur ordinateur et téléphone. Déploiement à faire après fusion. Voir le [guide du frontend](../technique/05-frontend-bff.md).
+- UX-BRAND-01 : nouveau logo AuditSphere en SVG sur la page de connexion, la barre latérale, le favicon et l’icône Apple. Signature de l’auteur dans le bandeau de démonstration. Vérifié localement le 2026-10-28 par TypeScript, build et inspection navigateur sur ordinateur et téléphone. Déploiement à faire après fusion. Voir le [guide du frontend](../technique/05-frontend-bff.md).

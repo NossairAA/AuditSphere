@@ -15,6 +15,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="demo-banner" role="note">
             Environnement de démonstration : données fictives, réinitialisées
             chaque nuit.
+            <span className="demo-signature">
+              Conçu et développé par{" "}
+              <a href="https://github.com/NossairAA" rel="author">
+                Nossair AIT AHMED
+              </a>
+            </span>
           </div>
         )}
       </body>
