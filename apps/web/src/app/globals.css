@@ -78,23 +78,19 @@ p {
   display: flex;
   align-items: center;
   font-size: 22px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: -0.8px;
   color: white;
   gap: 9px;
 }
 .brand-dot {
-  color: #b4d69b;
-  margin-left: -8px;
+  color: #bbd5a1;
 }
 .brand-mark {
-  display: grid;
-  place-items: center;
-  background: #d6e8bd;
-  color: #214835;
+  display: block;
+  flex: none;
   width: 37px;
   height: 37px;
-  border-radius: 10px;
 }
 .sidebar {
   position: fixed;
