@@ -1,5 +1,12 @@
 # Journal des changements
 
+## 2026-10-28 : application publique par le tunnel, phase 10 lot B
+
+- Bascule vers les noms publics : émetteur des jetons public, console et API d'administration de Keycloak sur le tailnet. ADR-0025 et ADR-0033 implémentés.
+- Image web de `04baf82` déployée, le BFF lit `cf-connecting-ip,x-real-ip`. Sondes du tunnel en service.
+- Les scripts de vérification envoient l'agent `AuditSphere-checks` : Cloudflare refuse `Python-urllib` avec l'erreur 1010.
+- Vérifié : smoke de l'API et du BFF par les noms publics, console refusée en 403, points internes en 404, sondes à 1, compteurs du BFF par visiteur et adresse forgée sans effet. Limite : la console de compte Keycloak reste joignable. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-28 : tunnel déployé et adresse des visiteurs par Cloudflare
 
 - `cloudflared` déployé dans le cluster : quatre connexions au tunnel, 19 Mio de mémoire. Limitation de débit des formulaires de connexion créée par l'utilisateur dans Cloudflare.

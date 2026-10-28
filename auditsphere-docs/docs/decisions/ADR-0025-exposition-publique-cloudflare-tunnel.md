@@ -1,6 +1,6 @@
 # ADR-0025 : exposition publique par Cloudflare Tunnel
 
-**Statut :** Accepté le 2026-10-25, en cours d'implémentation depuis le 2026-10-28. Précisé par [ADR-0033](ADR-0033-origine-publique-unique.md)
+**Statut :** Accepté le 2026-10-25, implémenté et vérifié le 2026-10-28. Précisé par [ADR-0033](ADR-0033-origine-publique-unique.md)
 **Date :** 2026-10-25
 **Auteur :** équipe AuditSphere
 
