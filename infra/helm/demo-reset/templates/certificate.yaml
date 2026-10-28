@@ -1,0 +1,19 @@
+# Certificat client de Temporal pour arrêter les workflows de revue, comme le certificat d'administration (phase 8, lot C2).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: temporal-client-demo-reset
+spec:
+  secretName: temporal-client-demo-reset
+  issuerRef:
+    name: auditsphere-internal-ca
+    kind: ClusterIssuer
+  commonName: demo-reset
+  duration: 2160h
+  renewBefore: 720h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  usages:
+    - client auth

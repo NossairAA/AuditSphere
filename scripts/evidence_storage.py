@@ -2,12 +2,16 @@
 import datetime
 import hashlib
 import hmac
+import os
 import urllib.parse
 import urllib.request
 from pathlib import Path
 
 def request(method, key, body=b''):
-    env = dict(l.split('=', 1) for l in (Path(__file__).resolve().parents[1]/'.env').read_text().splitlines() if '=' in l)
+    dotenv = Path(__file__).resolve().parents[1]/'.env'
+    env = dict(l.split('=', 1) for l in dotenv.read_text().splitlines() if '=' in l) if dotenv.exists() else {}
+    # The nightly demo reset runs in k3s without .env and passes the cluster values in its environment.
+    env.update({k: v for k, v in os.environ.items() if k.startswith('EVIDENCE_S3_')})
     endpoint = env.get('EVIDENCE_S3_ENDPOINT', 'http://127.0.0.1:3900')
     if endpoint == 'http://garage:3900': endpoint = 'http://127.0.0.1:3900'
     host = urllib.parse.urlsplit(endpoint).netloc

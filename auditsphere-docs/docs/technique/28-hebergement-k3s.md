@@ -997,7 +997,7 @@ Conclusion : C7 n'est pas clos. Il reste la phase 6. Mise à jour du 2026-10-27 
 
 ### Phase 10 : exposition publique
 
-Décidée par [ADR-0025](../decisions/ADR-0025-exposition-publique-cloudflare-tunnel.md). Statut : en cours depuis le 2026-10-28. Lot A, durcissement de Keycloak sans le tunnel, vérifié. Lot B, tunnel et noms publics, déployé et vérifié le même jour. L'application est servie sur le domaine public. Reste, si ADR-0031 est accepté, le profil `demo`.
+Décidée par [ADR-0025](../decisions/ADR-0025-exposition-publique-cloudflare-tunnel.md). Statut : en cours depuis le 2026-10-28. Lot A, durcissement de Keycloak sans le tunnel, vérifié. Lot B, tunnel et noms publics, déployé et vérifié le même jour. L'application est servie sur le domaine public. Lot C, profil `demo` d'ADR-0031 : Keycloak et réinitialisation nocturne vérifiés dans le cluster, BFF en attente de son image.
 
 Préparation possible dès maintenant, par l'utilisateur :
 
@@ -1012,7 +1012,7 @@ Mise en œuvre, après les phases 4, 6, 7 et 8 :
 - Console d'administration de Keycloak sur un nom du tailnet, chemins `/admin` refusés sur le nom public.
 - Règles Cloudflare : TLS 1.2 minimum, HSTS, règles gérées du pare-feu applicatif, limitation de débit sur la connexion.
 - Keycloak : inscription désactivée, détection de force brute, MFA pour les administrateurs.
-- Si ADR-0031 est accepté : comptes et boutons de démonstration en un clic, CronJob de réinitialisation nocturne, bandeau de démonstration.
+- Profil `demo` d'ADR-0031 : boutons de démonstration en un clic, CronJob de réinitialisation nocturne, bandeau de démonstration. Voir le lot C.
 
 Sortie : application servie en HTTPS sur le domaine, aucun port entrant ouvert sur l'hôte ni sur la box, gateway et services internes injoignables depuis Internet, console Keycloak refusée sur le nom public.
 
@@ -1124,7 +1124,47 @@ Limites :
 - Le nom `www` n'est pas servi.
 - Les scripts de vérification dépendent de l'agent `AuditSphere-checks`, accepté par Cloudflare aujourd'hui.
 - Plus de console de compte dans le royaume `auditsphere`, même par le tailnet. Un mot de passe se change par l'administration des comptes.
-- Qui connaît le mot de passe d'un compte peut encore le changer par `kc_action`. L'entrée en un clic d'ADR-0031 ne devra pas révéler ce mot de passe, et la remise à zéro nocturne devrait rétablir les mots de passe et retirer les OTP des comptes de démonstration.
+- Qui connaît le mot de passe d'un compte peut encore le changer par `kc_action`. L'entrée en un clic du lot C n'utilise aucun mot de passe, et la réinitialisation nocturne rétablit les mots de passe et retire les OTP des comptes de démonstration.
+
+#### Lot C : profil demo
+
+Statut : implémenté le 2026-10-28. Keycloak et réinitialisation nocturne déployés et vérifiés dans le cluster. Boutons et bandeau en attente de l'image du BFF, publiée dans GHCR après la fusion dans `main`. Décisions : [ADR-0031](../decisions/ADR-0031-profils-demonstration-production.md) et [ADR-0035](../decisions/ADR-0035-entree-demonstration-assertion.md).
+
+Choix du mécanisme, détaillé dans ADR-0035 :
+
+- Aucun authentificateur intégré de Keycloak 26.8 n'identifie un compte sans formulaire. Un flux dédié avec `Username Form` demande deux clics et ouvre une session Keycloak au visiteur. `kc_action` y relance alors le même flux sans mot de passe, et le verrouillage de force brute bloque l'entrée de tous.
+- Retenu : octroi par assertion JWT, RFC 7523, actif par défaut dans Keycloak 26.8. Le BFF signe une assertion de 60 secondes au plus, à usage unique, pour le compte choisi. Keycloak la vérifie avec la clé publique du fournisseur `demo-entry` et ne retrouve que les comptes liés à ce fournisseur.
+- Aucun mot de passe, aucune session Keycloak dans le navigateur, donc aucun `kc_action`. Le verrouillage de force brute ne s'applique pas à cet octroi.
+
+Livré :
+
+- `AUDITSPHERE_PROFILE` dans `.local/k3s.env` : `demo` par défaut, ou `production`. Lu par `scripts/k3s-setup-keycloak.py` et `scripts/k3s-deploy-services.sh`.
+- [scripts/demo_accounts.py](../../../scripts/demo_accounts.py) : comptes synthétiques, profils et comptes ouverts en un clic, `auditor`, `validator` et `auditee`. `superadmin` n'y figure pas.
+- `k3s-setup-keycloak.py`, profil `demo` : clé ES256 dans le secret `web-demo-entry`, fournisseur `demo-entry` de type `jwt-authorization-grant`, liens des trois comptes, octroi permis au seul client `auditsphere-web`. Compte de service `demo-reset`, limité à `view-users`, `query-users` et `manage-users`, et secret `demo-accounts` avec les mots de passe à rétablir. Profil `production` : tout cela est retiré.
+- BFF : route `POST /auth/demo`, refusée sans l'en-tête `Origin` de l'application. Session chiffrée comme après une connexion normale, renouvelée par une nouvelle assertion toutes les 5 minutes. Déconnexion sans passage par Keycloak. Boutons sur la page de connexion et bandeau permanent, affichés par la valeur `demo.enabled` du chart web. Les boutons restent masqués tant que la clé manque.
+- Chart [infra/helm/demo-reset](../../../infra/helm/demo-reset) : CronJob à 5 h, heure de Paris, après la sauvegarde. Étapes dans l'ordre : comptes, workflows Temporal en cours, bases, preuves et 40 missions par `seed-demo-missions.py`. Pas d'accès à l'API Kubernetes. NetworkPolicy ajoutées vers Keycloak, la gateway, PostgreSQL et Temporal. Certificat client Temporal `temporal-client-demo-reset`.
+- [scripts/demo-reset.py](../../../scripts/demo-reset.py) `accounts|seed` : mots de passe, noms et adresses rétablis, actions requises vidées, OTP, WebAuthn et codes de récupération retirés, sessions fermées, verrouillage levé. Le client `auditsphere-demo` n'est actif que pendant le peuplement, et le Job échoue s'il l'est déjà.
+- `evidence_storage.py` accepte les variables `EVIDENCE_S3_*` de l'environnement, pour retirer les preuves depuis le cluster.
+
+Vérifications du 2026-10-28 :
+
+- Octroi par assertion avec la clé du cluster et le secret du client web : jetons de `auditor`, `validator` et `auditee`, émetteur public, audience `auditsphere-api`, rôle attendu, sans jeton de rafraîchissement, valables 300 secondes. `manager` et `superadmin`, non liés, refusés avec `User not found`. Assertion rejouée refusée.
+- Première exécution manuelle du CronJob : 5 minutes 6 secondes, 7 workflows arrêtés, 2 preuves retirées du stockage, 40 missions recréées : 8 brouillons, 12 en cours, 7 en revue, 7 approuvées, 6 clôturées. Client `auditsphere-demo` désactivé ensuite.
+- Deuxième exécution, après avoir renommé `auditor`, changé son mot de passe et exigé un OTP : nom et actions requises rétablis. Mot de passe rétabli, prouvé par le smoke. `superadmin` inchangé, OTP conservé.
+- `scripts/k3s-check.sh smoke.py` et `smoke-bff.py` réussis ensuite, avec l'image actuelle du BFF. La mission du smoke reste jusqu'à la réinitialisation suivante.
+- Page de connexion locale avec `DEMO_ENTRY` : trois boutons et bandeau, sur ordinateur et sur téléphone. Clé invalide : retour sur la page avec le message d'indisponibilité.
+
+Non vérifié :
+
+- Entrée en un clic par le nom public : l'image du BFF n'est publiée qu'après la fusion dans `main`. Ensuite : épingler son empreinte dans `infra/helm/web/values.yaml`, lancer `scripts/k3s-deploy-services.sh`, puis cliquer sur chaque bouton par le nom public.
+- Exécution planifiée de 5 h et mémoire réelle des trois conteneurs du Job.
+- Retrait d'un OTP ou d'une clé WebAuthn ajouté par un visiteur : l'API d'administration ne permet pas d'en créer pour le test. Le code retire tout identifiant autre que le mot de passe.
+
+Limites :
+
+- La réinitialisation n'arrête pas les services. Un événement Kafka en vol pendant la suppression peut laisser une notification orpheline jusqu'à la nuit suivante.
+- `demo-reset` porte `manage-users` sur tout le royaume, `superadmin` compris. Le code ne touche que les comptes de `demo_accounts.py`.
+- La clé `web-demo-entry` ouvre les trois comptes liés, et aucun autre. La remplacer : supprimer le secret, relancer `k3s-setup-keycloak.py`, puis redémarrer le BFF.
 
 #### Condition d'ouverture
 
@@ -1139,7 +1179,7 @@ Ordre retenu : lots D et E, puis phases 8, 6, 7 et 10. Révisé le 2026-10-26 pa
 
 Préparation possible sans attendre, par l'utilisateur : délégation DNS du domaine à Cloudflare, après recopie des enregistrements existants, et création du tunnel sans nom public.
 
-Accès des visiteurs anonymes : proposé le 2026-10-27 par [ADR-0031](../decisions/ADR-0031-profils-demonstration-production.md), à valider par l'utilisateur. Deux profils de déploiement distincts, `demo` et `production`. Le serveur actuel sert le profil `demo` : entrée en un clic par rôle, auditeur, validateur et audité, par le flux OIDC normal du BFF, sans OTP pour ces seuls comptes, sans rôle d'administration, données synthétiques réinitialisées chaque nuit et bandeau de démonstration. Le profil `production` reprend le royaume isolé de C1 et C17. Le passage de l'un à l'autre se fait par redéploiement sur une base vide, jamais par un réglage dans une instance en marche. Un seul profil tourne à la fois sur ce serveur, faute de mémoire. De vraies données d'audit exigent un hébergement adapté et un nouvel ADR.
+Accès des visiteurs anonymes : proposé le 2026-10-27 par [ADR-0031](../decisions/ADR-0031-profils-demonstration-production.md), accepté le 2026-10-28 et mis en œuvre au lot C de la phase 10. Deux profils de déploiement distincts, `demo` et `production`. Le serveur actuel sert le profil `demo` : entrée en un clic par rôle, auditeur, validateur et audité, par le BFF et sans mot de passe selon [ADR-0035](../decisions/ADR-0035-entree-demonstration-assertion.md), sans OTP pour ces seuls comptes, sans rôle d'administration, données synthétiques réinitialisées chaque nuit et bandeau de démonstration. Le profil `production` reprend le royaume isolé de C1 et C17. Le passage de l'un à l'autre se fait par redéploiement sur une base vide, jamais par un réglage dans une instance en marche. Un seul profil tourne à la fois sur ce serveur, faute de mémoire. De vraies données d'audit exigent un hébergement adapté et un nouvel ADR.
 
 Seule la phase 7 pourrait être reportée, puisque l'instance publique ne porte que des données de démonstration. Ce report exigerait un amendement d'ADR-0025. Les phases 6 et 8 ne sont pas négociables.
 

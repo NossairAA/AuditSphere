@@ -1,0 +1,26 @@
+# Profil demo seulement (ADR-0031). Le profil production n'installe pas ce chart.
+# Après la sauvegarde de 02:30 UTC, quelle que soit l'heure d'été.
+schedule: "0 5 * * *"
+timeZone: Europe/Paris
+
+images:
+  python: python:3.13.18-slim-trixie@sha256:8a7c3cd378e4e6dfa5d0ea4f6ca1a11068c951e3de3146ebc484eadf4b05a2be
+  temporal: temporalio/admin-tools:1.32.1@sha256:9ef0dc5b063bf4ffd5c1512de72e0e73e225bd2c7006a18ce69bd592a8862a83
+  postgres: postgres:17.9@sha256:2a0d0fe14825b0939f78a8cad5cd4e6aa68bf94d0e5dd96e24b6d23af4315545
+
+# Scripts Python passés par --set-file depuis scripts/ : demo-reset.py, demo_accounts.py,
+# seed-demo-missions.py et evidence_storage.py.
+scripts:
+  reset: ""
+  accounts: ""
+  seed: ""
+  evidence: ""
+
+# Point de stockage des preuves, passé à l'installation depuis GARAGE_ENDPOINT, comme pour audit-service.
+evidence:
+  endpoint: ""
+  bucket: auditsphere-evidence-k3s
+
+# Racine hors ligne (ADR-0026), montée en /etc/auditsphere/ca.
+internalCa:
+  configMap: internal-ca

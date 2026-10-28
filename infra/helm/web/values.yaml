@@ -13,6 +13,10 @@ apiOrigin: http://api-gateway.auditsphere.svc.cluster.local:8080
 # Par le tailnet, Traefik pose x-real-ip. La liste exige l'image de 04baf82 ou plus récente (phase 10, lot B).
 trustedProxyIpHeaders: cf-connecting-ip,x-real-ip
 
+# Profil demo (ADR-0031) : boutons d'entrée en un clic et bandeau. Passé à l'installation depuis AUDITSPHERE_PROFILE.
+demo:
+  enabled: false
+
 # Schéma des sessions, passé par --set-file depuis apps/web/db.
 sessionsSql: ""
 encryptedSessionsSql: ""

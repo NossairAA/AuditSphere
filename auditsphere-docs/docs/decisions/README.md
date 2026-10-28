@@ -58,10 +58,11 @@ Utiliser le modèle dans [`docs/templates/adr.md`](../templates/adr.md).
 - [ADR-0028 : Garage en HTTPS par Caddy et un certificat du tailnet](ADR-0028-garage-https-caddy-tailscale.md), accepté, implémenté
 - [ADR-0029 : supervision par Prometheus et alertes par ntfy](ADR-0029-supervision-prometheus-ntfy.md), accepté, lots 6A et 6B implémentés
 - [ADR-0030 : traces et journaux à la demande](ADR-0030-traces-journaux-a-la-demande.md), accepté, lot 6C implémenté
-- [ADR-0031 : profils de démonstration et de production](ADR-0031-profils-demonstration-production.md), proposé, non implémenté
+- [ADR-0031 : profils de démonstration et de production](ADR-0031-profils-demonstration-production.md), accepté, profil `demo` implémenté
 - [ADR-0032 : client de démonstration désactivé au repos](ADR-0032-client-demonstration-bascule.md), accepté, implémenté
 - [ADR-0033 : origine publique unique et administration par le tailnet](ADR-0033-origine-publique-unique.md), accepté, implémenté
 - [ADR-0034 : console de compte de Keycloak fermée](ADR-0034-console-compte-fermee.md), accepté, implémenté
+- [ADR-0035 : entrée de démonstration par assertion signée](ADR-0035-entree-demonstration-assertion.md), accepté, implémenté
 
 - [ADR-0018 : séparation validateur et auditeur](ADR-0018-separation-validateur-auditeur.md).
 - [ADR-0019 : sessions et accès web](ADR-0019-sessions-et-acces-web.md).

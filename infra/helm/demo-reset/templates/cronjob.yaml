@@ -1,0 +1,150 @@
+# Réinitialisation nocturne du profil demo (ADR-0031). Étapes dans l'ordre : comptes Keycloak, workflows Temporal,
+# bases, puis preuves et 40 missions. Aucun accès à l'API Kubernetes, aucune exécution dans un autre pod.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: demo-reset
+  labels:
+    app.kubernetes.io/name: demo-reset
+spec:
+  schedule: {{ .Values.schedule | quote }}
+  timeZone: {{ .Values.timeZone }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # Pas de nouvel essai : le client auditsphere-demo serait refusé s'il était resté actif, et l'alerte le signale.
+      backoffLimit: 0
+      activeDeadlineSeconds: 2400
+      ttlSecondsAfterFinished: 604800
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: demo-reset
+        spec:
+          restartPolicy: Never
+          enableServiceLinks: false
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+            seccompProfile:
+              type: RuntimeDefault
+          initContainers:
+            - name: accounts
+              image: {{ .Values.images.python }}
+              command: [python3, /scripts/demo-reset.py, accounts]
+              env:
+                {{- include "demo-reset.keycloak" . | nindent 16 }}
+              resources:
+                {{- include "demo-reset.resources" . | nindent 16 }}
+              securityContext:
+                {{- include "demo-reset.containerSecurity" . | nindent 16 }}
+              volumeMounts:
+                {{- include "demo-reset.pythonMounts" . | nindent 16 }}
+            - name: temporal
+              image: {{ .Values.images.temporal }}
+              command: [sh, /scripts/temporal.sh]
+              env:
+                - name: TEMPORAL_ADDRESS
+                  value: temporal.data.svc.cluster.local:7233
+                - name: TEMPORAL_NAMESPACE
+                  value: default
+                - name: TEMPORAL_TLS_SERVER_CA_CERT_PATH
+                  value: /etc/auditsphere/ca/ca.crt
+                - name: TEMPORAL_TLS_CLIENT_CERT_PATH
+                  value: /etc/auditsphere/temporal/tls.crt
+                - name: TEMPORAL_TLS_CLIENT_KEY_PATH
+                  value: /etc/auditsphere/temporal/tls.key
+              resources:
+                {{- include "demo-reset.resources" . | nindent 16 }}
+              securityContext:
+                {{- include "demo-reset.containerSecurity" . | nindent 16 }}
+              volumeMounts:
+                - name: scripts
+                  mountPath: /scripts
+                - name: internal-ca
+                  mountPath: /etc/auditsphere/ca
+                  readOnly: true
+                - name: temporal-tls
+                  mountPath: /etc/auditsphere/temporal
+                  readOnly: true
+            - name: database
+              image: {{ .Values.images.postgres }}
+              command: [sh, /scripts/database.sh]
+              env:
+                {{- range $db := list "audit" "notification" "remediation" }}
+                - name: {{ upper $db }}_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: db-credentials
+                      key: {{ $db }}_migrator
+                {{- end }}
+              resources:
+                {{- include "demo-reset.resources" . | nindent 16 }}
+              securityContext:
+                {{- include "demo-reset.containerSecurity" . | nindent 16 }}
+              volumeMounts:
+                - name: scripts
+                  mountPath: /scripts
+                - name: work
+                  mountPath: /work
+                - name: internal-ca
+                  mountPath: /etc/auditsphere/ca
+                  readOnly: true
+          containers:
+            - name: seed
+              image: {{ .Values.images.python }}
+              command: [python3, /scripts/demo-reset.py, seed]
+              env:
+                {{- include "demo-reset.keycloak" . | nindent 16 }}
+                - name: DEMO_SWITCH_CLIENT_SECRET
+                  valueFrom:
+                    secretKeyRef:
+                      name: keycloak-demo-switch
+                      key: client_secret
+                - name: SEED_API_BASE
+                  value: http://api-gateway.auditsphere.svc.cluster.local:8080
+                - name: EVIDENCE_S3_ENDPOINT
+                  value: {{ required "evidence.endpoint est obligatoire (GARAGE_ENDPOINT)" .Values.evidence.endpoint | quote }}
+                - name: EVIDENCE_S3_BUCKET
+                  value: {{ .Values.evidence.bucket | quote }}
+                - name: EVIDENCE_S3_REGION
+                  value: garage
+                - name: EVIDENCE_S3_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: evidence-s3
+                      key: EVIDENCE_S3_ACCESS_KEY
+                - name: EVIDENCE_S3_SECRET_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: evidence-s3
+                      key: EVIDENCE_S3_SECRET_KEY
+              resources:
+                {{- include "demo-reset.resources" . | nindent 16 }}
+              securityContext:
+                {{- include "demo-reset.containerSecurity" . | nindent 16 }}
+              volumeMounts:
+                {{- include "demo-reset.pythonMounts" . | nindent 16 }}
+          volumes:
+            - name: scripts
+              configMap:
+                name: demo-reset-scripts
+            - name: work
+              emptyDir:
+                sizeLimit: 16Mi
+            - name: accounts
+              secret:
+                secretName: demo-accounts
+                defaultMode: 0400
+            - name: internal-ca
+              configMap:
+                name: {{ .Values.internalCa.configMap }}
+            - name: temporal-tls
+              secret:
+                secretName: temporal-client-demo-reset
+                defaultMode: 0440

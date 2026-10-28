@@ -60,6 +60,18 @@ spec:
             # refuse tout accès direct au BFF.
             - name: TRUSTED_PROXY_IP_HEADER
               value: {{ .Values.trustedProxyIpHeaders | quote }}
+            {{- if .Values.demo.enabled }}
+            # Entrée en un clic du profil demo (ADR-0035). Clé créée par scripts/k3s-setup-keycloak.py :
+            # tant qu'elle manque, les boutons restent masqués.
+            - name: DEMO_ENTRY
+              value: "true"
+            - name: DEMO_ASSERTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: web-demo-entry
+                  key: DEMO_ASSERTION_KEY
+                  optional: true
+            {{- end }}
             - name: WEB_DB_PASSWORD
               valueFrom:
                 secretKeyRef:

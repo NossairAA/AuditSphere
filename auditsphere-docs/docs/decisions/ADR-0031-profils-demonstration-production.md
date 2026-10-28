@@ -1,6 +1,6 @@
 # ADR-0031 : profils de démonstration et de production
 
-**Statut :** Proposé le 2026-10-27, non implémenté  
+**Statut :** Accepté le 2026-10-28, profil `demo` implémenté selon [ADR-0035](ADR-0035-entree-demonstration-assertion.md)  
 **Date :** 2026-10-27  
 **Auteur :** équipe AuditSphere
 
@@ -30,9 +30,9 @@ Retenir l'option 3.
 Profil `demo` :
 
 - Boutons d'entrée en un clic sur la page de connexion : auditeur, validateur, audité. Comptes synthétiques dédiés, sans aucun rôle d'administration.
-- Connexion par le flux OIDC normal du BFF. Aucun mot de passe direct, le client `auditsphere-demo` reste désactivé comme prévu en phase 10.
+- Connexion par le BFF, qui garde la session comme pour une connexion normale. Aucun mot de passe direct, le client `auditsphere-demo` reste désactivé comme prévu en phase 10. Mécanisme retenu par ADR-0035 : octroi par assertion JWT, sans mot de passe ni session Keycloak dans le navigateur.
 - OTP non exigé pour ces seuls comptes. Le `superadmin` garde l'OTP obligatoire et reste hors du nom public.
-- Données synthétiques remises à zéro chaque nuit par un CronJob, à partir de `scripts/seed-demo-missions.py` et `scripts/cleanup-test-data.py`.
+- Données synthétiques remises à zéro chaque nuit par un CronJob, à partir de `scripts/seed-demo-missions.py` et `scripts/cleanup-test-data.py`. Le même CronJob rétablit les mots de passe et le profil des comptes de démonstration et retire leurs OTP et clés WebAuthn.
 - Bandeau permanent : environnement de démonstration, réinitialisé chaque nuit.
 - Garde-fous : limitation de débit Cloudflare, quotas existants, preuves bornées en taille. Le dépôt de preuves pourra être désactivé dans ce profil.
 
@@ -67,6 +67,7 @@ Cet ADR complète ADR-0025 sans le remplacer. Il répond à sa question sur les 
 ## Références
 
 - [ADR-0025 : exposition publique par Cloudflare Tunnel](ADR-0025-exposition-publique-cloudflare-tunnel.md)
+- [ADR-0035 : entrée de démonstration par assertion signée](ADR-0035-entree-demonstration-assertion.md)
 - [ADR-0017 : identité de production](ADR-0017-identite-production.md)
 - [ADR-0023 : hébergement privé avec k3s](ADR-0023-hebergement-prive-k3s.md)
 - [Guide d'hébergement k3s](../technique/28-hebergement-k3s.md)

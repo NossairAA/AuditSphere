@@ -1,0 +1,5 @@
+apiVersion: v2
+name: demo-reset
+description: "Réinitialisation nocturne du profil demo (ADR-0031) : comptes de démonstration, Temporal, bases et 40 missions synthétiques."
+type: application
+version: 0.1.0

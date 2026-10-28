@@ -32,6 +32,8 @@ export async function POST(request: NextRequest) {
     await pool.query("DELETE FROM web_sessions WHERE id_hash=$1", [hash(id)]);
     let destination: URL;
     try {
+      // A demo session has no refresh token and no Keycloak session in the browser (ADR-0035).
+      if (data.demo) throw new Error("No Keycloak session");
       const config = await oidcConfig();
       await oidc.tokenRevocation(config, data.refreshToken, {
         token_type_hint: "refresh_token",
