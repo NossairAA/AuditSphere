@@ -1,5 +1,11 @@
 # Journal des changements
 
+## 2026-10-29 : signature et jeu v2 déployés
+
+- Image du BFF de `f01f9d0` épinglée par tag et empreinte, puis déployée par `k3s-deploy-services.sh`. Elle porte la signature de l'auteur dans le bandeau de démonstration.
+- Vérifié par le nom public : la page de connexion contient la ligne « Conçu et développé par », avec le lien vers le profil GitHub.
+- Chart `demo-reset` mis à jour avec le jeu v2 dans le même déploiement. Les données en place restent celles du jeu précédent jusqu'à la prochaine réinitialisation.
+
 ## 2026-10-28 : le worker Temporal attend Temporal au démarrage
 
 - Alerte `PodRestartingOften` sur `workflow-worker` : après un redémarrage de l'hôte, le worker démarrait avant Temporal et s'arrêtait sur une connexion refusée. Trois arrêts en deux minutes, retour seul une fois Temporal prêt.
