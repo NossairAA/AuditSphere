@@ -1076,6 +1076,14 @@ Avancement de la bascule le 2026-10-28 :
 - Limitation de débit sur les formulaires de connexion créée par l'utilisateur. La règle de refus de `/admin` et `/realms/master` reste à confirmer.
 - Règle de transformation sur `X-Real-Ip` refusée par Cloudflare. Remplacée par la lecture de `Cf-Connecting-Ip` dans le BFF, voir ADR-0033.
 
+Console de compte fermée le 2026-10-28, selon [ADR-0034](../decisions/ADR-0034-console-compte-fermee.md) :
+
+- Constat : `/realms/auditsphere/account/` répondait 200 sur le nom public. Le paramètre `kc_action` ouvrait aussi les formulaires du mot de passe et de l'OTP depuis la page de connexion, sans ressaisie du mot de passe pendant la session Keycloak.
+- `k3s-setup-keycloak.py` désactive les clients `account` et `account-console` et règle `max_auth_age` à 0 sur les actions que `kc_action` peut lancer.
+- Sonde `blackbox-public-refused` étendue à `/realms/auditsphere/account/` par `k3s-monitoring.sh`.
+- Cloudflare refuse l'agent par défaut de Python, erreur 1010. Le smoke de l'API et celui du BFF échouaient par le nom public. `target.py` envoie désormais l'agent `AuditSphere-check/1.0`.
+- Vérifié : 404 de Keycloak sur la console et son API par les deux noms, mot de passe redemandé avant `kc_action` dans une session ouverte, inscription de l'OTP de `superadmin` toujours proposée, smoke de l'API et du BFF réussis par `k3s-check.sh`, sonde à 1, aucune alerte active.
+
 Bascule, dans cet ordre :
 
 1. `kubectl apply -f deploy/k3s/cloudflared.yaml`. Le tunnel passe à l'état sain dans Cloudflare.
@@ -1102,6 +1110,8 @@ Limites :
 - Les appels du BFF à Keycloak sortent du cluster et reviennent par le tunnel.
 - Le comportement de `KC_HOSTNAME_ADMIN` avec les scripts d'administration n'est pas encore vérifié.
 - Le nom `www` n'est pas servi.
+- Plus de console de compte dans le royaume `auditsphere`, même par le tailnet. Un mot de passe se change par l'administration des comptes.
+- Qui connaît le mot de passe d'un compte peut encore le changer par `kc_action`. L'entrée en un clic d'ADR-0031 ne devra pas révéler ce mot de passe, et la remise à zéro nocturne devrait rétablir les mots de passe et retirer les OTP des comptes de démonstration.
 
 #### Condition d'ouverture
 

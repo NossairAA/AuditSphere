@@ -37,7 +37,8 @@ case "${1:-}" in
       *.ts.net*|'') ;;
       *)
         tunnel=$(printf '[{"targets":["%s/","%s/realms/auditsphere/.well-known/openid-configuration"]}]' "$APP_ORIGIN" "$OIDC_ORIGIN")
-        refused=$(printf '[{"targets":["%s/admin/","%s/realms/master/"]}]' "$OIDC_ORIGIN" "$OIDC_ORIGIN")
+        # Console de compte fermée par Keycloak (ADR-0034) : 404 attendu.
+        refused=$(printf '[{"targets":["%s/admin/","%s/realms/master/","%s/realms/auditsphere/account/"]}]' "$OIDC_ORIGIN" "$OIDC_ORIGIN" "$OIDC_ORIGIN")
         ;;
     esac
     kubectl --namespace monitoring create secret generic prometheus-private-targets \

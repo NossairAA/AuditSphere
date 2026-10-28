@@ -8,7 +8,7 @@ import target
 
 app = os.environ['APP_ORIGIN']
 jar = http.cookiejar.CookieJar()
-browser = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+browser = target.opener(urllib.request.HTTPCookieProcessor(jar))
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -16,7 +16,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-manual = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar), NoRedirect)
+manual = target.opener(urllib.request.HTTPCookieProcessor(jar), NoRedirect)
 
 
 def call(opener, url, data=None, headers=None):
@@ -52,7 +52,7 @@ assert status == 200 and 'AUDIT_MANAGER' in account['roles'] and account['csrf']
 status, _, _, body = call(browser, app + '/api/missions?size=5')
 listing = json.loads(body)
 assert status == 200 and listing['total'] >= 1, ('missions', status)
-status, _, _, _ = call(urllib.request.build_opener(), app + '/api/missions')
+status, _, _, _ = call(target.opener(), app + '/api/missions')
 assert status == 401, ('missions sans session', status)
 print('PASS : session du responsable, ' + str(listing['total']) + ' missions servies par la gateway, accès refusé sans session.')
 

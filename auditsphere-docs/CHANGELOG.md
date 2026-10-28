@@ -1,5 +1,12 @@
 # Journal des changements
 
+## 2026-10-28 : console de compte de Keycloak fermée
+
+- ADR-0034 : clients `account` et `account-console` désactivés par `scripts/k3s-setup-keycloak.py`. La console de compte et son API répondent 404 sur les deux noms.
+- Le paramètre `kc_action` ouvrait les formulaires du mot de passe et de l'OTP sans ressaisie du mot de passe. `max_auth_age` réglé à 0 sur ces actions : Keycloak redemande le mot de passe.
+- Sonde de refus étendue à `/realms/auditsphere/account/`. Scripts de vérification avec l'agent `AuditSphere-check/1.0`, car Cloudflare refuse celui de Python.
+- Vérifié dans le cluster : smoke de l'API et du BFF réussis, sonde à 1, aucune alerte active. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-28 : tunnel déployé et adresse des visiteurs par Cloudflare
 
 - `cloudflared` déployé dans le cluster : quatre connexions au tunnel, 19 Mio de mémoire. Limitation de débit des formulaires de connexion créée par l'utilisateur dans Cloudflare.

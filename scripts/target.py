@@ -25,6 +25,17 @@ KAFKA_BOOTSTRAP = 'localhost:9094' if K3S else 'localhost:9092'
 WORKLOADS = {'kafka': ('data', 'statefulset/kafka'), 'temporal': ('data', 'deployment/temporal')}
 
 
+def opener(*handlers):
+    """urllib opener with a named user agent: Cloudflare refuses the default Python-urllib one on the public names (error 1010)."""
+    result = urllib.request.build_opener(*handlers)
+    result.addheaders = [('User-Agent', 'AuditSphere-check/1.0')]
+    return result
+
+
+# urlopen in the check scripts goes through the same user agent.
+urllib.request.install_opener(opener())
+
+
 def api_healthy():
     try:
         with urllib.request.urlopen(HEALTH_BASE + '/actuator/health', timeout=10) as response:

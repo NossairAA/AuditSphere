@@ -174,7 +174,7 @@ spec:
               - header: Cf-Ray
                 regexp: '.+'
             preferred_ip_protocol: ip4
-        # Console et royaume master refusés sur le nom public : 403 de la règle Cloudflare, 404 du tunnel.
+        # Console, royaume master et console de compte refusés sur le nom public : 403 de la règle Cloudflare, 404 du tunnel ou de Keycloak.
         https_public_refused:
           prober: http
           timeout: 10s

@@ -186,6 +186,18 @@ service_account(ensure_client({**server, 'clientId': 'k3s-demo-switch', 'secret'
 save_secret('keycloak-demo-switch', switch)
 print('Client k3s-demo-switch configuré, secret stocké dans le cluster.')
 
+# Account console closed (ADR-0034): the account client serves /realms/auditsphere/account and its REST API, 404 once disabled.
+for client_id in ['account', 'account-console']:
+    client = call(base + '/clients?clientId=' + client_id, token=token)[0]
+    call(base + '/clients/' + client['id'], {**client, 'enabled': False}, 'PUT', token)
+# Actions started by kc_action on the sign-in page ask for the password again, even inside a single sign-on session.
+for action in ['UPDATE_PASSWORD', 'CONFIGURE_TOTP', 'CONFIGURE_RECOVERY_AUTHN_CODES', 'webauthn-register', 'webauthn-register-passwordless',
+               'delete_credential', 'UPDATE_PROFILE']:
+    # Recovery codes refuse a configuration without their warning threshold, 4 by default.
+    config = {'max_auth_age': '0', **({'warning_threshold': '4'} if action == 'CONFIGURE_RECOVERY_AUTHN_CODES' else {})}
+    call(base + '/authentication/required-actions/' + action + '/config', {'config': config}, 'PUT', token)
+print('Console de compte fermée, mot de passe redemandé avant toute action lancée par kc_action.')
+
 # OTP for the super administrator, enrolled at the next browser sign-in. A configured OTP is left untouched.
 superadmin = call(base + '/users?username=superadmin&exact=true', token=token)[0]
 if not any(c['type'] == 'otp' for c in call(base + '/users/' + superadmin['id'] + '/credentials', token=token)):
