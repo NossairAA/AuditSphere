@@ -1,5 +1,12 @@
 # Journal des changements
 
+## 2026-10-28 : jeu de démonstration v2 réaliste
+
+- 40 missions réécrites pour le Groupe Alvéane, entreprise fictive : 122 risques, 176 contrôles, 121 résultats, 63 constats et 137 justificatifs PDF ou PNG générés à chaque peuplement.
+- Constats rédigés selon condition, critère, cause, conséquence et recommandation, avec renvois, rejets et réouvertures dans leur historique. Dates relatives remplacées à l'exécution.
+- Nouveaux fichiers : `scripts/demo_dataset.py`, `scripts/demo_documents.py`, `scripts/demo_font.py` et `scripts/build-demo-font.py`. Chart `demo-reset` étendu, jeu de données compressé dans le ConfigMap.
+- Vérifié localement : peuplement complet, empreintes des justificatifs relues par le validateur, relance sans doublon. Non déployé dans k3s. Détails dans le [jeu de démonstration](docs/technique/17-donnees-demonstration.md).
+
 ## 2026-10-28 : mémoire d'audit-service relevée
 
 - Réinitialisation planifiée de 04:00 UTC en échec : audit-service arrêté par OOM à sa limite de 512 Mio pendant le peuplement, après 33 missions. Il restait à 505 Mio avant le Job.

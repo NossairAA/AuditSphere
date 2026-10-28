@@ -9,12 +9,16 @@ images:
   postgres: postgres:17.9@sha256:2a0d0fe14825b0939f78a8cad5cd4e6aa68bf94d0e5dd96e24b6d23af4315545
 
 # Scripts Python passés par --set-file depuis scripts/ : demo-reset.py, demo_accounts.py,
-# seed-demo-missions.py et evidence_storage.py.
+# seed-demo-missions.py, evidence_storage.py, demo_documents.py et demo_font.py. dataset reçoit
+# demo_dataset.py compressé par gzip puis encodé en base64 sur une ligne.
 scripts:
   reset: ""
   accounts: ""
   seed: ""
   evidence: ""
+  dataset: ""
+  documents: ""
+  font: ""
 
 # Point de stockage des preuves, passé à l'installation depuis GARAGE_ENDPOINT, comme pour audit-service.
 evidence:
