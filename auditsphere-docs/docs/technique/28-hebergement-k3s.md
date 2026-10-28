@@ -1165,9 +1165,19 @@ Responsable ajouté le 2026-10-28, à la demande de l'utilisateur. Seul ce rôle
 
 Image du BFF de `41c1c94` déployée le même jour. Par le nom public, le bouton du responsable ouvre la session de Claire Martin : 42 missions, bouton de création de mission présent. Déconnexion sans passage par Keycloak.
 
+Première exécution planifiée, le 2026-10-28 à 04:00 UTC : échec.
+
+- Comptes, workflows et bases réussis. Le peuplement s'arrête après 33 missions sur `PUT /missions/{id}/controls: HTTP 500`. Alerte `JobFailed` reçue.
+- Cause : audit-service arrêté par OOM à 04:04:06 UTC, code 137, limite de 512 Mio. Le conteneur restait déjà à 505 Mio avant le Job. Le peuplement n'a fait que dépasser la marge.
+- Mesure après redémarrage : 118 Mio de tas réservé, 185 Mio hors du tas suivis par la JVM, environ 115 Mio de mémoire native non suivie. Avec un tas plafonné à 60 % de 512 Mio, soit 307 Mio, l'ensemble peut atteindre environ 600 Mio. Les 140 Mio hors du tas estimés en phase 1 ne suffisent plus en k3s.
+- Le nœud était à 75 % de sa mémoire selon `MemAvailable`, avec des limites déjà au-delà de la mémoire allouable. Choix de l'utilisateur : ne relever que audit-service.
+- Correctif : limite à 768 Mio, demande à 512 Mio, `JAVA_TOOL_OPTIONS` avec `MaxRAMPercentage=50` pour ce seul service. Tas maximal vérifié dans le pod à 384 Mio, soit environ 380 Mio de marge pour le reste.
+- Réexécution manuelle par `kubectl create job --from=cronjob/demo-reset` après le déploiement : réussie en 5 minutes 2 secondes, 40 missions recréées. audit-service sans redémarrage, pic de mémoire de travail à 543 Mio sur 768 pendant le peuplement. Nœud à 1,57 Gio disponibles ensuite.
+- Le Job échoué reste listé, avec l'alerte, jusqu'à sa suppression ou à sa sortie de l'historique de trois échecs du CronJob.
+
 Non vérifié :
 
-- Exécution planifiée de 5 h et mémoire réelle des trois conteneurs du Job.
+- Mémoire réelle des trois conteneurs du Job.
 - Retrait d'un OTP ou d'une clé WebAuthn ajouté par un visiteur : l'API d'administration ne permet pas d'en créer pour le test. Le code retire tout identifiant autre que le mot de passe.
 
 Limites :

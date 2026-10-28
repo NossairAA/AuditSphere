@@ -7,6 +7,12 @@
 - Point du mot-symbole corrigé à la largeur d’un téléphone.
 - Vérifié localement : TypeScript, build Next.js et inspection navigateur sur ordinateur et à 375 pixels. Non déployé. Détails dans le [guide du frontend](docs/technique/05-frontend-bff.md).
 
+## 2026-10-28 : mémoire d'audit-service relevée
+
+- Réinitialisation planifiée de 04:00 UTC en échec : audit-service arrêté par OOM à sa limite de 512 Mio pendant le peuplement, après 33 missions. Il restait à 505 Mio avant le Job.
+- Limite à 768 Mio, demande à 512 Mio, tas à 50 % de la limite pour ce seul service. Les autres services restent inchangés, le nœud n'ayant que 1,7 Gio disponibles.
+- Déployé et vérifié : tas maximal de 384 Mio dans le pod, réinitialisation relancée à la main et réussie avec 40 missions, pic à 543 Mio, aucun redémarrage. Détails dans le [guide d'hébergement](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-28 : responsable dans l'entrée de démonstration
 
 - Quatrième bouton : le responsable `manager`, seul rôle qui crée une mission et la soumet au validateur. Lien au fournisseur `demo-entry` par `scripts/k3s-setup-keycloak.py`. ADR-0031 et ADR-0035 révisés.
