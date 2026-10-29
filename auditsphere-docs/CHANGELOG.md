@@ -1,5 +1,12 @@
 # Journal des changements
 
+## 2026-10-30 : codes d'erreur de notification-service vérifiés derrière la chaîne de sécurité
+
+- Contrôle du défaut trouvé dans remediation-service : avec `denyAll()` final, le passage sur `/error` est refusé et un 400 devient un 403 dans un vrai Tomcat.
+- notification-service n'est pas touché. Sa chaîne finit par `authenticated()` et le passage sur `/error` garde le JWT. `SecurityConfig` inchangé.
+- Ajout de `ErrorDispatchTest` sur un vrai Tomcat : 400 sur une pagination invalide, 404 sur une notification inconnue, 200 sur la liste.
+- Vérifié localement : test réussi sur la configuration actuelle, échec `expected: <400> but was: <403>` avec une chaîne modifiée temporairement en `denyAll()`, puis `verify` réussi avec 18 tests. Non vérifié : CI distante et k3s. Détails dans les [notifications Kafka](docs/technique/09-notifications-kafka.md).
+
 ## 2026-10-29 : Garage privé du socket de tailscaled
 
 - Alerte `ProbeFailed` sur Garage à 21:59 UTC : Caddy refusait la poignée de main TLS. Une mise à jour automatique de Tailscale avait recréé le socket de `tailscaled`, et le montage du fichier pointait vers l'ancien.
