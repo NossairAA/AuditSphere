@@ -1168,6 +1168,8 @@ Image du BFF de `41c1c94` déployée le même jour. Par le nom public, le bouton
 
 Image du BFF de `f01f9d0` déployée le 2026-10-29, après le build vert de `main`. Elle ajoute la signature de l'auteur au bandeau. Vérifié par le nom public : réponse 200, ligne « Conçu et développé par » et lien vers le profil GitHub présents. Déploiement en révision 11 du release `web`, déploiement `web` sorti sans erreur. Chart `demo-reset` en révision 3 avec le jeu v2, appliqué à la prochaine réinitialisation.
 
+Jeu v2 peuplé le 2026-10-29 par la réinitialisation manuelle `demo-reset-manual-2`, réussie en 9 minutes 19 secondes. Compteurs en base conformes au jeu v2, audit-service sans redémarrage, 565 Mio sur 768 après le Job. Nœud à 95 % de sa mémoire allouable ensuite. Détails dans le [jeu de démonstration](17-donnees-demonstration.md).
+
 Première exécution planifiée, le 2026-10-28 à 04:00 UTC : échec.
 
 - Comptes, workflows et bases réussis. Le peuplement s'arrête après 33 missions sur `PUT /missions/{id}/controls: HTTP 500`. Alerte `JobFailed` reçue.

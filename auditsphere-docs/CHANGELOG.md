@@ -1,5 +1,12 @@
 # Journal des changements
 
+## 2026-10-29 : jeu v2 peuplé dans k3s
+
+- Réinitialisation manuelle `demo-reset-manual-2` lancée depuis le CronJob, réussie en 9 minutes 19 secondes.
+- Vérifié dans la base `audit` : 40 missions, 122 risques, 176 contrôles, 63 constats, 137 justificatifs, statuts conformes au jeu v2.
+- audit-service sans redémarrage, 565 Mio sur 768 après le Job. Nœud à 95 % de sa mémoire allouable.
+- Non vérifié : affichage par le nom public. Détails dans le [jeu de démonstration](docs/technique/17-donnees-demonstration.md).
+
 ## 2026-10-29 : statistiques de langages GitHub corrigées
 
 - `.gitattributes` marque `scripts/demo_dataset.py` et `scripts/demo_font.py` en `linguist-generated`. Ces deux fichiers de données représentaient environ 1,1 Mo de Python et faisaient afficher 61 % de Python par GitHub.

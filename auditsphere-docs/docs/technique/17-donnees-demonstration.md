@@ -1,7 +1,7 @@
 # Jeu de démonstration métier
 
-**Date :** 2026-10-19, révisé le 2026-10-28
-**Statut :** jeu v2 implémenté et vérifié en local le 2026-10-28. Chart `demo-reset` déployé dans k3s le 2026-10-29, peuplement v2 non encore exécuté dans le cluster
+**Date :** 2026-10-19, révisé le 2026-10-29
+**Statut :** jeu v2 implémenté et vérifié en local le 2026-10-28. Déployé dans k3s et peuplé dans le cluster le 2026-10-29
 
 ## Nettoyage réalisé
 
@@ -143,3 +143,12 @@ La reprise reste idempotente. Les risques sont retrouvés par titre, les contrô
 - Une seconde exécution conserve les 40 missions sans doublon.
 - audit-service n’a pas redémarré et n’a pas été arrêté par manque de mémoire. Sa mémoire anonyme atteignait 438 Mio sur sa limite locale de 448 Mio à la fin du peuplement.
 - Non vérifié : exécution du CronJob dans k3s avec le chart modifié, et mémoire d’audit-service pendant ce peuplement plus lourd. À contrôler au premier déploiement.
+
+### Vérification dans k3s du 2026-10-29
+
+- Réinitialisation manuelle par `kubectl create job --from=cronjob/demo-reset demo-reset-manual-2`, à la demande de l’utilisateur, sans attendre l’exécution planifiée de 05:00.
+- Job terminé en 9 minutes 19 secondes, contre environ 5 minutes avec le jeu v1. Le journal annonce 40 missions réconciliées.
+- Contrôles dans la base `audit` : 40 missions, 122 risques, 176 contrôles, 63 constats et 137 justificatifs. Statuts : 8 brouillons, 12 en cours, 7 en attente, 7 approuvées, 6 clôturées. 37 missions citent le Groupe Alvéane dans leur description ou leur périmètre.
+- audit-service sans redémarrage pendant le Job : compteur inchangé, dernier arrêt antérieur à la réinitialisation. Mémoire de travail à 565 Mio sur 768 juste après le peuplement.
+- Nœud à 95 % de sa mémoire allouable selon `kubectl top node` après le Job.
+- Non vérifié : affichage par le nom public, pic de mémoire d’audit-service pendant le peuplement, lecture des justificatifs depuis Garage dans le cluster.

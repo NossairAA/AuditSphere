@@ -44,7 +44,7 @@ Les constats C1 à C18 sont suivis dans le [compte rendu des correctifs](../tech
 - C1 : Royaume sans utilisateurs de démonstration, projet Compose et volumes distincts, refus du provisionnement si un compte démo subsiste. Tests de configuration et Keycloak jetable vérifiés, aucun déploiement de production.
 ## Priorité active
 
-Le [jeu de démonstration v2](../technique/17-donnees-demonstration.md) est vérifié localement le 2026-10-28 : contenu réaliste, constats et justificatifs. Son déploiement dans k3s reste à faire avant la reprise des actions correctives.
+Le [jeu de démonstration v2](../technique/17-donnees-demonstration.md) est vérifié localement le 2026-10-28 : contenu réaliste, constats et justificatifs. Il est déployé et peuplé dans k3s le 2026-10-29. Prochaine étape : reprise des actions correctives.
 
 Correctif CI de quotas partagés entre tests navigateur vérifié localement : 16 tests réussis avec le lanceur isolé. Validation distante nécessaire après publication.
 
