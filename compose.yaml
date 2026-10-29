@@ -133,10 +133,14 @@ services:
       DB_URL: jdbc:postgresql://remediation-db:5432/remediation
       DB_USER: remediation_runtime
       DB_PASSWORD: ${REMEDIATION_RUNTIME_PASSWORD:-not-provisioned}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KEYCLOAK_URL: http://keycloak:8080
+      REMEDIATION_SYNC_CLIENT_SECRET: ${REMEDIATION_SYNC_CLIENT_SECRET:?Run setup-web.py --configure-only}
       OIDC_ISSUER: http://localhost:8180/realms/auditsphere
       OIDC_JWKS: http://keycloak:8080/realms/auditsphere/protocol/openid-connect/certs
     depends_on:
       remediation-db: {condition: service_healthy}
+      kafka-init: {condition: service_completed_successfully}
       keycloak: {condition: service_started}
   web-db:
     image: postgres:17.9@sha256:2a0d0fe14825b0939f78a8cad5cd4e6aa68bf94d0e5dd96e24b6d23af4315545

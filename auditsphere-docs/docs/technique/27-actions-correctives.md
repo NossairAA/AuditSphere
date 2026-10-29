@@ -1,6 +1,6 @@
 # Actions correctives : implémentation proposée
 
-**Statut :** découpage accepté par ADR-0022. Lot 1 implémenté, vérifié localement puis par la CI distante, publié dans `main` le 2026-10-24. Lot 2 vérifié localement, CI distante non exécutée. Lots 3 à 8 proposés, non implémentés.
+**Statut :** découpage accepté par ADR-0022. Lot 1 implémenté, vérifié localement puis par la CI distante, publié dans `main` le 2026-10-24. Lot 2 vérifié par la CI distante et publié dans `main` le 2026-10-26. Lot 3 implémenté et vérifié localement le 2026-10-29, CI distante non exécutée, non déployé dans k3s. Lots 4 à 8 proposés, non implémentés.
 **Tranche :** F-006, US-006 et US-007. Règles métier dans le [plan métier](../produit/04-plan-metier.md). Découpage du service dans [ADR-0022](../decisions/ADR-0022-actions-correctives-service-dedie.md), accepté le 2026-10-24.
 
 Ce document décrit le découpage technique. Chaque lot est marqué implémenté puis vérifié avec ses preuves de test. Les noms des lots 2 à 8 restent des propositions.
@@ -47,7 +47,7 @@ Entre l’approbation et la synchronisation, les suivis ne sont pas encore visib
 
 ## Données, base remediation, migration V1
 
-`mission_scopes` : mission_id, title, owner_subject, validator_subject, issue_cycle, state parmi ACTIVE, SUSPENDED et WITHDRAWN, synced_at. `mission_scope_auditors` : mission_id, subject.
+`mission_scopes` : mission_id, title, owner_subject, validator_subject, issue_cycle, state parmi ACTIVE, SUSPENDED et WITHDRAWN, synced_at. `mission_scope_auditors` : mission_id, subject. La migration V2 rend `validator_subject` facultatif : une mission approuvée ou clôturée par dérogation n'a pas toujours de validateur désigné.
 
 `finding_follow_ups` :
 
@@ -165,13 +165,43 @@ remediation-service écrit `audit.action.assigned.v1` dans son outbox à la cré
 - Parcours réel par la gateway avec les comptes de démonstration : création, programme, résultat Non conforme, constat validé, soumission et approbation. Le message arrive dans `audit.mission.findings-issued.v1` avec la clé `missionId`, le cycle 1 et uniquement des identifiants. La ligne d’outbox est marquée publiée après une tentative.
 - Non couvert par un test automatisé : la réouverture concurrente d’une lecture d’instantané en cours. Non vérifié : appel réel de la lecture interne depuis le réseau Docker, prévu au lot 3 avec le consommateur. CI distante non exécutée.
 
+## Lot 3 : consommateur et réconciliation
+
+- `FindingsIssueConsumer` écoute les deux topics dans le groupe `remediation-service-v1`, avec un acquittement par message après validation de la transaction. Un message de plus de 32 Kio, un JSON illisible ou un événement hors contrat part dans le topic `.DLT` de même partition.
+- Les deux topics ne garantissent aucun ordre entre eux. Chaque message prend donc un verrou consultatif PostgreSQL par mission, `pg_advisory_xact_lock`, gardé jusqu'à la validation. La lecture d'instantané se fait sous ce verrou : si un retrait a été appliqué avant, audit-service a déjà rouvert la mission et répond 409.
+- Ordre des contrôles : eventId déjà présent dans `processed_events`, puis cycle connu de la mission. Une émission d'un cycle inférieur, ou du même cycle quand la mission n'est plus active, est ignorée sans lecture. Un retrait d'un cycle inférieur, ou d'une mission inconnue, est ignoré. L'eventId est enregistré dans tous ces cas.
+- `IssueSnapshotClient` obtient un jeton client credentials du client `remediation-service` auprès de Keycloak, `KEYCLOAK_URL`, et le garde jusqu'à 15 secondes avant son expiration. Un 401 d'audit-service efface le jeton. Une réponse 404 ou 409 acquitte le message sans changement.
+- Une erreur réseau, un 5xx, un 401 ou un 403 lève `SnapshotUnavailable` : la transaction est annulée et le message réessayé avec un délai doublé de 1 seconde à 1 minute, sans limite de tentatives.
+- L'instantané est validé avant écriture : mission et cycle identiques à l'événement, textes non vides dans les longueurs de la base, gravité connue, identifiants et références uniques. Un instantané invalide lève `IllegalArgumentException` et part dans le `.DLT`.
+- Émission : le périmètre est créé ou remplacé, état ACTIVE, et la liste des auditeurs réécrite. Un nouveau constat crée un suivi À planifier. Un suivi Suspendu reprend son statut d'avant suspension. Un suivi Retiré qui revient reprend Plan d'action s'il garde une action non annulée, sinon À planifier. Les textes sont recopiés quand la version du constat change. Un suivi absent de l'instantané passe Retiré.
+- Retrait REOPENED : le périmètre passe SUSPENDED et chaque suivi actif passe Suspendu en gardant son statut. Retrait DELETED : le périmètre et tous les suivis passent WITHDRAWN. Une mission déjà retirée le reste.
+- Chaque changement de suivi incrémente sa version et écrit une ligne `remediation_change_log` : ISSUED, SUSPENDED ou WITHDRAWN, acteur `audit-service`, motif REOPENED ou DELETED pour un retrait, statut, version du constat et cycle dans `previous_data` et `resulting_data`. Une émission sans changement n'écrit rien.
+- Compose transmet `KAFKA_BOOTSTRAP_SERVERS`, `KEYCLOAK_URL` et `REMEDIATION_SYNC_CLIENT_SECRET` à remediation-service, qui attend `kafka-init`.
+
+## Vérifications du lot 3
+
+- `IssueSyncIntegrationTest`, six tests avec PostgreSQL Testcontainers, audit-service et Keycloak simulés par un serveur HTTP local :
+  - émission créant le périmètre, les auditeurs et deux suivis À planifier, avec le jeton Bearer et le formulaire client credentials attendus. Redélivrance du même eventId sans lecture ni écriture, second événement du même cycle sans nouvelle version ni journal.
+  - réouverture suspendant les suivis avec leur statut, émission tardive du cycle 1 ignorée sans lecture, cycle 2 restaurant Plan d'action avec les textes révisés, constat absent passé Retiré, nouveau constat créé, retrait ancien ignoré. Cycle 3 : un suivi retiré qui revient avec une action ouverte reprend Plan d'action.
+  - audit-service en 503 puis en 401 : exception, aucune écriture, nouveau jeton demandé après le 401, puis synchronisation réussie.
+  - retrait reçu avant toute émission, 409 et 404 acquittés sans périmètre.
+  - mission sans validateur acceptée grâce à V2, puis retrait DELETED avec motif journalisé.
+  - événements et instantanés invalides rejetés sans écriture : charge nulle, JSON illisible, cycle 0, motif inconnu, gravité inconnue, mission différente.
+- `KafkaErrorHandlerTest` : un `IllegalArgumentException` part dans le `.DLT` de même partition, un `SnapshotUnavailable` reste en reprise sans envoi.
+- Test de mutation : sans le contrôle du même cycle déjà retiré, le test de réouverture échoue. Code restauré ensuite.
+- `./mvnw -B -pl services/remediation-service -am verify` avec JDK 25 : 12 tests remediation-service réussis. Les autres modules n'ont pas été relancés, ils ne changent pas. Tests Python des scripts réussis, 25 dont deux ignorés par conception, après ajout du secret de synchronisation au test de configuration production.
+- Pile locale relancée par `scripts/start-local.sh` : V2 appliquée, `validator_subject` facultatif. Le consommateur a lu les 21 événements restés dans les topics depuis le lot 2, par le réseau Docker avec un vrai jeton Keycloak. Résultat comparé à la base audit : 14 missions approuvées ou clôturées avec un cycle émis, mêmes cycles et même nombre de constats validés, 25 suivis et 25 lignes ISSUED.
+- Panne réelle : audit-service arrêté, événement injecté dans `audit.mission.findings-issued.v1`. Message non acquitté, trois tentatives journalisées en WARN avec `SnapshotUnavailable`, puis traité au redémarrage sans doublon, toujours 25 suivis et 25 lignes de journal.
+- Non vérifié : CI distante, déploiement k3s, `scripts/test-remediation.py --faults` non écrit, panne vérifiée à la main.
+- Non déployé dans k3s : il manque l'utilisateur Kafka `remediation-service` et ses ACL dans `k3s-kafka-security.sh`, le secret SASL, les variables Kafka, `KEYCLOAK_URL` et `REMEDIATION_SYNC_CLIENT_SECRET` dans `infra/helm/values/remediation-service.yaml`, et les sorties réseau vers Kafka et Keycloak.
+
 ## Lots et vérifications prévues
 
 | Lot | Contenu | Vérification attendue |
 | --- | --- | --- |
 | 1, vérifié et publié | Squelette remediation-service, migration V1, droits SQL, route gateway, Compose, rôle AUDITEE et lecture `GET /remediation/me/actions` | Migration sur base vide avec Testcontainers, contraintes, test des droits, santé du service, jeton invalide refusé, parcours réel par la gateway |
-| 2, vérifié localement | audit-service : V18, outbox d’émission et de retrait, lecture interne, client `remediation-service` et rôle `REMEDIATION_SYNC` | Test Java : un événement par approbation et dérogation APPROVE, aucun après annulation de transaction, retrait sur REOPEN et DELETE, lecture interne refusée sans rôle de service, 409 sur cycle périmé |
-| 3 | Consommateur, lecture d’instantané et réconciliation | Test d’intégration : redélivrance sans doublon, cycle ancien ignoré, audit-service indisponible sans acquittement, suspension puis réactivation, constat absent passé Retiré |
+| 2, vérifié et publié | audit-service : V18, outbox d’émission et de retrait, lecture interne, client `remediation-service` et rôle `REMEDIATION_SYNC` | Test Java : un événement par approbation et dérogation APPROVE, aucun après annulation de transaction, retrait sur REOPEN et DELETE, lecture interne refusée sans rôle de service, 409 sur cycle périmé |
+| 3, vérifié localement | Consommateur, lecture d’instantané et réconciliation | Test d’intégration : redélivrance sans doublon, cycle ancien ignoré, audit-service indisponible sans acquittement, suspension puis réactivation, constat absent passé Retiré |
 | 4 | API des suivis et actions, annuaire et client `remediation-directory`, journal | Test Java : matrice des permissions, séparation des fonctions y compris par dérogation, versions, retard avec horloge fixée, journal sans UPDATE ni DELETE |
 | 5 | Justificatifs dans Garage | Test : type, taille, nombre, quota concurrent, nettoyage de l’objet après refus, retrait interdit après réalisation |
 | 6 | Notification d’affectation | Test notification-service : consommation idempotente, destinataire seul, reprise après panne du broker |
@@ -185,4 +215,6 @@ remediation-service écrit `audit.action.assigned.v1` dans son outbox à la cré
 - La protection de `/internal/**` repose sur le jeton de service et le réseau interne. mTLS entre services reste prévu par ADR-0020, non déployé.
 - Les relances et escalades de retard ne sont pas incluses. Le retard reste un affichage jusqu’à US-009 et Temporal.
 - Un suivi Clôturé ne peut pas être rouvert dans cette tranche.
-- Une dérogation APPROVE peut viser une mission sans validateur désigné. L’instantané porte alors `validatorSubject` nul, alors que `mission_scopes.validator_subject` est obligatoire dans la base remediation. Le lot 3 doit rendre ce champ facultatif et réserver alors la clôture au superadministrateur.
+- Une dérogation APPROVE peut viser une mission sans validateur désigné. L’instantané porte alors `validatorSubject` nul. La migration V2 du lot 3 rend `mission_scopes.validator_subject` facultatif. Le lot 4 doit alors réserver la clôture au superadministrateur.
+- Le consommateur garde une transaction et une connexion SQL ouvertes pendant la lecture d’instantané, au plus 15 secondes. Avec un pool de 5 connexions et un seul fil d’écoute, une lecture lente occupe une connexion sans bloquer l’API.
+- Un instantané invalide part dans le topic `.DLT` sans être réessayé. Sa reprise demande une correction puis une nouvelle émission par réouverture et approbation.
