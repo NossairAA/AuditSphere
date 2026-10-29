@@ -6,7 +6,7 @@ ARG SERVICE
 RUN mvn -B -pl services/${SERVICE} -am package -DskipTests
 RUN cp services/${SERVICE}/target/${SERVICE}-*.jar /app.jar
 # Ubuntu 24.04 variant: the 26.04 image ships /usr/bin/pebble, built with a vulnerable Go standard library.
-FROM eclipse-temurin:21-jre-noble@sha256:35501d3f93173b420ac9001658eb68157e813316b865087e345c187fca422c4c
+FROM eclipse-temurin:21-jre-noble@sha256:cd35bb33859641c5374415826a5951845104093eaa401cbe9d3d9023444f1c13
 WORKDIR /app
 COPY --from=build /app.jar app.jar
 # Sized for container memory limits. Kubernetes values can override this variable.

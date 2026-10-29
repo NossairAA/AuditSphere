@@ -1,5 +1,12 @@
 # Journal des changements
 
+## 2026-10-29 : image de base Java mise à jour pour CVE-2026-111497
+
+- L'analyse Trivy bloquait les quatre images Java de la pull request #38 : CVE-2026-111497, haute, dans `libbrotli1` 1.1.0-2build2 de `eclipse-temurin:21-jre-noble`.
+- Empreinte de l'image finale du `Dockerfile` mise à jour vers la version du 2026-10-26, avec `libbrotli1` 1.1.0-2ubuntu0.1. Même tag, même JDK 21.
+- Vérifié localement : image de remediation-service construite puis analysée par Trivy 0.75.0, code de sortie 0. Les trois autres images ne relevaient que cette CVE, à confirmer par la CI. Détails dans l'[hébergement k3s](docs/technique/28-hebergement-k3s.md).
+- Premier échec de la même CI : erreur 502 de Maven Central pendant la construction, transitoire, job relancé avec succès.
+
 ## 2026-10-29 : jeu v2 peuplé dans k3s
 
 - Réinitialisation manuelle `demo-reset-manual-2` lancée depuis le CronJob, réussie en 9 minutes 19 secondes.
