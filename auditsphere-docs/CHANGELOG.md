@@ -1,5 +1,19 @@
 # Journal des changements
 
+## 2026-10-29 : image de base Java mise à jour pour CVE-2026-111497
+
+- L'analyse Trivy bloquait les quatre images Java de la pull request #38 : CVE-2026-111497, haute, dans `libbrotli1` 1.1.0-2build2 de `eclipse-temurin:21-jre-noble`.
+- Empreinte de l'image finale du `Dockerfile` mise à jour vers la version du 2026-10-26, avec `libbrotli1` 1.1.0-2ubuntu0.1. Même tag, même JDK 21.
+- Vérifié localement : image de remediation-service construite puis analysée par Trivy 0.75.0, code de sortie 0. Les trois autres images ne relevaient que cette CVE, à confirmer par la CI. Détails dans l'[hébergement k3s](docs/technique/28-hebergement-k3s.md).
+- Premier échec de la même CI : erreur 502 de Maven Central pendant la construction, transitoire, job relancé avec succès.
+
+## 2026-10-29 : jeu v2 peuplé dans k3s
+
+- Réinitialisation manuelle `demo-reset-manual-2` lancée depuis le CronJob, réussie en 9 minutes 19 secondes.
+- Vérifié dans la base `audit` : 40 missions, 122 risques, 176 contrôles, 63 constats, 137 justificatifs, statuts conformes au jeu v2.
+- audit-service sans redémarrage, 565 Mio sur 768 après le Job. Nœud à 95 % de sa mémoire allouable.
+- Non vérifié : affichage par le nom public. Détails dans le [jeu de démonstration](docs/technique/17-donnees-demonstration.md).
+
 ## 2026-10-29 : synchronisation des constats émis dans remediation-service (F-006 lot 3)
 
 - `FindingsIssueConsumer` consomme `audit.mission.findings-issued.v1` et `audit.mission.findings-withdrawn.v1`, lit l'instantané interne d'audit-service avec le client `remediation-service` et tient à jour périmètres et suivis : création, suspension, restauration et retrait.
