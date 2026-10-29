@@ -1,0 +1,3 @@
+# Demo data and generated glyph atlas: excluded from GitHub language statistics
+scripts/demo_dataset.py linguist-generated=true
+scripts/demo_font.py linguist-generated=true

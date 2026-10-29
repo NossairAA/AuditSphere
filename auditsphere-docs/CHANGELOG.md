@@ -1,5 +1,11 @@
 # Journal des changements
 
+## 2026-10-29 : statistiques de langages GitHub corrigées
+
+- `.gitattributes` marque `scripts/demo_dataset.py` et `scripts/demo_font.py` en `linguist-generated`. Ces deux fichiers de données représentaient environ 1,1 Mo de Python et faisaient afficher 61 % de Python par GitHub.
+- Fichiers toujours suivis par Git, déploiement de `demo-reset` inchangé.
+- Vérifié localement : `git check-attr` applique l’attribut aux deux fichiers. Barre de langages GitHub non vérifiée, elle se met à jour après la fusion dans `main`. Détails dans le [jeu de démonstration](docs/technique/17-donnees-demonstration.md).
+
 ## 2026-10-29 : signature et jeu v2 déployés
 
 - Image du BFF de `f01f9d0` épinglée par tag et empreinte, puis déployée par `k3s-deploy-services.sh`. Elle porte la signature de l'auteur dans le bandeau de démonstration.
