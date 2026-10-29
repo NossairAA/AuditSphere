@@ -1,5 +1,11 @@
 # Journal des changements
 
+## 2026-10-29 : Garage privé du socket de tailscaled
+
+- Alerte `ProbeFailed` sur Garage à 21:59 UTC : Caddy refusait la poignée de main TLS. Une mise à jour automatique de Tailscale avait recréé le socket de `tailscaled`, et le montage du fichier pointait vers l'ancien.
+- Rétabli par un redémarrage du conteneur `tls`. Vérifié : sonde blackbox en succès, statut 403, certificat valide.
+- Correctif durable : `deploy/garage/compose.yaml` monte le dossier `/run/tailscale`, et le drop-in `deploy/garage/tailscaled-runtime.conf` le garde entre deux arrêts. Appliqué le même jour : drop-in installé par l'utilisateur avec sudo, proxy recréé. Vérifié : `RuntimeDirectoryPreserve=yes`, montage du dossier, sonde en succès, aucune alerte active. Non vérifié : retour après un vrai redémarrage de `tailscaled`. Détails dans l'[hébergement k3s](docs/technique/28-hebergement-k3s.md) et [ADR-0028](docs/decisions/ADR-0028-garage-https-caddy-tailscale.md).
+
 ## 2026-10-29 : image de base Java mise à jour pour CVE-2026-111497
 
 - L'analyse Trivy bloquait les quatre images Java de la pull request #38 : CVE-2026-111497, haute, dans `libbrotli1` 1.1.0-2build2 de `eclipse-temurin:21-jre-noble`.

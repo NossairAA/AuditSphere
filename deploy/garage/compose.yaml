@@ -11,6 +11,8 @@ services:
       - ./data:/var/lib/garage/data
   # HTTPS devant Garage (phase 8, lot E). Certificat Let's Encrypt du nom du tailnet, obtenu et renouvelé
   # par Tailscale via son socket. Ce socket donne la main sur Tailscale : seule cette image y accède.
+  # Le dossier est monté, pas le fichier : tailscaled recrée le socket à chaque redémarrage (incident du 2026-10-29).
+  # Ce dossier doit survivre à l'arrêt de tailscaled, voir tailscaled-runtime.conf.
   tls:
     image: caddy:2.11.6@sha256:3422ce6de165df66534f9b9ba50efaf457114ec961763cc52f5dbdaac2972d73
     restart: unless-stopped
@@ -21,4 +23,4 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./caddy-data:/data
-      - /var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock
+      - /run/tailscale:/var/run/tailscale
