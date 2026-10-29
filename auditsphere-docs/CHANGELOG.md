@@ -14,6 +14,13 @@
 - audit-service sans redémarrage, 565 Mio sur 768 après le Job. Nœud à 95 % de sa mémoire allouable.
 - Non vérifié : affichage par le nom public. Détails dans le [jeu de démonstration](docs/technique/17-donnees-demonstration.md).
 
+## 2026-10-29 : synchronisation des constats émis dans remediation-service (F-006 lot 3)
+
+- `FindingsIssueConsumer` consomme `audit.mission.findings-issued.v1` et `audit.mission.findings-withdrawn.v1`, lit l'instantané interne d'audit-service avec le client `remediation-service` et tient à jour périmètres et suivis : création, suspension, restauration et retrait.
+- Verrou consultatif PostgreSQL par mission, eventId enregistré, cycles anciens ignorés. Reprise sans limite avec délai doublé jusqu'à 1 minute, tentatives journalisées. Événements et instantanés invalides envoyés dans le `.DLT`.
+- Migration V2 : `mission_scopes.validator_subject` facultatif pour les missions approuvées par dérogation. Compose transmet Kafka, Keycloak et le secret de synchronisation.
+- Vérifié localement : 12 tests remediation-service, tests Python, pile relancée avec réconciliation identique à audit-service sur 14 missions, panne d'audit-service reprise sans doublon. CI distante non exécutée, non déployé dans k3s. Détails dans le [guide des actions correctives](docs/technique/27-actions-correctives.md).
+
 ## 2026-10-29 : statistiques de langages GitHub corrigées
 
 - `.gitattributes` marque `scripts/demo_dataset.py` et `scripts/demo_font.py` en `linguist-generated`. Ces deux fichiers de données représentaient environ 1,1 Mo de Python et faisaient afficher 61 % de Python par GitHub.
