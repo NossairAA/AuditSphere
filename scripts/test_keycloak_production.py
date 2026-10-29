@@ -41,6 +41,7 @@ class ProductionRealmTest(unittest.TestCase):
             "REMEDIATION_DB_PASSWORD": "test",
             "DIRECTORY_CLIENT_SECRET": "test",
             "REMEDIATION_SYNC_CLIENT_SECRET": "test",
+            "REMEDIATION_DIRECTORY_CLIENT_SECRET": "test",
         })
         result = subprocess.run(
             ["docker", "compose", "--env-file", "/dev/null", "-f", "compose.yaml",

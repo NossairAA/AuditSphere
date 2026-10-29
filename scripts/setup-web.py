@@ -13,7 +13,7 @@ identity_origin=env.get('PROD_OIDC_ORIGIN','') if production else 'http://localh
 if production and (not app_origin.startswith('https://') or not identity_origin.startswith('https://')):
  raise SystemExit('PROD_APP_ORIGIN et PROD_OIDC_ORIGIN HTTPS sont obligatoires.')
 
-missing={k:secrets.token_urlsafe(32) for k in ['WEB_DB_PASSWORD','WEB_CLIENT_SECRET','DIRECTORY_CLIENT_SECRET','USER_ADMIN_CLIENT_SECRET','REMEDIATION_SYNC_CLIENT_SECRET'] if k not in env}
+missing={k:secrets.token_urlsafe(32) for k in ['WEB_DB_PASSWORD','WEB_CLIENT_SECRET','DIRECTORY_CLIENT_SECRET','USER_ADMIN_CLIENT_SECRET','REMEDIATION_SYNC_CLIENT_SECRET','REMEDIATION_DIRECTORY_CLIENT_SECRET'] if k not in env}
 if 'SESSION_ENCRYPTION_KEY' not in env:
  missing['SESSION_ENCRYPTION_KEY']=base64.b64encode(secrets.token_bytes(32)).decode()
 if missing:
@@ -156,6 +156,17 @@ client_id=call(base+'/clients?clientId=remediation-service',token=token)[0]['id'
 account=call(base+'/clients/'+client_id+'/service-account-user',token=token)
 call(base+'/users/'+account['id']+'/role-mappings/realm',[sync_role],'POST',token)
 print('Client de service remediation-service configuré avec le seul rôle REMEDIATION_SYNC.')
+
+# Read-only directory of remediation-service, distinct from its sync account (lot 4).
+remediation_directory={'clientId':'remediation-directory','protocol':'openid-connect','publicClient':False,'secret':env['REMEDIATION_DIRECTORY_CLIENT_SECRET'],'standardFlowEnabled':False,'directAccessGrantsEnabled':False,'serviceAccountsEnabled':True}
+existing=call(base+'/clients?clientId=remediation-directory',token=token)
+if existing:call(base+'/clients/'+existing[0]['id'],remediation_directory,'PUT',token)
+else:call(base+'/clients',remediation_directory,'POST',token)
+client_id=call(base+'/clients?clientId=remediation-directory',token=token)[0]['id']
+account=call(base+'/clients/'+client_id+'/service-account-user',token=token)
+roles=[call(base+'/clients/'+management+'/roles/'+name,token=token) for name in ['view-users','view-realm']]
+call(base+'/users/'+account['id']+'/role-mappings/clients/'+management,roles,'POST',token)
+print('Annuaire remediation-directory configuré avec view-users et view-realm, sans droit de modification.')
 
 for realm in ['auditsphere','master']:
  settings={'bruteForceProtected':True,'permanentLockout':False,'failureFactor':5,'waitIncrementSeconds':30,'minimumQuickLoginWaitSeconds':30,'maxFailureWaitSeconds':900,'maxDeltaTimeSeconds':43200,'eventsEnabled':True,'eventsExpiration':604800,'adminEventsEnabled':True,'adminEventsDetailsEnabled':False}
