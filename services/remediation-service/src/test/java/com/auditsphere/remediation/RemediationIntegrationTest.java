@@ -22,7 +22,8 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.*;
 
-@SpringBootTest(properties = "spring.flyway.enabled=true")
+@SpringBootTest(
+    properties = {"spring.flyway.enabled=true", "spring.kafka.listener.auto-startup=false"})
 @AutoConfigureMockMvc
 @Testcontainers
 class RemediationIntegrationTest {
