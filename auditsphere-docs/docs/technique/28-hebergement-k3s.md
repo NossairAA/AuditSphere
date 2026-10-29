@@ -988,6 +988,42 @@ Points de la proposition d'ADR-0020 hors critères de sortie, relevés par la re
 
 Conclusion : C7 n'est pas clos. Il reste la phase 6. Mise à jour du 2026-10-27 après le lot E2b : quatre critères remplis sur cinq.
 
+#### Correctif : socket de tailscaled après une mise à jour
+
+Statut : rétablissement vérifié le 2026-10-29. Correctif durable appliqué et vérifié le même jour, sauf le retour après un vrai redémarrage de `tailscaled`.
+
+Incident du 2026-10-29 :
+
+- Alerte `ProbeFailed` critique sur l'instance `garage` à 21:59 UTC, reçue par ntfy.
+- La sonde blackbox échouait sur `remote error: tls: internal error`. Caddy ne servait plus aucun certificat.
+- Journaux de Caddy : `dial unix /var/run/tailscale/tailscaled.sock: connect: connection refused` à chaque poignée de main.
+- Cause : mise à jour automatique de Tailscale, de 1.104.1 à 1.104.4, à 21:55 UTC, relevée dans le journal de dpkg. La mise à jour automatique est active dans les préférences de Tailscale. `tailscaled` a redémarré et recréé son socket. Le service `tls` montait le fichier lui-même, donc l'ancien socket.
+- Rétablissement : `docker restart` du conteneur `tls`. Sonde relancée depuis blackbox : `probe_success` à 1, statut 403 attendu, certificat valide. Garage n'a pas été redémarré.
+
+Pourquoi monter le dossier ne suffit pas seul : l'unité `tailscaled` déclare `RuntimeDirectory=tailscale`. Sans autre réglage, systemd supprime `/run/tailscale` à chaque arrêt et en crée un nouveau au démarrage. Un montage du dossier pointerait alors aussi vers l'ancien.
+
+Correctif durable :
+
+- [deploy/garage/compose.yaml](../../../deploy/garage/compose.yaml) : le service `tls` monte le dossier `/run/tailscale` au lieu du fichier du socket. Le nouveau socket y apparaît sans recréer le conteneur.
+- [deploy/garage/tailscaled-runtime.conf](../../../deploy/garage/tailscaled-runtime.conf) : drop-in systemd `RuntimeDirectoryPreserve=yes`, qui garde le dossier entre deux arrêts de `tailscaled`.
+- Exposition inchangée : le dossier ne contient que `tailscaled.sock`, relevé par SSH le 2026-10-29.
+- La mise à jour automatique de Tailscale reste active. Elle porte les correctifs de sécurité.
+
+Application sur l'hôte, à faire par l'utilisateur, dans cet ordre :
+
+1. Copier le drop-in vers `/etc/systemd/system/tailscaled.service.d/runtime-directory.conf` avec sudo, puis `sudo systemctl daemon-reload`. Aucun redémarrage de `tailscaled` n'est nécessaire.
+2. Copier le nouveau `compose.yaml` dans le dossier de Garage de l'hôte, puis `docker compose up -d tls` pour recréer le proxy.
+3. Vérifier que `systemctl show tailscaled -p RuntimeDirectoryPreserve` affiche `yes` et que la sonde de Garage passe.
+
+Application, le 2026-10-29 :
+
+- Drop-in installé par l'utilisateur avec sudo par SSH, puis `daemon-reload`. `systemctl show` affiche `RuntimeDirectoryPreserve=yes`.
+- `compose.yaml` copié dans le dossier de Garage de l'hôte, ancienne version gardée en `compose.yaml.before-socket-dir`. Proxy recréé par `docker compose up -d tls`, Garage non redémarré.
+- Montage constaté par `docker inspect` : `/run/tailscale` vers `/var/run/tailscale`. Le socket est visible dans le conteneur.
+- Sonde relancée depuis blackbox : `probe_success` à 1, statut 403. Aucune alerte active dans Alertmanager.
+
+Non vérifié : retour seul du proxy après un vrai redémarrage de `tailscaled`. Il demande sudo et coupe brièvement le tailnet. Il sera constaté à la prochaine mise à jour automatique, ou testé par l'utilisateur.
+
 ### Phase 9 : extension
 
 - Second nœud agent k3s joint par Tailscale, puis HPA si une mesure le justifie.
@@ -1218,6 +1254,7 @@ Seule la phase 7 pourrait être reportée, puisque l'instance publique ne porte 
 
 ## Vérifications effectuées
 
+- Incident du socket de `tailscaled`, le 2026-10-29 sur le serveur : cause relevée dans les journaux de Caddy et de dpkg, proxy redémarré, sonde de Garage de nouveau en succès. Correctif durable appliqué, montage du dossier et drop-in constatés, sonde en succès. Non vérifié : vrai redémarrage de `tailscaled`. Détails dans le correctif de la phase 8.
 - Correctif de la mémoire de Kafka, le 2026-10-27 sur le serveur : table du nettoyeur ramenée de 128 à 16 Mio, mémoire de travail passée de 400 à 240 Mio, test avec pannes réussi. Détails dans le correctif.
 - Phase 6 lot 6C, le 2026-10-27 sur le serveur : session d'observation ouverte et fermée, requête tracée de la gateway à audit-service et par Kafka, journaux reliés aux traces. Sortie de la phase 6 atteinte. Détails dans le lot 6C.
 - Phase 6 lot 6B, le 2026-10-27 sur le serveur : métriques des quatre services Spring sur un port réservé à la supervision, isolation vérifiée, alertes d'abus, de DLT et d'arrêt par manque de mémoire reçues, tests des notifications et de Temporal réussis. Détails dans le lot 6B.
