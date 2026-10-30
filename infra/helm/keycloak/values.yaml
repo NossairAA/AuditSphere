@@ -34,9 +34,10 @@ allowFrom:
 # Royaume importé au premier démarrage seulement, passé par --set-file realm=...
 realm: ""
 
+# 542 Mio sur 640 relevés le 2026-10-30 : limite portée à 768 Mio, tas à 55 % soit environ 422 Mio.
 resources:
   requests:
     cpu: 100m
     memory: 512Mi
   limits:
-    memory: 640Mi
+    memory: 768Mi

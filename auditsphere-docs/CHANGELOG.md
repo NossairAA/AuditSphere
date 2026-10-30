@@ -7,6 +7,12 @@
 - Adresse de ping dans `.local/healthchecks.env` et le secret `alertmanager-heartbeat`, jamais dans Git. `k3s-monitoring.sh apply` s'arrête sans elle.
 - Vérifié sur le serveur : configuration validée par `amtool` et `promtool`, pings toutes les 5 minutes sans échec, battement suspendu par un silence, message DOWN publié 15 minutes après le dernier ping, UP au retour, les deux reçus sur le téléphone. Non vérifié : vrai arrêt du nœud. Détails dans l'[hébergement k3s](docs/technique/28-hebergement-k3s.md).
 
+## 2026-10-30 : limites mémoire de Keycloak et de notification-service
+
+- La tuile de mémoire de Grafana affiche la mémoire disponible : 20 %, soit 1,3 Gio libres sur 6,7. L'hôte utilise environ 80 % de sa mémoire, relevé par `free -m`. Le 18 % de l'accueil SSH est un cache du 2026-10-28.
+- Hausse générale écartée, les limites du nœud dépassant déjà la mémoire allouable. Keycloak passe de 640 à 768 Mio, notification-service de 320 à 384 Mio.
+- Déployé sur le serveur par `helm upgrade --reuse-values`. Pods prêts sans redémarrage, `smoke.py` réussi. Non vérifié : comportement sous charge. Détails dans l'[hébergement k3s](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-30 : titre seul dans la liste des missions
 
 - La ligne de chaque mission n'affiche plus le périmètre sous le titre. Le périmètre reste visible sur la fiche de mission.
