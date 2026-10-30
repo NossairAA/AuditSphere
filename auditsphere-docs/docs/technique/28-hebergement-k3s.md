@@ -58,6 +58,17 @@ Avec l'hôte, le total atteint environ 5,4 Gio sur 6,7 Gio. Les outils de platef
 
 La pile complète en permanence demanderait environ 8,7 Gio. Elle ne tient pas sur cette machine sans second nœud.
 
+Révision du 2026-10-30, à la demande de l'utilisateur, qui lisait 20 % comme la mémoire utilisée :
+
+- Relevé par `free -m` sur l'hôte : 5 500 Mio utilisés sur 6 867, 1 367 Mio disponibles, 290 Mio d'échange. La tuile de mémoire du tableau de bord Grafana calcule `min(node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)` : ses 20 % sont la mémoire libre. Le « Memory usage » affiché à la connexion vient de `/var/lib/landscape/landscape-sysinfo.cache`, figé au 2026-10-28 à 22:38 UTC.
+- Hausse générale écartée : les JVM dimensionnent leur tas en pourcentage de leur limite, l'usage réel suivrait donc. Les limites du nœud atteignaient déjà 143 % de la mémoire allouable.
+- Hausse ciblée sur les conteneurs proches de leur limite : Keycloak de 640 à 768 Mio pour 542 Mio relevés, notification-service de 320 à 384 Mio pour 274 Mio relevés. Grafana était déjà porté à 640 Mio par la branche `feat/grafana-vue-ensemble`, audit-service à 768 Mio depuis le 2026-10-28.
+- Déployé par `helm upgrade --reuse-values`. Le rendu à blanc ne changeait que la limite, plus le Job de migration de notification-service. Pods prêts sans redémarrage, `smoke.py` réussi par `k3s-check.sh`.
+- Mesure juste après : Keycloak 545 Mio, notification-service 231 Mio, 1 419 Mio disponibles sur l'hôte. Demandes du nœud à 78 % de la mémoire allouable, limites à 149 %.
+- Non vérifié : comportement sous charge et pic de mémoire au prochain redémarrage de l'hôte.
+
+Limites en vigueur à cette date, différentes du tableau : Keycloak 768 Mio, audit-service 768 Mio, notification-service 384 Mio.
+
 ## Feuille de route
 
 Chaque phase passe à vérifié uniquement avec ses critères de sortie prouvés.
