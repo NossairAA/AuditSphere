@@ -1,5 +1,10 @@
 # Journal des changements
 
+## 2026-10-30 : titre seul dans la liste des missions
+
+- La ligne de chaque mission n'affiche plus le périmètre sous le titre. Le périmètre reste visible sur la fiche de mission.
+- Vérifié : TypeScript sans erreur. Rendu dans le navigateur non vérifié. Détails dans le [frontend et BFF](docs/technique/05-frontend-bff.md).
+
 ## 2026-10-30 : réinitialisation de la démonstration après un redémarrage de k3s
 
 - La réinitialisation rattrapée au retour de k3s a échoué : Keycloak refusait encore les connexions. Alerte `JobFailed` sur `demo-reset-29888880`.
