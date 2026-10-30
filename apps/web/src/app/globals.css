@@ -484,12 +484,6 @@ td {
   display: block;
   color: #294034;
 }
-.mission-link small {
-  font-size: 10px;
-  color: #8c978d;
-  display: block;
-  margin-top: 5px;
-}
 .mission-link:hover strong {
   color: var(--green);
   text-decoration: underline;

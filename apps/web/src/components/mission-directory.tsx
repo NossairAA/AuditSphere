@@ -209,7 +209,6 @@ export default function MissionDirectory() {
                       >
                         <span>
                           <strong>{m.title}</strong>
-                          <small>{m.perimeter}</small>
                         </span>
                       </Link>
                     </td>

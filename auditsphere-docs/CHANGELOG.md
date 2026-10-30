@@ -7,6 +7,11 @@
 - Adresse de ping dans `.local/healthchecks.env` et le secret `alertmanager-heartbeat`, jamais dans Git. `k3s-monitoring.sh apply` s'arrête sans elle.
 - Vérifié sur le serveur : configuration validée par `amtool` et `promtool`, pings toutes les 5 minutes sans échec, battement suspendu par un silence, message DOWN publié 15 minutes après le dernier ping, UP au retour, les deux reçus sur le téléphone. Non vérifié : vrai arrêt du nœud. Détails dans l'[hébergement k3s](docs/technique/28-hebergement-k3s.md).
 
+## 2026-10-30 : titre seul dans la liste des missions
+
+- La ligne de chaque mission n'affiche plus le périmètre sous le titre. Le périmètre reste visible sur la fiche de mission.
+- Vérifié : TypeScript sans erreur. Rendu dans le navigateur non vérifié. Détails dans le [frontend et BFF](docs/technique/05-frontend-bff.md).
+
 ## 2026-10-30 : tableau de vue d'ensemble dans Grafana
 
 - Tableau `AuditSphere : vue d'ensemble` versionné dans `deploy/k3s/observability/dashboards/vue-ensemble.json` et chargé par `k3s-observability.sh up`. Bandeau d'état, trafic utilisateur, services, traitements asynchrones et ressources.
