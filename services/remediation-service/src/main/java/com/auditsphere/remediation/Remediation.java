@@ -99,10 +99,14 @@ class Remediation {
 
   /** Scope of a mission, locked FOR SHARE for a write. Null when the mission was never issued. */
   Scope scope(UUID mission, boolean lock) {
+    return scope(mission, lock ? " FOR SHARE" : "");
+  }
+
+  private Scope scope(UUID mission, String lock) {
     var rows =
         jdbc.queryForList(
             "SELECT title, owner_subject, validator_subject, issue_cycle, state, synced_at FROM mission_scopes WHERE mission_id=?"
-                + (lock ? " FOR SHARE" : ""),
+                + lock,
             mission);
     if (rows.isEmpty()) return null;
     var row = rows.getFirst();
@@ -138,8 +142,16 @@ class Remediation {
 
   /** Locks an action for a write. Visible to the audit team and to the auditee it is assigned to. */
   Context action(UUID action, Actor actor) {
+    return action(action, actor, false);
+  }
+
+  /**
+   * Exclusive also locks the mission scope FOR UPDATE, which serializes the attachment quota of a
+   * mission. Taken first, never upgraded, so concurrent uploads cannot deadlock.
+   */
+  Context action(UUID action, Actor actor, boolean exclusive) {
     UUID mission = missionOf("SELECT mission_id FROM corrective_actions WHERE id=?", action);
-    var scope = scope(mission, true);
+    var scope = scope(mission, exclusive ? " FOR UPDATE" : " FOR SHARE");
     if (scope == null || "WITHDRAWN".equals(scope.state())) throw notFound();
     UUID followUpId =
         jdbc.queryForObject("SELECT follow_up_id FROM corrective_actions WHERE id=?", UUID.class, action);
@@ -148,6 +160,17 @@ class Remediation {
     var context = new Context(scope, followUp, row);
     if (!actor.reads(scope.team()) && !assignee(actor, context.assignee())) throw notFound();
     return context;
+  }
+
+  /** Read access to an action: the audit team, or the auditee it is assigned to. 404 otherwise. */
+  void readableAction(UUID action, Actor actor) {
+    var rows = jdbc.queryForList("SELECT mission_id, owner_subject FROM corrective_actions WHERE id=?", action);
+    if (rows.isEmpty()) throw notFound();
+    var scope = scope((UUID) rows.getFirst().get("mission_id"), false);
+    if (scope == null
+        || "WITHDRAWN".equals(scope.state())
+        || !(actor.reads(scope.team()) || assignee(actor, (String) rows.getFirst().get("owner_subject"))))
+      throw notFound();
   }
 
   static boolean assignee(Actor actor, String owner) {

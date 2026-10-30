@@ -1,5 +1,11 @@
 # Journal des changements
 
+## 2026-10-30 : justificatifs des actions correctives (F-006 lot 5)
+
+- L’audité dépose, télécharge et retire les justificatifs de ses actions avant leur réalisation. L’équipe d’audit les télécharge. PDF, JPEG ou PNG vérifiés par leur contenu, 10 Mio par fichier, 10 par action, 100 Mio par mission, empreinte SHA-256 contrôlée à chaque téléchargement.
+- Bucket Garage `auditsphere-remediation` et clé dédiés, avec leur propre endpoint. Le quota d’une mission est sérialisé par un verrou exclusif, et un objet refusé est supprimé. La gateway applique au dépôt la limite de 11 Mio des preuves.
+- Vérifié localement : 23 tests remediation-service dont un test de quota concurrent déterministe, 16 tests gateway, tests Python, parcours réel par la gateway dans le Garage local, smoke réussi. CI distante non exécutée, bucket non créé sur le serveur privé ni dans k3s. Détails dans le [guide des actions correctives](docs/technique/27-actions-correctives.md).
+
 ## 2026-10-30 : codes d'erreur de notification-service vérifiés derrière la chaîne de sécurité
 
 - Contrôle du défaut trouvé dans remediation-service : avec `denyAll()` final, le passage sur `/error` est refusé et un 400 devient un 403 dans un vrai Tomcat.

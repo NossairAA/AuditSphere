@@ -137,6 +137,12 @@ services:
       KEYCLOAK_URL: http://keycloak:8080
       REMEDIATION_SYNC_CLIENT_SECRET: ${REMEDIATION_SYNC_CLIENT_SECRET:?Run setup-web.py --configure-only}
       REMEDIATION_DIRECTORY_CLIENT_SECRET: ${REMEDIATION_DIRECTORY_CLIENT_SECRET:?Run setup-web.py --configure-only}
+      REMEDIATION_S3_ENDPOINT: ${REMEDIATION_S3_ENDPOINT:-http://garage:3900}
+      REMEDIATION_S3_REGION: garage
+      REMEDIATION_S3_BUCKET: ${REMEDIATION_S3_BUCKET:-auditsphere-remediation}
+      REMEDIATION_S3_ACCESS_KEY: ${REMEDIATION_S3_ACCESS_KEY:-not-provisioned}
+      REMEDIATION_S3_SECRET_KEY: ${REMEDIATION_S3_SECRET_KEY:-not-provisioned}
+      REMEDIATION_S3_PATH_STYLE: "true"
       OIDC_ISSUER: http://localhost:8180/realms/auditsphere
       OIDC_JWKS: http://keycloak:8080/realms/auditsphere/protocol/openid-connect/certs
     depends_on:
