@@ -37,10 +37,16 @@ class MyActionsController {
     this.zone = ZoneId.of(zone);
   }
 
+  /** Optional filters: one status, and overdue=true for open actions past their due date. */
   @GetMapping
-  List<MyAction> mine(Authentication auth) {
+  List<MyAction> mine(
+      @RequestParam(required = false) String status,
+      @RequestParam(defaultValue = "false") boolean overdue,
+      Authentication auth) {
+    if (status != null && !status.matches("TODO|IN_PROGRESS|DONE|VERIFIED|CANCELLED"))
+      throw Remediation.invalid();
     LocalDate today = LocalDate.now(clock.withZone(zone));
-    return jdbc.query(
+    var actions = jdbc.query(
         """
         SELECT a.id, a.follow_up_id, a.mission_id, f.reference AS finding_reference,
                a.reference, a.description, a.status, a.due_date, a.version
@@ -48,11 +54,12 @@ class MyActionsController {
           JOIN finding_follow_ups f ON f.id = a.follow_up_id
           JOIN mission_scopes m ON m.mission_id = a.mission_id
          WHERE a.owner_subject = ? AND m.state <> 'WITHDRAWN' AND f.status <> 'WITHDRAWN'
+           AND (CAST(? AS varchar) IS NULL OR a.status = ?)
          ORDER BY a.due_date, f.reference, a.reference
          LIMIT 500
         """,
         (rs, i) -> {
-          String status = rs.getString("status");
+          String current = rs.getString("status");
           LocalDate due = rs.getObject("due_date", LocalDate.class);
           return new MyAction(
               rs.getObject("id", UUID.class),
@@ -61,12 +68,15 @@ class MyActionsController {
               rs.getInt("finding_reference"),
               rs.getInt("reference"),
               rs.getString("description"),
-              status,
+              current,
               due,
-              isOverdue(status, due, today),
+              isOverdue(current, due, today),
               rs.getLong("version"));
         },
-        auth.getName());
+        auth.getName(),
+        status,
+        status);
+    return overdue ? actions.stream().filter(MyAction::overdue).toList() : actions;
   }
 
   /** Overdue is derived on read: only open work past its date counts, never a stored status. */

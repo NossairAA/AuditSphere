@@ -23,11 +23,14 @@ class FindingsIssueConsumer {
   private final JdbcTemplate jdbc;
   private final ObjectMapper mapper;
   private final IssueSnapshotClient snapshots;
+  private final ChangeLog changes;
 
-  FindingsIssueConsumer(JdbcTemplate jdbc, ObjectMapper mapper, IssueSnapshotClient snapshots) {
+  FindingsIssueConsumer(
+      JdbcTemplate jdbc, ObjectMapper mapper, IssueSnapshotClient snapshots, ChangeLog changes) {
     this.jdbc = jdbc;
     this.mapper = mapper;
     this.snapshots = snapshots;
+    this.changes = changes;
   }
 
   // RECORD acknowledgment happens after this database transaction has committed.
@@ -215,9 +218,8 @@ class FindingsIssueConsumer {
         followUp);
   }
 
-  private String data(String status, long findingVersion, int issueCycle) {
-    return mapper.writeValueAsString(
-        Map.of("status", status, "findingVersion", findingVersion, "issueCycle", issueCycle));
+  private static Map<String, Object> data(String status, long findingVersion, int issueCycle) {
+    return Map.of("status", status, "findingVersion", findingVersion, "issueCycle", issueCycle);
   }
 
   private void log(
@@ -226,23 +228,9 @@ class FindingsIssueConsumer {
       String action,
       long version,
       String reason,
-      String previous,
-      String resulting) {
-    jdbc.update(
-        """
-        INSERT INTO remediation_change_log(id, mission_id, follow_up_id, actor_subject, action, entity_version,
-          reason, previous_data, resulting_data)
-        VALUES (?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), CAST(? AS jsonb))
-        """,
-        UUID.randomUUID(),
-        mission,
-        followUp,
-        SYNC_ACTOR,
-        action,
-        version,
-        reason,
-        previous,
-        resulting);
+      Map<String, Object> previous,
+      Map<String, Object> resulting) {
+    changes.write(mission, followUp, null, SYNC_ACTOR, action, version, reason, false, previous, resulting);
   }
 
   /** A malformed snapshot is a contract error: quarantined, never retried in a loop. */

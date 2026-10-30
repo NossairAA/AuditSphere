@@ -38,7 +38,11 @@ class SecurityConfig {
         .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(
             a ->
-                a.requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/prometheus")
+                // A ResponseStatusException is rendered by an ERROR dispatch to /error. Denying it
+                // would turn every 400, 404 or 409 into a 403.
+                a.dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ERROR)
+                    .permitAll()
+                    .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/prometheus")
                     .permitAll()
                     .requestMatchers(HttpMethod.GET, "/remediation/me/actions")
                     .hasRole("AUDITEE")
