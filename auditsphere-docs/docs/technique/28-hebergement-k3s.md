@@ -638,6 +638,17 @@ Incidents :
 
 - Premiers journaux absents de Loki : Loki n'interroge son ingesteur que sur les trois dernières heures par défaut, et les journaux repris par Alloy datent souvent de plus loin. `query_ingesters_within` mis à zéro.
 - Grafana à 298 Mio pour une limite de 320 dès les premières minutes. Limite portée à 448 Mio.
+- Le 2026-10-30, Grafana est arrêté pour dépassement mémoire à 448 Mio à l'ouverture de l'éditeur de tableaux de bord, ce qui coupe le `port-forward`. Il occupe 401 Mio dès son redémarrage. Limite portée à 640 Mio et appliquée par `helm upgrade` le même jour. Le nœud gardait alors 1,6 Gio disponibles. Le remplacement du pod efface les tableaux de bord enregistrés : les exporter en JSON avant toute mise à jour ou fermeture.
+
+Tableau de vue d'ensemble, ajouté le 2026-10-30 :
+
+- [vue-ensemble.json](../../../deploy/k3s/observability/dashboards/vue-ensemble.json), dossier `AuditSphere` de Grafana, uid `auditsphere-vue-ensemble`. `k3s-observability.sh up` le passe au chart par `--set-file` et un fournisseur de fichiers le charge. Il revient donc à chaque session. Une modification faite dans Grafana se perd à la fermeture : l'exporter en JSON et remplacer le fichier du dépôt.
+- Bandeau d'état en tête : alertes actives hors Watchdog, cibles en panne, sondes en échec, mémoire libre du nœud, disque libre, redémarrages sur 24 heures, erreurs 5xx servies par Traefik sur une heure, délai avant l'expiration du premier certificat. Seuils repris des alertes Prometheus.
+- Quatre sections : trafic utilisateur vu par Traefik et connexions Keycloak, services avec débit, temps moyen, erreurs 5xx, refus de la gateway et pool PostgreSQL, traitements asynchrones avec retard Kafka et outbox, ressources avec mémoire rapportée à la limite, processeur, tas Java et ramasse-miettes.
+- Variable `service` sur le label `app_kubernetes_io_name`. Les sondes et la collecte des métriques sont exclues des débits. Fenêtres de 5 minutes, car Prometheus collecte toutes les 60 secondes.
+- Limites : les métriques HTTP des services n'ont pas d'histogramme, d'où un temps moyen au lieu d'un percentile. Le percentile 95 vient de Traefik. Aucun envoi vers une DLT n'est encore mesuré par `kafka_producer_topic_record_send_total`, le tableau ne l'affiche pas.
+
+Vérifications du 2026-10-30 : les 26 requêtes du tableau sont acceptées par Prometheus, les vides correspondent à des événements absents, connexions échouées et refus de la gateway. Tableau importé par l'API de Grafana dans la session en cours, puis affiché avec ses données. Le rendu du chart par `helm template` contient la ConfigMap, le fournisseur et le montage. Le chargement par `up` n'est pas encore exécuté : il sera constaté à la prochaine session.
 - Ouverture trop lente : les services redémarraient l'un après l'autre, 19 minutes au total. Ils redémarrent désormais en parallèle. Fermeture mesurée ensuite : 51 secondes. Ouverture en parallèle non encore mesurée.
 - Un smoke lancé juste après la fermeture est resté bloqué plus de dix minutes, sans cause établie. Relancé seul, il a réussi en 42 secondes.
 
