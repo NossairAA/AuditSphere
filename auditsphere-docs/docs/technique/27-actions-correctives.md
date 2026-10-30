@@ -1,6 +1,6 @@
 # Actions correctives : implémentation proposée
 
-**Statut :** découpage accepté par ADR-0022. Lot 1 implémenté, vérifié localement puis par la CI distante, publié dans `main` le 2026-10-24. Lot 2 vérifié par la CI distante et publié dans `main` le 2026-10-26. Lot 3 implémenté et vérifié localement le 2026-10-29, CI distante non exécutée, non déployé dans k3s. Lots 4 à 8 proposés, non implémentés.
+**Statut :** découpage accepté par ADR-0022. Lot 1 implémenté, vérifié localement puis par la CI distante, publié dans `main` le 2026-10-24. Lot 2 vérifié par la CI distante et publié dans `main` le 2026-10-26. Lot 3 vérifié par la CI distante et publié dans `main` le 2026-10-29, non déployé dans k3s. Lot 4 implémenté et vérifié localement le 2026-10-30, CI distante non exécutée. Lots 5 à 8 proposés, non implémentés.
 **Tranche :** F-006, US-006 et US-007. Règles métier dans le [plan métier](../produit/04-plan-metier.md). Découpage du service dans [ADR-0022](../decisions/ADR-0022-actions-correctives-service-dedie.md), accepté le 2026-10-24.
 
 Ce document décrit le découpage technique. Chaque lot est marqué implémenté puis vérifié avec ses preuves de test. Les noms des lots 2 à 8 restent des propositions.
@@ -75,6 +75,7 @@ Entre l’approbation et la synchronisation, les suivis ne sont pas encore visib
 | --- | --- |
 | GET /remediation/missions/{missionId}/follow-ups | Suivis de la mission avec leurs actions, pour l’équipe d’audit |
 | GET /remediation/follow-ups/{id}/history | Historique du suivi et de ses actions |
+| GET /remediation/actions/{id} | Fiche d’action : action, copie du constat, avancement et historique de l’action, ajoutée au lot 4 pour l’audité |
 | PUT /remediation/follow-ups/{id}/transition | REQUEST_CLOSURE, CLOSE ou RETURN, avec version et commentaire |
 | POST /remediation/follow-ups/{id}/actions | Création d’une action par le responsable de mission |
 | PUT /remediation/actions/{id} | Description, responsable et échéance, motif obligatoire pour un report |
@@ -195,14 +196,47 @@ remediation-service écrit `audit.action.assigned.v1` dans son outbox à la cré
 - Non vérifié : CI distante, déploiement k3s, `scripts/test-remediation.py --faults` non écrit, panne vérifiée à la main.
 - Non déployé dans k3s : il manque l'utilisateur Kafka `remediation-service` et ses ACL dans `k3s-kafka-security.sh`, le secret SASL, les variables Kafka, `KEYCLOAK_URL` et `REMEDIATION_SYNC_CLIENT_SECRET` dans `infra/helm/values/remediation-service.yaml`, et les sorties réseau vers Kafka et Keycloak.
 
+## Lot 4 : API des suivis et des actions
+
+- `FollowUpController` : liste des suivis d’une mission avec leurs actions, historique, transitions REQUEST_CLOSURE, CLOSE et RETURN, création d’action. `ActionController` : fiche, modification, transitions COMPLETE, VERIFY, RETURN, CANCEL et REOPEN, avancement. `DirectoryController` : recherche des audités.
+- Lecture réservée au propriétaire AUDIT_MANAGER, aux auditeurs AUDITOR affectés, au validateur AUDIT_VALIDATOR désigné et à SUPER_ADMIN. L’audité AUDITEE ne voit que ses actions, par `GET /remediation/actions/{id}` et `GET /remediation/me/actions`. Tout autre utilisateur reçoit 404. Une mission supprimée, état WITHDRAWN, devient introuvable. Une mission suspendue reste lisible.
+- Le superadministrateur agit sur les mêmes routes, comme pour les constats d’audit-service : la ligne du journal porte `override` à vrai quand il n’est pas le titulaire ordinaire du droit. Il ne déclare jamais une action réalisée et ne renseigne pas l’avancement, réservés au responsable de l’action.
+- Séparation des fonctions, vérifiée même par dérogation : le responsable d’une action ne la vérifie pas, la personne qui demande la clôture ne clôture pas. Les contraintes CHECK de la base bloquent aussi ces deux cas. Sans validateur désigné, seul un superadministrateur clôture.
+- Ordre des contrôles : 404 hors périmètre, 403 rôle, 400 champ invalide, puis 409 si la mission n’est pas active, si le suivi est Suspendu, Retiré ou Clôturé, si le statut ne permet pas la transition ou si la version est périmée. Les actions sont figées tant que le suivi est en Vérification.
+- Création : description de 1 à 2000 caractères, échéance entre la date du jour et cinq ans, 20 actions au plus par suivi, références attribuées par `action_sequences` sans réutilisation. Le responsable n’est ni propriétaire, ni auditeur, ni validateur de la mission, et `AuditeeDirectory` vérifie dans Keycloak un compte actif portant AUDITEE. Le premier suivi passe en Plan d’action.
+- Modification : description, responsable et échéance tant que l’action est À faire ou En cours. Un report exige un motif et incrémente `due_date_changes`. Une réaffectation retire l’accès au précédent responsable. Chaque aspect modifié écrit sa ligne UPDATED, REASSIGNED ou DUE_DATE_CHANGED.
+- Avancement : note de 2000 caractères par le responsable de l’action, en ajout seul. La première note passe l’action En cours. Réalisation : commentaire obligatoire et au moins un justificatif, sinon 409. Les justificatifs arrivent au lot 5.
+- Annulation de la dernière action non annulée : le suivi revient À planifier. Réouverture d’une action Vérifiée avec motif : elle revient En cours, vérificateur effacé.
+- Demande de clôture : au moins une action Vérifiée et aucune action ouverte. Le renvoi par le validateur exige un commentaire et rouvre le plan d’action.
+- Création et réaffectation écrivent `audit.action.assigned.v1` dans `remediation_outbox`, avec les seuls identifiants. La publication reste au lot 6.
+- Verrous pris dans l’ordre du consommateur de synchronisation : `mission_scopes` en partage, puis le suivi, puis l’action. Les écritures et la synchronisation d’une même mission ne peuvent donc pas s’interbloquer.
+- Annuaire : client Keycloak `remediation-directory`, distinct du compte de synchronisation, avec `view-users` et `view-realm` seulement. Secret `REMEDIATION_DIRECTORY_CLIENT_SECRET` créé par `setup-web.py` et transmis par Compose. La recherche filtre au plus 500 membres du rôle AUDITEE et renvoie 20 comptes actifs. Les noms affichés sont gardés 60 secondes en cache. Si Keycloak est indisponible, la lecture répond sans les noms et l’affectation répond 503.
+- `GET /remediation/me/actions` accepte les filtres `status` et `overdue=true`.
+
+## Vérifications du lot 4
+
+- `RemediationApiIntegrationTest`, six tests avec PostgreSQL Testcontainers, horloge fixée au 2026-10-30 et annuaire simulé :
+  - parcours nominal : création, avancement, réalisation refusée sans justificatif puis acceptée, renvoi sans commentaire refusé, renvoi, nouvelle réalisation, vérification refusée à l’audité et sur version périmée, vérification, demande de clôture refusée à l’auditeur, action figée en Vérification, renvoi du suivi, clôture refusée sur version périmée, clôture, historique complet dans l’ordre.
+  - périmètre : 404 pour un utilisateur extérieur portant tous les rôles d’audit, sur la liste, l’historique, la fiche, la création et les transitions. L’audité ne voit pas la mission, voit sa fiche avec la copie du constat, pas celle d’un autre audité. Le même sujet sans rôle AUDITEE reçoit 404. 403 pour l’auditeur et le validateur qui créent ou annulent, pour l’audité qui modifie et pour l’auditeur qui renseigne l’avancement.
+  - affectation : propriétaire, validateur et auditeur refusés comme responsables, compte sans AUDITEE refusé, échéance passée ou au-delà de cinq ans refusée, description vide refusée, 21e action refusée en 409, références 1 à 20.
+  - report sans motif refusé puis compté, réaffectation qui retire l’accès au précédent responsable et ajoute une ligne d’outbox, annulation de la dernière action qui ramène le suivi À planifier, référence suivante non réutilisée, réouverture d’une action Vérifiée.
+  - dérogations : création journalisée avec `override`, réalisation refusée au superadministrateur, vérification refusée au responsable de l’action même superadministrateur, clôture refusée à celui qui l’a demandée, clôture sans validateur désigné réservée au superadministrateur.
+  - mission suspendue lisible sans écriture possible, mission retirée introuvable.
+- `ErrorDispatchTest` avec un vrai Tomcat sur port aléatoire : 404, 400 et 200 conservés derrière la chaîne de sécurité, chemin hors API refusé en 403. Ce test échouait avant le correctif de `SecurityConfig` : MockMvc ne passe pas par `/error`, le défaut n’apparaissait que dans le service réel.
+- Tests de mutation : sans le refus de la vérification par le responsable de l’action, puis sans le refus de la clôture par le demandeur, `RemediationApiIntegrationTest` échoue. Code restauré ensuite.
+- `./mvnw -B -pl services/remediation-service -am verify` avec JDK 25 : 19 tests remediation-service réussis. Tests Python des scripts : 25 réussis dont deux ignorés par conception.
+- Pile locale relancée par `scripts/start-local.sh` : client `remediation-directory` créé avec `view-users` et `view-realm`. Parcours réel par la gateway avec les jetons des comptes de démonstration, sur une mission synthétique insérée dans la base remediation puis retirée : lecture 200 pour le propriétaire, l’auditeur et le validateur, 404 pour l’audité et l’utilisateur extérieur, recherche réelle dans Keycloak, auditeur et compte sans AUDITEE refusés en 400, action créée pour `auditee`, avancement, Mes actions, fiche avec la copie du constat, nom réel du responsable, réalisation sans justificatif en 409, journal CREATED puis PROGRESS et une ligne d’outbox. `scripts/smoke.py` réussi.
+- Non vérifié : CI distante, interface, notification réelle à l’audité, lots 5 et 6.
+- Non déployé dans k3s : en plus du câblage du lot 3, le client `remediation-directory` et son secret manquent dans `k3s-setup-keycloak.py` et dans les valeurs Helm.
+
 ## Lots et vérifications prévues
 
 | Lot | Contenu | Vérification attendue |
 | --- | --- | --- |
 | 1, vérifié et publié | Squelette remediation-service, migration V1, droits SQL, route gateway, Compose, rôle AUDITEE et lecture `GET /remediation/me/actions` | Migration sur base vide avec Testcontainers, contraintes, test des droits, santé du service, jeton invalide refusé, parcours réel par la gateway |
 | 2, vérifié et publié | audit-service : V18, outbox d’émission et de retrait, lecture interne, client `remediation-service` et rôle `REMEDIATION_SYNC` | Test Java : un événement par approbation et dérogation APPROVE, aucun après annulation de transaction, retrait sur REOPEN et DELETE, lecture interne refusée sans rôle de service, 409 sur cycle périmé |
-| 3, vérifié localement | Consommateur, lecture d’instantané et réconciliation | Test d’intégration : redélivrance sans doublon, cycle ancien ignoré, audit-service indisponible sans acquittement, suspension puis réactivation, constat absent passé Retiré |
-| 4 | API des suivis et actions, annuaire et client `remediation-directory`, journal | Test Java : matrice des permissions, séparation des fonctions y compris par dérogation, versions, retard avec horloge fixée, journal sans UPDATE ni DELETE |
+| 3, vérifié et publié | Consommateur, lecture d’instantané et réconciliation | Test d’intégration : redélivrance sans doublon, cycle ancien ignoré, audit-service indisponible sans acquittement, suspension puis réactivation, constat absent passé Retiré |
+| 4, vérifié localement | API des suivis et actions, annuaire et client `remediation-directory`, journal | Test Java : matrice des permissions, séparation des fonctions y compris par dérogation, versions, retard avec horloge fixée, journal sans UPDATE ni DELETE |
 | 5 | Justificatifs dans Garage | Test : type, taille, nombre, quota concurrent, nettoyage de l’objet après refus, retrait interdit après réalisation |
 | 6 | Notification d’affectation | Test notification-service : consommation idempotente, destinataire seul, reprise après panne du broker |
 | 7 | BFF, contrat et interface | Tests unitaires Node, TypeScript, build, Playwright `remediation.spec.ts` : approbation, action, avancement et justificatif par l’audité, renvoi, vérification, demande de clôture, clôture, audité extérieur et utilisateur extérieur refusés |

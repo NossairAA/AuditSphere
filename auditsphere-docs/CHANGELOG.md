@@ -1,5 +1,13 @@
 # Journal des changements
 
+## 2026-10-30 : API des suivis et des actions correctives (F-006 lot 4)
+
+- remediation-service expose les suivis d’une mission, leur historique, la fiche d’action, la création, la modification, l’avancement et les transitions des actions, la demande de clôture, la clôture et le renvoi des suivis.
+- Droits vérifiés à chaque requête : équipe de la mission figée à l’approbation, audité limité à ses actions, 404 hors périmètre. Séparation des fonctions maintenue même par dérogation. Chaque changement est journalisé avec version, motif et indicateur de dérogation.
+- Annuaire Keycloak dédié `remediation-directory`, en lecture seule, pour rechercher et valider les audités. Affectation écrite dans l’outbox, publication au lot 6.
+- Correctif : la chaîne de sécurité laissait refuser le dispatch d’erreur. Les 400, 404 et 409 du service réel devenaient des 403.
+- Vérifié localement : 19 tests remediation-service, tests Python, parcours réel par la gateway avec Keycloak, smoke réussi. CI distante non exécutée, non déployé dans k3s. Détails dans le [guide des actions correctives](docs/technique/27-actions-correctives.md).
+
 ## 2026-10-29 : Garage privé du socket de tailscaled
 
 - Alerte `ProbeFailed` sur Garage à 21:59 UTC : Caddy refusait la poignée de main TLS. Une mise à jour automatique de Tailscale avait recréé le socket de `tailscaled`, et le montage du fichier pointait vers l'ancien.
