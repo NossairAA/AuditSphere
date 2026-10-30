@@ -1248,6 +1248,16 @@ Première exécution planifiée, le 2026-10-28 à 04:00 UTC : échec.
 - Réexécution manuelle par `kubectl create job --from=cronjob/demo-reset` après le déploiement : réussie en 5 minutes 2 secondes, 40 missions recréées. audit-service sans redémarrage, pic de mémoire de travail à 543 Mio sur 768 pendant le peuplement. Nœud à 1,57 Gio disponibles ensuite.
 - Le Job échoué reste listé, avec l'alerte, jusqu'à sa suppression ou à sa sortie de l'historique de trois échecs du CronJob.
 
+Exécution du 2026-10-30, rattrapée à 13:57 UTC : échec.
+
+- Alerte `JobFailed` sur `demo-reset-29888880`. Le conteneur `accounts` s'arrête avec le code 1 en quelques secondes : `ConnectionRefusedError: [Errno 111] Connection refused` à la demande du jeton du compte `demo-reset`. Aucun compte modifié, `temporal` et `database` non lancés.
+- Cause : k3s ne tournait pas à 04:00 UTC, l'heure prévue. Cause de cet arrêt non recherchée, l'hôte avait redémarré à 00:19 UTC. À son retour, à 13:57:43 UTC, tous les pods sont recréés en même temps et le CronJob rattrape aussitôt l'exécution manquée, car `startingDeadlineSeconds` n'est pas défini. Keycloak démarrait encore : sonde de démarrage refusée, puis sonde de disponibilité en 503.
+- Les étapes `temporal` et `database` attendaient déjà leur dépendance, 90 et 60 secondes. L'étape `accounts` n'attendait pas Keycloak.
+- Correctif : `demo-reset.py accounts` interroge `/realms/auditsphere` avant de demander le jeton, toutes les 5 secondes pendant 5 minutes au plus. Il continue sur un refus de connexion, un délai dépassé ou une réponse 5xx, et échoue tout de suite sur une réponse 4xx.
+- Vérifié localement avec un faux serveur : succès après deux réponses 503, échec avec `Keycloak injoignable après 5 minutes.` sur un port fermé, échec immédiat sur une réponse 404.
+- Job échoué supprimé, puis réexécution manuelle `demo-reset-manual-3` avec l'ancien script : réussie en 9 minutes 28 secondes, 40 missions réconciliées. Les trois redémarrages d'audit-service datent tous du redémarrage de l'hôte, aucun pendant le Job.
+- Correctif déployé le même jour : chart `demo-reset` en révision 4 par `helm upgrade --reuse-values --set-file scripts.reset=scripts/demo-reset.py`. ConfigMap vérifié : nouveau script présent, les autres fichiers conservés. Non vérifié : comportement réel au prochain redémarrage de k3s.
+
 Non vérifié :
 
 - Mémoire réelle des trois conteneurs du Job.
@@ -1255,6 +1265,7 @@ Non vérifié :
 
 Limites :
 
+- Sans `startingDeadlineSeconds`, une exécution manquée pendant un arrêt de k3s est rattrapée au redémarrage, à n'importe quelle heure. Elle efface alors en journée les données des visiteurs en cours.
 - La réinitialisation n'arrête pas les services. Un événement Kafka en vol pendant la suppression peut laisser une notification orpheline jusqu'à la nuit suivante.
 - `demo-reset` porte `manage-users` sur tout le royaume, `superadmin` compris. Le code ne touche que les comptes de `demo_accounts.py`.
 - La clé `web-demo-entry` ouvre les quatre comptes liés, et aucun autre.

@@ -7,6 +7,12 @@
 - Adresse de ping dans `.local/healthchecks.env` et le secret `alertmanager-heartbeat`, jamais dans Git. `k3s-monitoring.sh apply` s'arrête sans elle.
 - Vérifié sur le serveur : configuration validée par `amtool` et `promtool`, pings toutes les 5 minutes sans échec, battement suspendu par un silence, message DOWN publié 15 minutes après le dernier ping, UP au retour. Non vérifié : réception sur le téléphone, vrai arrêt du nœud. Détails dans l'[hébergement k3s](docs/technique/28-hebergement-k3s.md).
 
+## 2026-10-30 : réinitialisation de la démonstration après un redémarrage de k3s
+
+- La réinitialisation rattrapée au retour de k3s a échoué : Keycloak refusait encore les connexions. Alerte `JobFailed` sur `demo-reset-29888880`.
+- `demo-reset.py accounts` attend désormais Keycloak, 5 minutes au plus, comme les étapes Temporal et base de données attendaient déjà leur service.
+- Vérifié localement avec un faux serveur. Job échoué supprimé, réinitialisation relancée à la main et réussie en 9 minutes 28 secondes. Correctif déployé, chart `demo-reset` en révision 4. Non vérifié : prochain redémarrage de k3s. Détails dans l'[hébergement k3s](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-30 : notification de l’action confiée (F-006 lot 6)
 
 - remediation-service publie `audit.action.assigned.v1` depuis son outbox à la création et à la réaffectation d’une action, avec les seuls identifiants. Schéma dans `contracts/action-assigned-v1.schema.json`, topic et DLT créés par `kafka-init`.
