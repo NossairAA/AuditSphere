@@ -62,7 +62,7 @@ Révision du 2026-10-30, à la demande de l'utilisateur, qui lisait 20 % comme l
 
 - Relevé par `free -m` sur l'hôte : 5 500 Mio utilisés sur 6 867, 1 367 Mio disponibles, 290 Mio d'échange. La tuile de mémoire du tableau de bord Grafana calcule `min(node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)` : ses 20 % sont la mémoire libre. Le « Memory usage » affiché à la connexion vient de `/var/lib/landscape/landscape-sysinfo.cache`, figé au 2026-10-28 à 22:38 UTC.
 - Hausse générale écartée : les JVM dimensionnent leur tas en pourcentage de leur limite, l'usage réel suivrait donc. Les limites du nœud atteignaient déjà 143 % de la mémoire allouable.
-- Hausse ciblée sur les conteneurs proches de leur limite : Keycloak de 640 à 768 Mio pour 542 Mio relevés, notification-service de 320 à 384 Mio pour 274 Mio relevés. Grafana était déjà porté à 640 Mio par la branche `feat/grafana-vue-ensemble`, audit-service à 768 Mio depuis le 2026-10-28.
+- Hausse ciblée sur les conteneurs proches de leur limite : Keycloak de 640 à 768 Mio pour 542 Mio relevés, notification-service de 320 à 384 Mio pour 274 Mio relevés. Grafana était déjà porté à 640 Mio le même jour, audit-service à 768 Mio depuis le 2026-10-28.
 - Déployé par `helm upgrade --reuse-values`. Le rendu à blanc ne changeait que la limite, plus le Job de migration de notification-service. Pods prêts sans redémarrage, `smoke.py` réussi par `k3s-check.sh`.
 - Mesure juste après : Keycloak 545 Mio, notification-service 231 Mio, 1 419 Mio disponibles sur l'hôte. Demandes du nœud à 78 % de la mémoire allouable, limites à 149 %.
 - Non vérifié : comportement sous charge et pic de mémoire au prochain redémarrage de l'hôte.
@@ -649,6 +649,17 @@ Incidents :
 
 - Premiers journaux absents de Loki : Loki n'interroge son ingesteur que sur les trois dernières heures par défaut, et les journaux repris par Alloy datent souvent de plus loin. `query_ingesters_within` mis à zéro.
 - Grafana à 298 Mio pour une limite de 320 dès les premières minutes. Limite portée à 448 Mio.
+- Le 2026-10-30, Grafana est arrêté pour dépassement mémoire à 448 Mio à l'ouverture de l'éditeur de tableaux de bord, ce qui coupe le `port-forward`. Il occupe 401 Mio dès son redémarrage. Limite portée à 640 Mio et appliquée par `helm upgrade` le même jour. Le nœud gardait alors 1,6 Gio disponibles. Le remplacement du pod efface les tableaux de bord enregistrés : les exporter en JSON avant toute mise à jour ou fermeture.
+
+Tableau de vue d'ensemble, ajouté le 2026-10-30 :
+
+- [vue-ensemble.json](../../../deploy/k3s/observability/dashboards/vue-ensemble.json), dossier `AuditSphere` de Grafana, uid `auditsphere-vue-ensemble`. `k3s-observability.sh up` le passe au chart par `--set-file` et un fournisseur de fichiers le charge. Il revient donc à chaque session. Une modification faite dans Grafana se perd à la fermeture : l'exporter en JSON et remplacer le fichier du dépôt.
+- Bandeau d'état en tête : alertes actives hors Watchdog, cibles en panne, sondes en échec, mémoire libre du nœud, disque libre, redémarrages sur 24 heures, erreurs 5xx servies par Traefik sur une heure, délai avant l'expiration du premier certificat. Seuils repris des alertes Prometheus.
+- Quatre sections : trafic utilisateur vu par Traefik et connexions Keycloak, services avec débit, temps moyen, erreurs 5xx, refus de la gateway et pool PostgreSQL, traitements asynchrones avec retard Kafka et outbox, ressources avec mémoire rapportée à la limite, processeur, tas Java et ramasse-miettes.
+- Variable `service` sur le label `app_kubernetes_io_name`. Les sondes et la collecte des métriques sont exclues des débits. Fenêtres de 5 minutes, car Prometheus collecte toutes les 60 secondes.
+- Limites : les métriques HTTP des services n'ont pas d'histogramme, d'où un temps moyen au lieu d'un percentile. Le percentile 95 vient de Traefik. Aucun envoi vers une DLT n'est encore mesuré par `kafka_producer_topic_record_send_total`, le tableau ne l'affiche pas.
+
+Vérifications du 2026-10-30 : les 26 requêtes du tableau sont acceptées par Prometheus, les vides correspondent à des événements absents, connexions échouées et refus de la gateway. Tableau importé par l'API de Grafana dans la session en cours, puis affiché avec ses données. Le rendu du chart par `helm template` contient la ConfigMap, le fournisseur et le montage. Le chargement par `up` n'est pas encore exécuté : il sera constaté à la prochaine session.
 - Ouverture trop lente : les services redémarraient l'un après l'autre, 19 minutes au total. Ils redémarrent désormais en parallèle. Fermeture mesurée ensuite : 51 secondes. Ouverture en parallèle non encore mesurée.
 - Un smoke lancé juste après la fermeture est resté bloqué plus de dix minutes, sans cause établie. Relancé seul, il a réussi en 42 secondes.
 
