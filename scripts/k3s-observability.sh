@@ -18,7 +18,7 @@ repos() {
 
 install() {
   helm upgrade --install "$1" "$2" --version "$3" --namespace monitoring \
-    --values "$values/$1.yaml" --wait --timeout 10m >/dev/null
+    --values "$values/$1.yaml" "${@:4}" --wait --timeout 10m >/dev/null
   echo "$1 installé"
 }
 
@@ -48,7 +48,8 @@ case "${1:-}" in
     install tempo grafana-community/tempo 3.1.0
     install loki grafana/loki 7.3.0
     install alloy grafana/alloy 1.13.1
-    install grafana grafana-community/grafana 13.5.1
+    install grafana grafana-community/grafana 13.5.1 \
+      --set-file "dashboards.auditsphere.vue-ensemble.json=$values/dashboards/vue-ensemble.json"
     kubectl apply -f "$values/network-policies.yaml" >/dev/null
     tracing true
     echo "Session ouverte. Grafana : $0 grafana"

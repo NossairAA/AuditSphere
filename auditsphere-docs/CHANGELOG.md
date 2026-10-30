@@ -1,5 +1,15 @@
 # Journal des changements
 
+## 2026-10-30 : tableau de vue d'ensemble dans Grafana
+
+- Tableau `AuditSphere : vue d'ensemble` versionné dans `deploy/k3s/observability/dashboards/vue-ensemble.json` et chargé par `k3s-observability.sh up`. Bandeau d'état, trafic utilisateur, services, traitements asynchrones et ressources.
+- Vérifié : requêtes acceptées par Prometheus, tableau importé et affiché dans la session en cours, rendu du chart conforme. Chargement automatique à l'ouverture d'une session non encore constaté. Détails dans le [guide d'hébergement k3s](docs/technique/28-hebergement-k3s.md).
+
+## 2026-10-30 : limite mémoire de Grafana relevée
+
+- Grafana de la session d'observation arrêté pour dépassement mémoire à 448 Mio à l'ouverture de l'éditeur de tableaux de bord. Limite portée à 640 Mio dans `deploy/k3s/observability/grafana.yaml`.
+- Vérifié sur le serveur : nouveau pod prêt avec la limite de 640 Mio. Comportement de l'éditeur sous la nouvelle limite non encore observé. Détails dans le [guide d'hébergement k3s](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-30 : réinitialisation de la démonstration après un redémarrage de k3s
 
 - La réinitialisation rattrapée au retour de k3s a échoué : Keycloak refusait encore les connexions. Alerte `JobFailed` sur `demo-reset-29888880`.
