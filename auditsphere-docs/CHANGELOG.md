@@ -6,6 +6,11 @@
 - Hausse générale écartée, les limites du nœud dépassant déjà la mémoire allouable. Keycloak passe de 640 à 768 Mio, notification-service de 320 à 384 Mio.
 - Déployé sur le serveur par `helm upgrade --reuse-values`. Pods prêts sans redémarrage, `smoke.py` réussi. Non vérifié : comportement sous charge. Détails dans l'[hébergement k3s](docs/technique/28-hebergement-k3s.md).
 
+## 2026-10-30 : titre seul dans la liste des missions
+
+- La ligne de chaque mission n'affiche plus le périmètre sous le titre. Le périmètre reste visible sur la fiche de mission.
+- Vérifié : TypeScript sans erreur. Rendu dans le navigateur non vérifié. Détails dans le [frontend et BFF](docs/technique/05-frontend-bff.md).
+
 ## 2026-10-30 : tableau de vue d'ensemble dans Grafana
 
 - Tableau `AuditSphere : vue d'ensemble` versionné dans `deploy/k3s/observability/dashboards/vue-ensemble.json` et chargé par `k3s-observability.sh up`. Bandeau d'état, trafic utilisateur, services, traitements asynchrones et ressources.

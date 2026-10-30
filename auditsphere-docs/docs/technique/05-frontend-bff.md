@@ -4,7 +4,7 @@
 
 ## Parcours livré
 
-Interface Next.js dans `apps/web`, React, TypeScript et Tailwind. Pages : accueil, liste des missions, formulaire de création et fiche de mission. Palette vert profond et ivoire, navigation latérale sur ordinateur et mise en page adaptée au mobile. Aucune donnée de tableau de bord fictive.
+Interface Next.js dans `apps/web`, React, TypeScript et Tailwind. Pages : accueil, liste des missions, formulaire de création et fiche de mission. Palette vert profond et ivoire, navigation latérale sur ordinateur et mise en page adaptée au mobile. Aucune donnée de tableau de bord fictive. Dans la liste des missions, chaque ligne n'affiche que le titre de la mission : le périmètre reste consultable sur la fiche de mission.
 
 La liste est paginée côté backend et filtrée en SQL par créateur ou affectation. La recherche textuelle affichée filtre seulement la page courante. Un responsable ne voit pas toutes les missions du fait de son rôle. La création est réservée à AUDIT_MANAGER et la propriété est déduite du sub OIDC. L’interface ne gère pas encore l’affectation d’autres utilisateurs.
 
