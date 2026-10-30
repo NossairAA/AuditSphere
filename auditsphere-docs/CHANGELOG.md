@@ -1,5 +1,10 @@
 # Journal des changements
 
+## 2026-10-30 : titre seul dans la liste des missions
+
+- La ligne de chaque mission n'affiche plus le périmètre sous le titre. Le périmètre reste visible sur la fiche de mission.
+- Vérifié : TypeScript sans erreur. Rendu dans le navigateur non vérifié. Détails dans le [frontend et BFF](docs/technique/05-frontend-bff.md).
+
 ## 2026-10-30 : tableau de vue d'ensemble dans Grafana
 
 - Tableau `AuditSphere : vue d'ensemble` versionné dans `deploy/k3s/observability/dashboards/vue-ensemble.json` et chargé par `k3s-observability.sh up`. Bandeau d'état, trafic utilisateur, services, traitements asynchrones et ressources.
