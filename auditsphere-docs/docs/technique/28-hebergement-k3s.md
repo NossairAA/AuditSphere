@@ -937,6 +937,29 @@ Limites :
 - Une ACL retirée du script n'est pas retirée du cluster. Le script ne fait qu'ajouter.
 - Kafka reste sans réplication : un broker unique, facteur de réplication 1.
 
+#### Déploiement de `20dd6db` et topic des affectations d'actions
+
+Statut : déployé et vérifié le 2026-10-30, sur demande de l'utilisateur de déployer les images de `main`.
+
+- Les cinq images Spring et celle du BFF passent de `3066fbc` et `f01f9d0` à `20dd6db`, tirées par empreinte. Ce lot apporte la liste des missions sans périmètre, le worker qui attend Temporal (HOST-012) et les lots 3 à 6 de F-006 dans remediation-service et notification-service.
+- Sauvegarde préalable par `k3s-backup.sh run`, car remediation-service applique `V2__scope_without_validator.sql` et notification-service `V4__action_notifications.sql`.
+- `k3s-deploy-services.sh` réussi, migrations terminées, pods prêts.
+
+Incident : le consommateur de notification-service s'est arrêté au démarrage avec `TopicAuthorizationException` sur `audit.action.assigned.v1`. Ce topic n'existait pas dans le cluster et le compte n'avait aucune ACL dessus. Spring Kafka arrête le conteneur sur une erreur d'autorisation, le groupe `notification-service-v1` restait donc sans membre et les affectations de missions n'étaient plus notifiées. `cleanup-test-data.py` l'a révélé en abandonnant, sans suppression, faute de vidage du groupe.
+
+Correctif : `k3s-kafka-security.sh` crée `audit.action.assigned.v1` et sa DLT, et donne à notification-service la lecture du topic et l'écriture de sa DLT. Script appliqué, puis notification-service redémarré.
+
+Vérifications du 2026-10-30 :
+
+- Groupe `notification-service-v1` actif, retard nul sur les deux topics de missions, aucune erreur dans les journaux après le redémarrage.
+- `k3s-check.sh smoke.py` et `smoke-bff.py` réussis par le nom public. Mission du smoke retirée par `cleanup-test-data.py`, sauvegarde privée préalable. 41 missions servies au responsable.
+- Aucune alerte active hors `Watchdog`. Mémoire relevée : audit-service 417 Mio, remediation-service 229 Mio, notification-service 237 Mio, aucun redémarrage.
+
+Limites :
+
+- remediation-service n'a ni compte Kafka ni bucket Garage dans le cluster. Son consommateur cherche `localhost:9092` en boucle et journalise un avertissement par seconde environ. La synchronisation des constats, les justificatifs et la publication des affectations d'actions restent inactives dans k3s. Le service démarre et répond, comme le confirme le smoke.
+- HOST-012 : le worker démarre sans redémarrage, mais le démarrage avec Temporal indisponible n'a pas été provoqué dans le cluster.
+
 #### Lot E1 : Garage en HTTPS et rotation des certificats
 
 Statut : implémenté et vérifié le 2026-10-26, sauf mention contraire.
@@ -1320,6 +1343,7 @@ Seule la phase 7 pourrait être reportée, puisque l'instance publique ne porte 
 
 ## Vérifications effectuées
 
+- Déploiement de `20dd6db`, le 2026-10-30 sur le serveur : migrations appliquées après sauvegarde, smoke de l'API et du BFF réussis, consommateur de notification-service rétabli après l'ajout du topic `audit.action.assigned.v1` et de son ACL. Non vérifié : flux F-006 dans k3s, faute de compte Kafka et de bucket pour remediation-service. Détails dans le déploiement de `20dd6db`.
 - Veille externe de la supervision, le 2026-10-30 sur le serveur : `Watchdog` envoyé à healthchecks.io toutes les 5 minutes, battement suspendu par un silence, message DOWN publié sur le sujet ntfy 15 minutes après le dernier ping, puis UP au retour, les deux reçus sur le téléphone. Non vérifié : vrai arrêt du nœud. Détails dans la veille externe de la supervision.
 - Incident du socket de `tailscaled`, le 2026-10-29 sur le serveur : cause relevée dans les journaux de Caddy et de dpkg, proxy redémarré, sonde de Garage de nouveau en succès. Correctif durable appliqué, montage du dossier et drop-in constatés, sonde en succès. Non vérifié : vrai redémarrage de `tailscaled`. Détails dans le correctif de la phase 8.
 - Correctif de la mémoire de Kafka, le 2026-10-27 sur le serveur : table du nettoyeur ramenée de 128 à 16 Mio, mémoire de travail passée de 400 à 240 Mio, test avec pannes réussi. Détails dans le correctif.

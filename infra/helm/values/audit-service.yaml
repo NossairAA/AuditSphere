@@ -1,7 +1,7 @@
 image:
   repository: ghcr.io/nossairaa/auditsphere-audit-service
-  tag: 3066fbc197fd78094729f691fefdb215cc4620a2
-  digest: sha256:7abc305c3a2fcf01942e4cbdc68e6b09c6fb9bb9aa3b9cc3bf825925e8e6bd8d
+  tag: 20dd6dbd23dd9d8b83c86f733a74aa895c4e8af3
+  digest: sha256:6f9c6ca736ac7191e86236aa1209aa5f24fbe752de9386fd7c9beb41738b2d7d
 port: 8081
 # Actuator et métriques Prometheus sur un port réservé à la supervision (phase 6, lot 6B).
 managementPort: 9464

@@ -1,5 +1,11 @@
 # Journal des changements
 
+## 2026-10-30 : déploiement des images de `20dd6db`
+
+- Images Spring et BFF de `20dd6db` épinglées par empreinte et déployées par `k3s-deploy-services.sh`, après une sauvegarde `k3s-backup.sh run` pour les migrations de remediation-service et de notification-service.
+- Incident : consommateur de notification-service arrêté par `TopicAuthorizationException` sur `audit.action.assigned.v1`, absent du cluster. Les affectations de missions n'étaient plus notifiées. `k3s-kafka-security.sh` crée le topic et sa DLT et ajoute les ACL de notification-service. Groupe rétabli, retard nul.
+- Vérifié sur le serveur : `smoke.py` et `smoke-bff.py` réussis, mission du smoke retirée, aucune alerte hors `Watchdog`, aucun redémarrage. Non vérifié : flux F-006 dans k3s, remediation-service n'ayant ni compte Kafka ni bucket (HOST-013). Détails dans l'[hébergement k3s](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-30 : veille externe de la supervision
 
 - Coupure de courant du 2026-10-30 : serveur éteint environ 14 heures sans alerte, car Prometheus et Alertmanager tournent dans le cluster.

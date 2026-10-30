@@ -1,7 +1,7 @@
 image:
   repository: ghcr.io/nossairaa/auditsphere-remediation-service
-  tag: 3066fbc197fd78094729f691fefdb215cc4620a2
-  digest: sha256:49ae627cf0700657b7401d20806067a91c8783a25b82478542f1f943825814d1
+  tag: 20dd6dbd23dd9d8b83c86f733a74aa895c4e8af3
+  digest: sha256:03e63ef879254a294673002645852222e4542775fc91611911d03a4d827440c6
 port: 8083
 # Actuator et métriques Prometheus sur un port réservé à la supervision (phase 6, lot 6B).
 managementPort: 9464

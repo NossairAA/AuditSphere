@@ -1,7 +1,7 @@
 image:
   repository: ghcr.io/nossairaa/auditsphere-notification-service
-  tag: 3066fbc197fd78094729f691fefdb215cc4620a2
-  digest: sha256:489dc16df3e697f3199ede7e291fbdd58138c7395a6f3b9ad2afe0a824f92c43
+  tag: 20dd6dbd23dd9d8b83c86f733a74aa895c4e8af3
+  digest: sha256:8d7ea59886cd90f10569973681d631be07784cf1f3f42e1e248ec384ee7ac9e7
 port: 8082
 # Actuator et métriques Prometheus sur un port réservé à la supervision (phase 6, lot 6B).
 managementPort: 9464
