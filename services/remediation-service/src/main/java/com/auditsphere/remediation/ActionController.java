@@ -32,6 +32,7 @@ class ActionController {
       ActionView action,
       FindingCopy finding,
       List<ProgressNote> progress,
+      List<AttachmentController.Attachment> attachments,
       List<FollowUpController.HistoryEntry> history) {}
 
   record UpdateInput(
@@ -71,14 +72,7 @@ class ActionController {
   @GetMapping
   @Transactional(readOnly = true)
   ActionDetail detail(@PathVariable UUID id, Authentication auth) {
-    var actor = Actor.of(auth);
-    var rows = jdbc.queryForList("SELECT mission_id, owner_subject FROM corrective_actions WHERE id=?", id);
-    if (rows.isEmpty()) throw notFound();
-    var scope = remediation.scope((UUID) rows.getFirst().get("mission_id"), false);
-    if (scope == null
-        || "WITHDRAWN".equals(scope.state())
-        || !(actor.reads(scope.team())
-            || assignee(actor, (String) rows.getFirst().get("owner_subject")))) throw notFound();
+    remediation.readableAction(id, Actor.of(auth));
     var action = remediation.action(id);
     var finding =
         jdbc.queryForObject(
@@ -104,7 +98,12 @@ class ActionController {
                     rs.getString("note"),
                     rs.getTimestamp("created_at").toInstant()),
             id);
-    return new ActionDetail(action, finding, progress, followUps.history("action_id = ?", id));
+    return new ActionDetail(
+        action,
+        finding,
+        progress,
+        AttachmentController.list(jdbc, id),
+        followUps.history("action_id = ?", id));
   }
 
   @PutMapping

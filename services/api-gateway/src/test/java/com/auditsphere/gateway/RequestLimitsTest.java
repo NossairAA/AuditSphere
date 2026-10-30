@@ -92,6 +92,25 @@ class RequestLimitsTest {
     assertEquals(HttpStatus.PAYLOAD_TOO_LARGE, rejected.getResponse().getStatusCode());
   }
   @Test
+  void actionAttachmentsShareTheUploadLimit() {
+    var filter = new RequestLimits();
+    var path = "/remediation/actions/00000000-0000-0000-0000-000000000003/attachments";
+    var allowed = MockServerWebExchange.from(MockServerHttpRequest.post(path).body("x".repeat(40000)));
+    var forwarded = new java.util.concurrent.atomic.AtomicBoolean();
+    filter.filter(allowed, e -> { forwarded.set(true); return Mono.empty(); }).block();
+    assertTrue(forwarded.get());
+    var rejected = MockServerWebExchange.from(
+        MockServerHttpRequest.post(path).header("Content-Length", String.valueOf(12 * 1024 * 1024)));
+    filter.filter(rejected, e -> { fail("oversized upload"); return Mono.empty(); }).block();
+    assertEquals(HttpStatus.PAYLOAD_TOO_LARGE, rejected.getResponse().getStatusCode());
+    // Any other remediation write keeps the 32 KiB limit.
+    var other = MockServerWebExchange.from(
+        MockServerHttpRequest.post("/remediation/actions/00000000-0000-0000-0000-000000000003/progress").body("x".repeat(40000)));
+    filter.filter(other, e -> { fail("oversized body"); return Mono.empty(); }).block();
+    assertEquals(HttpStatus.PAYLOAD_TOO_LARGE, other.getResponse().getStatusCode());
+  }
+
+  @Test
   void concurrentUploadsAreBoundedAndCancellationReleasesSlot() {
     var filter = new RequestLimits();
     var path = "/missions/00000000-0000-0000-0000-000000000001/controls/00000000-0000-0000-0000-000000000002/evidence";

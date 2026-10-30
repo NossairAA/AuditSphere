@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare private Garage config and provision one read/write evidence key."""
+"""Prepare private Garage config and provision one read/write key per bucket: evidence and remediation."""
 import os
 import secrets
 import subprocess
@@ -31,15 +31,25 @@ api_bind_addr = "0.0.0.0:3900"
 ''')
 
 values = dict(line.split('=', 1) for line in env_path.read_text().splitlines() if '=' in line)
-if values.get('EVIDENCE_S3_ENDPOINT', '') not in ('', 'http://garage:3900', 'http://127.0.0.1:3900'):
-    print('Stockage Garage externe configuré, provisionnement local ignoré.')
+# Each store has its own endpoint. An external endpoint is provisioned where it runs, never from here.
+stores = {
+    'EVIDENCE': ('auditsphere-evidence', 'auditsphere-evidence'),
+    'REMEDIATION': ('auditsphere-remediation', 'auditsphere-remediation'),
+}
+local_stores = [p for p in stores if values.get(p + '_S3_ENDPOINT', '') in ('', 'http://garage:3900', 'http://127.0.0.1:3900')]
+for prefix in stores:
+    if prefix not in local_stores:
+        print(f'Stockage {prefix} externe configuré, provisionnement local ignoré.')
+if not local_stores:
     raise SystemExit(0)
 
-defaults = {
-    'EVIDENCE_S3_BUCKET': 'auditsphere-evidence',
-    'EVIDENCE_S3_ACCESS_KEY': 'GK' + secrets.token_hex(16),
-    'EVIDENCE_S3_SECRET_KEY': secrets.token_hex(32),
-}
+defaults = {}
+for prefix in local_stores:
+    defaults.update({
+        prefix + '_S3_BUCKET': stores[prefix][0],
+        prefix + '_S3_ACCESS_KEY': 'GK' + secrets.token_hex(16),
+        prefix + '_S3_SECRET_KEY': secrets.token_hex(32),
+    })
 missing = {key: value for key, value in defaults.items() if key not in values}
 if missing:
     with env_path.open('a') as output:
@@ -57,26 +67,28 @@ def garage(*args):
         cwd=root, text=True, capture_output=True,
     )
 
-bucket = values['EVIDENCE_S3_BUCKET']
-key_id = values['EVIDENCE_S3_ACCESS_KEY']
-secret = values['EVIDENCE_S3_SECRET_KEY']
 for attempt in range(30):
     if garage('status').returncode == 0: break
     time.sleep(1)
 else:
     raise SystemExit('Garage indisponible. Démarrer docker compose up -d garage.')
-if garage('bucket', 'info', bucket).returncode != 0:
-    result = garage('bucket', 'create', bucket)
-    if result.returncode:
-        raise SystemExit('Création du bucket Garage échouée.')
-key = garage('key', 'info', '--show-secret', key_id)
-if key.returncode != 0:
-    result = garage('key', 'import', '--yes', '-n', 'auditsphere-evidence', key_id, secret)
-    if result.returncode:
-        raise SystemExit('Import de la clé Garage échoué.')
-elif secret not in key.stdout:
-    raise SystemExit('La clé Garage existante diffère du secret privé. Aucune rotation automatique.')
-result = garage('bucket', 'allow', '--read', '--write', bucket, '--key', key_id)
-if result.returncode:
-    raise SystemExit('Attribution des droits Garage échouée.')
-print('Garage prêt, bucket privé et clé limitée à la lecture et écriture.')
+
+
+def provision(bucket, key_id, secret, name):
+    """One private bucket with its own key, never allowed on the other bucket."""
+    if garage('bucket', 'info', bucket).returncode != 0:
+        if garage('bucket', 'create', bucket).returncode:
+            raise SystemExit('Création du bucket Garage échouée.')
+    key = garage('key', 'info', '--show-secret', key_id)
+    if key.returncode != 0:
+        if garage('key', 'import', '--yes', '-n', name, key_id, secret).returncode:
+            raise SystemExit('Import de la clé Garage échoué.')
+    elif secret not in key.stdout:
+        raise SystemExit('La clé Garage existante diffère du secret privé. Aucune rotation automatique.')
+    if garage('bucket', 'allow', '--read', '--write', bucket, '--key', key_id).returncode:
+        raise SystemExit('Attribution des droits Garage échouée.')
+
+
+for prefix in local_stores:
+    provision(values[prefix + '_S3_BUCKET'], values[prefix + '_S3_ACCESS_KEY'], values[prefix + '_S3_SECRET_KEY'], stores[prefix][1])
+print('Garage local prêt pour ' + ', '.join(local_stores) + ' : bucket privé et clé limitée à la lecture et écriture de chacun.')

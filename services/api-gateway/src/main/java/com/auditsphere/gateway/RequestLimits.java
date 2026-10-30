@@ -70,7 +70,9 @@ class RequestLimits implements GlobalFilter, Ordered {
                 .getRequest()
                 .getPath()
                 .value()
-                .matches("/missions/[0-9a-fA-F-]{36}/controls/[0-9a-fA-F-]{36}/evidence");
+                .matches(
+                    "/missions/[0-9a-fA-F-]{36}/controls/[0-9a-fA-F-]{36}/evidence"
+                        + "|/remediation/actions/[0-9a-fA-F-]{36}/attachments");
     int maxBody = evidenceUpload ? 11 * 1024 * 1024 : 32768;
     String address =
         String.valueOf(

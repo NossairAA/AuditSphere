@@ -26,7 +26,7 @@ La migration V13 ajoute control_evidence sans remplacer les données existantes.
 
 scripts/start-local.sh prépare Garage et sa clé limitée au bucket. scripts/setup-garage.py peut être rejoué sans rotation ni réinitialisation. Le bucket reste privé et les données Docker persistent après redémarrage. Les secrets et garage.toml restent dans .env et .local, exclus de Git.
 
-Les variables utilisées sont EVIDENCE_S3_ENDPOINT, EVIDENCE_S3_REGION, EVIDENCE_S3_BUCKET, EVIDENCE_S3_ACCESS_KEY et EVIDENCE_S3_SECRET_KEY. L’adressage par chemin est activé avec EVIDENCE_S3_PATH_STYLE. La région Garage vaut garage. Un endpoint externe configuré désactive le provisionnement du stockage local.
+Les variables utilisées sont EVIDENCE_S3_ENDPOINT, EVIDENCE_S3_REGION, EVIDENCE_S3_BUCKET, EVIDENCE_S3_ACCESS_KEY et EVIDENCE_S3_SECRET_KEY. L’adressage par chemin est activé avec EVIDENCE_S3_PATH_STYLE. La région Garage vaut garage. Un endpoint externe configuré désactive le provisionnement local de ce stockage seulement. Depuis le lot 5 des actions correctives, le bucket des justificatifs a son propre endpoint, `REMEDIATION_S3_ENDPOINT`, et reste provisionné dans le Garage local sans endpoint externe.
 
 ## Serveur privé
 

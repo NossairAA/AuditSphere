@@ -1,6 +1,6 @@
 # Actions correctives : implémentation proposée
 
-**Statut :** découpage accepté par ADR-0022. Lot 1 implémenté, vérifié localement puis par la CI distante, publié dans `main` le 2026-10-24. Lot 2 vérifié par la CI distante et publié dans `main` le 2026-10-26. Lot 3 vérifié par la CI distante et publié dans `main` le 2026-10-29, non déployé dans k3s. Lot 4 implémenté et vérifié localement le 2026-10-30, CI distante non exécutée. Lots 5 à 8 proposés, non implémentés.
+**Statut :** découpage accepté par ADR-0022. Lot 1 implémenté, vérifié localement puis par la CI distante, publié dans `main` le 2026-10-24. Lot 2 vérifié par la CI distante et publié dans `main` le 2026-10-26. Lot 3 vérifié par la CI distante et publié dans `main` le 2026-10-29, non déployé dans k3s. Lot 4 vérifié par la CI distante et publié dans `main` le 2026-10-30. Lot 5 implémenté et vérifié localement le 2026-10-30, CI distante non exécutée. Lots 6 à 8 proposés, non implémentés.
 **Tranche :** F-006, US-006 et US-007. Règles métier dans le [plan métier](../produit/04-plan-metier.md). Découpage du service dans [ADR-0022](../decisions/ADR-0022-actions-correctives-service-dedie.md), accepté le 2026-10-24.
 
 Ce document décrit le découpage technique. Chaque lot est marqué implémenté puis vérifié avec ses preuves de test. Les noms des lots 2 à 8 restent des propositions.
@@ -229,6 +229,31 @@ remediation-service écrit `audit.action.assigned.v1` dans son outbox à la cré
 - Non vérifié : CI distante, interface, notification réelle à l’audité, lots 5 et 6.
 - Non déployé dans k3s : en plus du câblage du lot 3, le client `remediation-directory` et son secret manquent dans `k3s-setup-keycloak.py` et dans les valeurs Helm.
 
+## Lot 5 : justificatifs
+
+- `AttachmentController` sous `/remediation/actions/{id}/attachments` : dépôt multipart avec `version` et `file`, téléchargement, retrait avec `version`. La fiche d’action liste les justificatifs avec nom, type, taille, empreinte, auteur et date.
+- Dépôt et retrait réservés au responsable de l’action, rôle AUDITEE, tant que l’action est À faire ou En cours et que le suivi est en Plan d’action sur une mission active. Le retrait est réservé à l’auteur du fichier. Après la déclaration Réalisée, un justificatif n’est plus ni ajouté ni retiré. Un renvoi En cours rouvre l’ajout.
+- Téléchargement pour l’équipe d’audit et le responsable de l’action, 404 pour tout autre utilisateur. Réponse en pièce jointe avec `nosniff` et `no-store`. Taille et SHA-256 recalculés pendant l’envoi : un objet modifié dans le bucket interrompt la réponse et laisse une erreur dans les logs.
+- Contrôles du modèle des preuves de contrôle : 1 octet à 10 Mio, type PDF, JPEG ou PNG détecté par la signature du contenu et identique au type déclaré, nom sans chemin ni caractère de contrôle, 10 fichiers par action, 100 Mio par mission, `REMEDIATION_MISSION_QUOTA_BYTES`.
+- Ordre du dépôt : contrôles d’accès sans verrou, lecture du fichier, écriture de l’objet `attachments/{id}` dans Garage, puis transaction qui reprend tous les contrôles sous verrou. Elle verrouille `mission_scopes` en exclusif dès le départ, ce qui sérialise le quota de la mission sans risque d’interblocage. Si la transaction refuse, l’objet est supprimé. Un retrait supprime l’objet seulement après validation de la transaction.
+- Chaque dépôt et retrait incrémente la version de l’action et écrit ATTACHMENT_ADDED ou ATTACHMENT_REMOVED avec l’identifiant, l’empreinte et la taille, jamais le contenu.
+- Bucket Garage `auditsphere-remediation` et clé dédiée, distincts du bucket des preuves de contrôle. Chaque stockage a son propre endpoint : `EVIDENCE_S3_ENDPOINT` et `REMEDIATION_S3_ENDPOINT`. `scripts/setup-garage.py` provisionne dans le Garage local chaque stockage sans endpoint externe, avec une clé limitée à son bucket, et ignore les autres. Compose transmet `REMEDIATION_S3_*` à remediation-service, endpoint `http://garage:3900` par défaut.
+- Gateway : `/remediation/actions/{id}/attachments` en POST reçoit la limite de 11 Mio et les créneaux de dépôt simultanés des preuves. Toute autre écriture sous `/remediation/**` reste limitée à 32 Kio.
+
+## Vérifications du lot 5
+
+- `AttachmentIntegrationTest`, quatre tests avec PostgreSQL Testcontainers et un stockage en mémoire à la place de Garage :
+  - dépôt par l’audité, empreinte, téléchargement identique pour l’auditeur et l’audité, 404 hors périmètre, liste dans la fiche, retrait sur version périmée en 409, retrait par le responsable de mission en 403, retrait par l’auteur avec objet supprimé, déclaration Réalisée, puis ajout et retrait refusés en 409, journal dans l’ordre.
+  - faux PDF, PNG déclaré PDF, nom avec chemin refusés en 400, fichier vide en 413, dépôt par le responsable de mission en 403, par un autre audité en 404, version périmée en 409, onzième fichier refusé en 409 après écriture de l’objet, objet supprimé ensuite.
+  - quota concurrent : deux dépôts sur deux suivis d’une même mission proche du quota, tenus en vol ensemble par un verrou de table externe. Un seul passe, l’autre reçoit 413, un seul objet reste.
+  - objet modifié dans le stockage : le téléchargement échoue au lieu de servir un contenu différent.
+- Tests de mutation : avec un verrou partagé au lieu d’exclusif sur `mission_scopes`, le test de quota reçoit deux 201. Code restauré ensuite. Une première version du test, sans verrou de table, ne détectait pas cette mutation : les deux dépôts ne se croisaient pas.
+- `RequestLimitsTest` de la gateway : limite de 11 Mio sur le dépôt de justificatif, 32 Kio sur les autres écritures de remediation.
+- `./mvnw -B -pl services/remediation-service,services/api-gateway -am verify` avec JDK 25 : 23 tests remediation-service et 16 tests gateway réussis. Tests Python des scripts : 25 réussis dont deux ignorés par conception.
+- Pile locale relancée : bucket `auditsphere-remediation` et sa clé créés dans le Garage local, le stockage des preuves restant sur son endpoint externe. Parcours réel par la gateway avec les jetons de démonstration, mission synthétique retirée ensuite : dépôt refusé au responsable de mission, dépôt par l’audité avec objet présent dans Garage et empreinte identique, téléchargement identique par l’auditeur, 404 hors périmètre, faux PDF en 400, 12 Mio refusé en 413 par la gateway, aucun objet en trop, retrait avec objet supprimé. `scripts/smoke.py` réussi.
+- Incident pendant la vérification : deux essais interrompus par le script de test ont laissé deux objets sans ligne en base. Ils ont été listés puis supprimés du bucket local. Ce cas reste possible si le processus s’arrête entre l’écriture de l’objet et la transaction : aucun nettoyage automatique des objets orphelins n’existe.
+- Non vérifié : CI distante, interface, Garage du serveur privé où le bucket des justificatifs n’est pas créé, k3s.
+
 ## Lots et vérifications prévues
 
 | Lot | Contenu | Vérification attendue |
@@ -236,8 +261,8 @@ remediation-service écrit `audit.action.assigned.v1` dans son outbox à la cré
 | 1, vérifié et publié | Squelette remediation-service, migration V1, droits SQL, route gateway, Compose, rôle AUDITEE et lecture `GET /remediation/me/actions` | Migration sur base vide avec Testcontainers, contraintes, test des droits, santé du service, jeton invalide refusé, parcours réel par la gateway |
 | 2, vérifié et publié | audit-service : V18, outbox d’émission et de retrait, lecture interne, client `remediation-service` et rôle `REMEDIATION_SYNC` | Test Java : un événement par approbation et dérogation APPROVE, aucun après annulation de transaction, retrait sur REOPEN et DELETE, lecture interne refusée sans rôle de service, 409 sur cycle périmé |
 | 3, vérifié et publié | Consommateur, lecture d’instantané et réconciliation | Test d’intégration : redélivrance sans doublon, cycle ancien ignoré, audit-service indisponible sans acquittement, suspension puis réactivation, constat absent passé Retiré |
-| 4, vérifié localement | API des suivis et actions, annuaire et client `remediation-directory`, journal | Test Java : matrice des permissions, séparation des fonctions y compris par dérogation, versions, retard avec horloge fixée, journal sans UPDATE ni DELETE |
-| 5 | Justificatifs dans Garage | Test : type, taille, nombre, quota concurrent, nettoyage de l’objet après refus, retrait interdit après réalisation |
+| 4, vérifié et publié | API des suivis et actions, annuaire et client `remediation-directory`, journal | Test Java : matrice des permissions, séparation des fonctions y compris par dérogation, versions, retard avec horloge fixée, journal sans UPDATE ni DELETE |
+| 5, vérifié localement | Justificatifs dans Garage | Test : type, taille, nombre, quota concurrent, nettoyage de l’objet après refus, retrait interdit après réalisation |
 | 6 | Notification d’affectation | Test notification-service : consommation idempotente, destinataire seul, reprise après panne du broker |
 | 7 | BFF, contrat et interface | Tests unitaires Node, TypeScript, build, Playwright `remediation.spec.ts` : approbation, action, avancement et justificatif par l’audité, renvoi, vérification, demande de clôture, clôture, audité extérieur et utilisateur extérieur refusés |
 | 8 | Documentation et publication | Ce guide passé à implémenté puis vérifié, backlog, changelog, migrations appliquées localement après sauvegarde, CI distante |
@@ -247,6 +272,7 @@ remediation-service écrit `audit.action.assigned.v1` dans son outbox à la cré
 - Le texte des constats est copié dans une seconde base. Sauvegarde, conservation et chiffrement des volumes, C7, doivent couvrir aussi la base remediation et son bucket.
 - La lecture interne crée un couplage au moment de la consommation. Une indisponibilité d’audit-service retarde la synchronisation sans perte, le message reste en attente.
 - La protection de `/internal/**` repose sur le jeton de service et le réseau interne. mTLS entre services reste prévu par ADR-0020, non déployé.
+- Aucun nettoyage automatique des objets orphelins du bucket des justificatifs, comme pour les preuves de contrôle.
 - Les relances et escalades de retard ne sont pas incluses. Le retard reste un affichage jusqu’à US-009 et Temporal.
 - Un suivi Clôturé ne peut pas être rouvert dans cette tranche.
 - Une dérogation APPROVE peut viser une mission sans validateur désigné. L’instantané porte alors `validatorSubject` nul. La migration V2 du lot 3 rend `mission_scopes.validator_subject` facultatif. Le lot 4 doit alors réserver la clôture au superadministrateur.
