@@ -1,5 +1,12 @@
 # Journal des changements
 
+## 2026-10-30 : veille externe de la supervision
+
+- Coupure de courant du 2026-10-30 : serveur éteint environ 14 heures sans alerte, car Prometheus et Alertmanager tournent dans le cluster.
+- Règle `Watchdog` toujours active, envoyée toutes les 5 minutes à un check healthchecks.io par une route et un récepteur dédiés. Sans ping pendant 15 minutes, healthchecks.io publie sur le sujet ntfy des alertes. Choix de l'utilisateur, [ADR-0036](docs/decisions/ADR-0036-veille-externe-healthchecks.md).
+- Adresse de ping dans `.local/healthchecks.env` et le secret `alertmanager-heartbeat`, jamais dans Git. `k3s-monitoring.sh apply` s'arrête sans elle.
+- Vérifié sur le serveur : configuration validée par `amtool` et `promtool`, pings toutes les 5 minutes sans échec, battement suspendu par un silence, message DOWN publié 15 minutes après le dernier ping, UP au retour, les deux reçus sur le téléphone. Non vérifié : vrai arrêt du nœud. Détails dans l'[hébergement k3s](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-30 : limites mémoire de Keycloak et de notification-service
 
 - La tuile de mémoire de Grafana affiche la mémoire disponible : 20 %, soit 1,3 Gio libres sur 6,7. L'hôte utilise environ 80 % de sa mémoire, relevé par `free -m`. Le 18 % de l'accueil SSH est un cache du 2026-10-28.

@@ -2,11 +2,13 @@
 # Supervision dans k3s (phase 6, lot 6A, ADR-0029). Aucune valeur secrète n'est affichée.
 #   apply : sujet ntfy aléatoire dans .local/ntfy.env s'il est absent, secrets d'alerte et cibles privées,
 #           puis deploy/k3s/monitoring/monitoring.yaml. GARAGE_ENDPOINT, APP_ORIGIN et OIDC_ORIGIN viennent de .local/k3s.env.
+#           HEALTHCHECKS_PING_URL, adresse de ping du check de veille (ADR-0036), vient de .local/healthchecks.env.
 #   test  : alerte de test envoyée par Alertmanager, puis lecture du sujet pour confirmer sa publication.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/auditsphere.yaml}"
 ntfy_env="$root/.local/ntfy.env"
+healthchecks_env="$root/.local/healthchecks.env"
 umask 077
 
 load_topic() {
@@ -20,6 +22,13 @@ case "${1:-}" in
     # shellcheck disable=SC1090
     . "$root/.local/k3s.env"
     : "${GARAGE_ENDPOINT:?GARAGE_ENDPOINT absent de .local/k3s.env}"
+    # Sans adresse de ping, Alertmanager refuserait sa configuration : arrêt avant toute modification.
+    # shellcheck disable=SC1090
+    [ ! -f "$healthchecks_env" ] || . "$healthchecks_env"
+    case "${HEALTHCHECKS_PING_URL:-}" in
+      https://hc-ping.com/?*) ;;
+      *) echo "HEALTHCHECKS_PING_URL absent ou invalide dans .local/healthchecks.env." >&2; exit 1 ;;
+    esac
     if [ ! -f "$ntfy_env" ]; then
       printf 'NTFY_TOPIC=auditsphere-%s\n' "$(openssl rand -hex 16)" > "$ntfy_env"
       echo "Sujet ntfy créé dans .local/ntfy.env. S'y abonner dans l'application ntfy, serveur ntfy.sh."
@@ -45,7 +54,10 @@ case "${1:-}" in
       --from-file=garage.json=<(printf '[{"targets":["%s"]}]' "$GARAGE_ENDPOINT") \
       --from-file=tunnel.json=<(printf '%s' "$tunnel") --from-file=public-refused.json=<(printf '%s' "$refused") \
       --dry-run=client -o yaml | kubectl apply -f - >/dev/null
-    unset url
+    kubectl --namespace monitoring create secret generic alertmanager-heartbeat \
+      --from-file=url=<(printf '%s' "$HEALTHCHECKS_PING_URL") \
+      --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+    unset url HEALTHCHECKS_PING_URL
     kubectl apply -f "$root/deploy/k3s/monitoring/monitoring.yaml"
     ;;
   test)

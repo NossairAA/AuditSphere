@@ -34,7 +34,7 @@ La phase 6 est découpée en trois lots :
 
 - Toute personne qui connaît le nom du sujet peut lire les alertes et en publier de fausses. Les alertes ne contiennent ni secret ni donnée d'audit, seulement des noms de composants et des seuils.
 - ntfy.sh devient une dépendance pour les alertes. Sa panne ou un message perdu ne bloque pas l'application, mais retarde l'information.
-- Si Prometheus, Alertmanager ou le nœud s'arrête, aucune alerte ne part. Une sonde externe de veille reste à choisir.
+- Si Prometheus, Alertmanager ou le nœud s'arrête, aucune alerte ne part. Une sonde externe de veille reste à choisir. Choisie le 2026-10-30 par [ADR-0036](ADR-0036-veille-externe-healthchecks.md).
 - Pas de tableaux de bord permanents : la consultation se fait par l'interface de Prometheus, ou par Grafana démarré à la demande au lot 6C.
 
 ## Références

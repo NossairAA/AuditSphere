@@ -63,6 +63,7 @@ Utiliser le modèle dans [`docs/templates/adr.md`](../templates/adr.md).
 - [ADR-0033 : origine publique unique et administration par le tailnet](ADR-0033-origine-publique-unique.md), accepté, implémenté
 - [ADR-0034 : console de compte de Keycloak fermée](ADR-0034-console-compte-fermee.md), accepté, implémenté
 - [ADR-0035 : entrée de démonstration par assertion signée](ADR-0035-entree-demonstration-assertion.md), accepté, implémenté et vérifié
+- [ADR-0036 : veille externe de la supervision par healthchecks.io](ADR-0036-veille-externe-healthchecks.md), accepté, implémenté et vérifié
 
 - [ADR-0018 : séparation validateur et auditeur](ADR-0018-separation-validateur-auditeur.md).
 - [ADR-0019 : sessions et accès web](ADR-0019-sessions-et-acces-web.md).
