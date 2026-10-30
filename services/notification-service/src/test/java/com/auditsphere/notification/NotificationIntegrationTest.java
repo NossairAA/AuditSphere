@@ -109,7 +109,7 @@ class NotificationIntegrationTest {
   String event(UUID id, String subject) throws Exception {
     return mapper.writeValueAsString(
         new AssignmentEvent(
-            id, "audit.mission.assigned.v1", 1, UUID.randomUUID(), subject, 0, Instant.now()));
+            id, "audit.mission.assigned.v1", 1, UUID.randomUUID(), null, subject, 0, Instant.now()));
   }
 
   @Test
@@ -328,5 +328,52 @@ class NotificationIntegrationTest {
             id));
     mvc.perform(get("/notifications").with(jwt().jwt(j -> j.subject("other-reviewer"))))
         .andExpect(jsonPath("$.items.length()").value(0));
+  }
+
+  @Test
+  void actionAssignmentNotifiesOnlyTheNewOwnerWithTheAction() throws Exception {
+    UUID id = UUID.randomUUID(), action = UUID.randomUUID();
+    String payload =
+        mapper.writeValueAsString(
+            new AssignmentEvent(
+                id, "audit.action.assigned.v1", 1, UUID.randomUUID(), action, "action-owner", 2, Instant.now()));
+    consumer.receive(payload);
+    consumer.receive(payload);
+    assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM notifications WHERE event_id=?", Integer.class, id));
+    mvc.perform(get("/notifications").with(jwt().jwt(j -> j.subject("action-owner"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items[0].eventType").value("audit.action.assigned.v1"))
+        .andExpect(jsonPath("$.items[0].actionId").value(action.toString()));
+    mvc.perform(get("/notifications").with(jwt().jwt(j -> j.subject("previous-owner"))))
+        .andExpect(jsonPath("$.items.length()").value(0));
+    // Mission notifications keep a null action.
+    UUID mission = UUID.randomUUID();
+    consumer.receive(event(mission, "mission-member"));
+    mvc.perform(get("/notifications").with(jwt().jwt(j -> j.subject("mission-member"))))
+        .andExpect(jsonPath("$.items[0].actionId").doesNotExist());
+  }
+
+  @Test
+  void actionAndMissionEventsMustMatchTheirActionField() throws Exception {
+    int count = jdbc.queryForObject("SELECT count(*) FROM notifications", Integer.class);
+    String withoutAction =
+        mapper.writeValueAsString(
+            new AssignmentEvent(
+                UUID.randomUUID(), "audit.action.assigned.v1", 1, UUID.randomUUID(), null, "owner", 0, Instant.now()));
+    assertThrows(IllegalArgumentException.class, () -> consumer.receive(withoutAction));
+    String missionWithAction =
+        mapper.writeValueAsString(
+            new AssignmentEvent(
+                UUID.randomUUID(), "audit.mission.assigned.v1", 1, UUID.randomUUID(), UUID.randomUUID(), "owner", 0, Instant.now()));
+    assertThrows(IllegalArgumentException.class, () -> consumer.receive(missionWithAction));
+    assertEquals(count, jdbc.queryForObject("SELECT count(*) FROM notifications", Integer.class));
+    // The database refuses the same mismatch, even without the validation.
+    assertThrows(
+        org.springframework.dao.DataIntegrityViolationException.class,
+        () ->
+            jdbc.update(
+                "INSERT INTO notifications(event_id, mission_id, recipient_subject, aggregate_version, occurred_at, event_type) VALUES (?, ?, 'x', 0, now(), 'audit.action.assigned.v1')",
+                UUID.randomUUID(),
+                UUID.randomUUID()));
   }
 }

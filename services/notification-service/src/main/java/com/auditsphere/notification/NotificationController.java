@@ -34,7 +34,8 @@ class NotificationController {
       Instant occurredAt,
       Instant receivedAt,
       Instant readAt,
-      String eventType) {}
+      String eventType,
+      UUID actionId) {}
 
   record Page(List<Notification> items, int page, int size, boolean hasNext) {}
 
@@ -48,7 +49,7 @@ class NotificationController {
     var rows =
         jdbc.query(
             """
-        SELECT event_id, mission_id, occurred_at, received_at, read_at, event_type FROM notifications
+        SELECT event_id, mission_id, occurred_at, received_at, read_at, event_type, action_id FROM notifications
         WHERE recipient_subject=? ORDER BY received_at DESC, event_id DESC LIMIT ? OFFSET ?
         """,
             (r, n) ->
@@ -60,7 +61,8 @@ class NotificationController {
                     r.getTimestamp("read_at") == null
                         ? null
                         : r.getTimestamp("read_at").toInstant(),
-                    r.getString("event_type")),
+                    r.getString("event_type"),
+                    r.getObject("action_id", UUID.class)),
             jwt.getSubject(),
             size + 1,
             (long) page * size);

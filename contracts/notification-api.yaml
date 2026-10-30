@@ -47,11 +47,12 @@ paths:
                     type: array
                     items:
                       type: object
-                      required: [id, missionId, occurredAt, receivedAt, readAt, eventType]
+                      required: [id, missionId, occurredAt, receivedAt, readAt, eventType, actionId]
                       properties:
-                        eventType: {type: string, enum: [audit.mission.assigned.v1, audit.mission.review-requested.v1]}
+                        eventType: {type: string, enum: [audit.mission.assigned.v1, audit.mission.review-requested.v1, audit.action.assigned.v1]}
                         id: {type: string, format: uuid}
                         missionId: {type: string, format: uuid}
+                        actionId: {type: string, format: uuid, nullable: true, description: Action corrective confiée, présente uniquement pour audit.action.assigned.v1}
                         occurredAt: {type: string, format: date-time}
                         receivedAt: {type: string, format: date-time}
                         readAt: {type: string, format: date-time, nullable: true}

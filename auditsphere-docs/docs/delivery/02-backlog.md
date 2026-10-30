@@ -63,7 +63,7 @@ US-003 et F-003 sont implémentés et vérifiés localement dans le [programme d
 | 1 | F-003, US-003 : programme risques et contrôles | Programme préparé par le responsable, consultable par les auditeurs, références et accès isolés par mission | Vérifié localement |
 | 2 | Exécution des contrôles, F-004 et US-004 | Résultats et preuves versionnées, consultables uniquement par les personnes autorisées | Résultats et ajout de preuves vérifiés localement |
 | 3 | F-005, US-005 : constats | Anomalie documentée avec gravité, cause, recommandation et revue | Vérifié localement et par la CI distante le 2026-10-24, publié dans `main` |
-| 4 | F-006, US-006 et US-007 : actions correctives | Responsable, échéance, justificatif et vérification avant clôture | Cadré le 2026-10-24, ADR-0022 accepté, lots 1 du socle, 2 d’émission et 3 de synchronisation vérifiés et publiés dans `main`, lot 4 de l’API publié, lot 5 des justificatifs vérifié localement, lots 6 à 8 à réaliser |
+| 4 | F-006, US-006 et US-007 : actions correctives | Responsable, échéance, justificatif et vérification avant clôture | Cadré le 2026-10-24, ADR-0022 accepté, lots 1 du socle, 2 d’émission et 3 de synchronisation vérifiés et publiés dans `main`, lot 4 de l’API publié, lot 5 des justificatifs publié, lot 6 de la notification vérifié localement, lots 7 et 8 à réaliser |
 | 5 | US-011 : première règle d’audit continu | Exécution reproductible et anomalies sans doublon, revue avant constat officiel | À réaliser après le parcours manuel |
 
 Les notifications de soumission sont publiées dans `4cd8d43`. VALID-005 reste proposé, hors de la prochaine tranche. Les sections historiques suivantes décrivent les jalons passés, les fonctionnalités métier nouvelles ci-dessus ne sont pas encore livrées.

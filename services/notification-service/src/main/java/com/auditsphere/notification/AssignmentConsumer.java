@@ -21,7 +21,11 @@ class AssignmentConsumer {
   // RECORD acknowledgment happens after this database transaction has committed.
   @Transactional
   @KafkaListener(
-      topics = {"audit.mission.assigned.v1", "audit.mission.review-requested.v1"},
+      topics = {
+        "audit.mission.assigned.v1",
+        "audit.mission.review-requested.v1",
+        "audit.action.assigned.v1"
+      },
       groupId = "notification-service-v1")
   public void receive(String payload) throws Exception {
     if (payload == null || payload.length() > 32768) throw new IllegalArgumentException("Event too large");
@@ -31,15 +35,16 @@ class AssignmentConsumer {
     int inserted =
         jdbc.update(
             """
-        INSERT INTO notifications(event_id, mission_id, recipient_subject, aggregate_version, occurred_at, event_type)
-        VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (event_id) DO NOTHING
+        INSERT INTO notifications(event_id, mission_id, recipient_subject, aggregate_version, occurred_at, event_type, action_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (event_id) DO NOTHING
         """,
             event.eventId(),
             event.missionId(),
             event.recipientSubject(),
             event.aggregateVersion(),
             java.sql.Timestamp.from(event.occurredAt()),
-            event.eventType());
+            event.eventType(),
+            event.actionId());
     if (inserted > 0) {
       org.springframework.transaction.support.TransactionSynchronizationManager
           .registerSynchronization(

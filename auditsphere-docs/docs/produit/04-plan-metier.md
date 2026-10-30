@@ -167,7 +167,7 @@ Le découpage technique, le modèle de données, les étapes et leurs vérificat
 
 ## Quatrième tranche : actions correctives
 
-**ID :** F-006, US-006 et US-007 · **Priorité :** P0 · **Statut :** cadré le 2026-10-24, découpage accepté par ADR-0022, socle, émission et synchronisation publiés, API des suivis et des actions publiée, justificatifs vérifiés localement, notification et interface non implémentées
+**ID :** F-006, US-006 et US-007 · **Priorité :** P0 · **Statut :** cadré le 2026-10-24, découpage accepté par ADR-0022, socle, émission et synchronisation publiés, API des suivis et des actions et justificatifs publiés, notification d’affectation vérifiée localement, interface non implémentée
 **Responsable produit :** à définir
 
 ### Problème utilisateur et résultat attendu
