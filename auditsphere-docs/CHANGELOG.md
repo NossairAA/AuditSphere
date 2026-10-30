@@ -1,5 +1,12 @@
 # Journal des changements
 
+## 2026-10-30 : veille externe de la supervision
+
+- Coupure de courant du 2026-10-30 : serveur éteint environ 14 heures sans alerte, car Prometheus et Alertmanager tournent dans le cluster.
+- Règle `Watchdog` toujours active, envoyée toutes les 5 minutes à un check healthchecks.io par une route et un récepteur dédiés. Sans ping pendant 15 minutes, healthchecks.io publie sur le sujet ntfy des alertes. Choix de l'utilisateur, [ADR-0036](docs/decisions/ADR-0036-veille-externe-healthchecks.md).
+- Adresse de ping dans `.local/healthchecks.env` et le secret `alertmanager-heartbeat`, jamais dans Git. `k3s-monitoring.sh apply` s'arrête sans elle.
+- Vérifié sur le serveur : configuration validée par `amtool` et `promtool`, pings toutes les 5 minutes sans échec, battement suspendu par un silence, message DOWN publié 15 minutes après le dernier ping, UP au retour. Non vérifié : réception sur le téléphone, vrai arrêt du nœud. Détails dans l'[hébergement k3s](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-30 : notification de l’action confiée (F-006 lot 6)
 
 - remediation-service publie `audit.action.assigned.v1` depuis son outbox à la création et à la réaffectation d’une action, avec les seuls identifiants. Schéma dans `contracts/action-assigned-v1.schema.json`, topic et DLT créés par `kafka-init`.

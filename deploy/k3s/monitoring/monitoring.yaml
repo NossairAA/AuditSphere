@@ -255,6 +255,10 @@ spec:
           mountPath: /etc/alertmanager-ntfy
           secretName: alertmanager-ntfy
           readOnly: true
+        - name: heartbeat
+          mountPath: /etc/alertmanager-heartbeat
+          secretName: alertmanager-heartbeat
+          readOnly: true
       config:
         route:
           receiver: ntfy
@@ -263,6 +267,13 @@ spec:
           group_interval: 5m
           repeat_interval: 6h
           routes:
+            # Veille externe (ADR-0036) : Watchdog part vers healthchecks.io toutes les 5 minutes environ, jamais vers ntfy.
+            # Sans ping pendant la période et la grâce du check, healthchecks.io prévient le sujet ntfy.
+            - matchers: ['alertname="Watchdog"']
+              receiver: heartbeat
+              group_wait: 0s
+              group_interval: 1m
+              repeat_interval: 5m
             - matchers: ['severity="critical"']
               receiver: ntfy-urgent
               repeat_interval: 1h
@@ -276,6 +287,11 @@ spec:
             webhook_configs:
               - url_file: /etc/alertmanager-ntfy/url-urgent
                 send_resolved: true
+          # L'adresse de ping du check contient son identifiant, qui sert de secret.
+          - name: heartbeat
+            webhook_configs:
+              - url_file: /etc/alertmanager-heartbeat/url
+                send_resolved: false
         inhibit_rules:
           # Une application injoignable explique les sondes qui échouent derrière elle.
           - source_matchers: ['alertname="NodeDown"']
@@ -546,6 +562,13 @@ spec:
                   description: "Réponses : {{ $value | humanize }}."
           - name: supervision
             rules:
+              # Toujours active : sa notification régulière prouve que Prometheus, Alertmanager et le nœud tournent.
+              - alert: Watchdog
+                expr: vector(1)
+                labels: {severity: none}
+                annotations:
+                  summary: Veille de la chaîne d'alerte
+                  description: Alerte toujours active, envoyée à healthchecks.io comme signal de vie.
               - alert: AlertmanagerNotificationsFailing
                 expr: increase(alertmanager_notifications_failed_total[15m]) > 0
                 labels: {severity: warning}

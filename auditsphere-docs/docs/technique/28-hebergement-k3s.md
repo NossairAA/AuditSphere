@@ -505,7 +505,7 @@ Incidents :
 
 Limites :
 
-- Aucune alerte si Prometheus, Alertmanager ou le nœud s'arrête. Une sonde externe de veille reste à choisir.
+- Aucune alerte si Prometheus, Alertmanager ou le nœud s'arrête. Veille externe ajoutée le 2026-10-30 selon ADR-0036, voir la veille externe de la supervision.
 - Toute personne qui connaît le sujet ntfy peut lire les alertes et en publier de fausses. Les messages ne contiennent ni secret ni donnée d'audit.
 - Les limites mémoire du nœud dépassent la mémoire allouable. Une pression mémoire forte peut provoquer des arrêts. La mémoire de Prometheus est à remesurer après sa compaction.
 - Pas encore de métriques applicatives : erreurs 5xx, mémoire des JVM, retard Kafka, DLT, workflows bloqués et tentatives d'abus viennent au lot 6B. Pas de journaux centralisés avant le lot 6C.
@@ -646,6 +646,38 @@ Limites :
 - Pendant une session, le nœud monte à 96 % de sa mémoire allouable. Une session doit rester courte et ne pas coïncider avec une charge forte.
 - Ouvrir ou fermer une session redémarre les quatre services Spring.
 - Alloy lit seulement le fichier de journal courant de chaque conteneur. Les journaux déjà tournés par le nœud ne sont pas repris.
+
+#### Veille externe de la supervision
+
+Statut : implémenté et vérifié le 2026-10-30. Décision : [ADR-0036](../decisions/ADR-0036-veille-externe-healthchecks.md), healthchecks.io choisi par l'utilisateur le même jour.
+
+Origine : le 2026-10-30, une coupure de courant a éteint le serveur environ 14 heures. Prometheus et Alertmanager tournent dans le cluster : `NodeDown` et `TargetDown` ne pouvaient pas partir. Aucune alerte avant le retour du courant.
+
+Fonctionnement :
+
+- Règle `Watchdog`, expression `vector(1)`, gravité `none`, groupe `supervision` de [monitoring.yaml](../../../deploy/k3s/monitoring/monitoring.yaml). Elle est toujours active.
+- Route dédiée, placée avant la route critique : `group_wait` nul, `group_interval` d'une minute, `repeat_interval` de cinq minutes. `Watchdog` part seulement vers le récepteur `heartbeat`, jamais vers ntfy.
+- Récepteur `heartbeat` : webhook POST vers l'adresse de ping d'un check healthchecks.io, sans message de résolution. Alertmanager la lit par `url_file` dans le secret `alertmanager-heartbeat`, monté sur `/etc/alertmanager-heartbeat`.
+- Check healthchecks.io, offre gratuite : période de 5 minutes, grâce de 10 minutes. Sans ping pendant 15 minutes, healthchecks.io publie un message « DOWN » en priorité maximale sur le sujet ntfy des alertes, et un courriel. Au retour du ping, il publie un message « UP ».
+- [scripts/k3s-monitoring.sh](../../../scripts/k3s-monitoring.sh) `apply` lit `HEALTHCHECKS_PING_URL` dans `.local/healthchecks.env` et crée le secret. Sans adresse valide, il s'arrête avant toute modification, car Alertmanager refuserait sa configuration.
+- Le check, son intégration ntfy et le compte sont créés à la main par l'utilisateur sur healthchecks.io. Aucun réglage du check n'est dans Git.
+
+Vérifications, le 2026-10-30 :
+
+- Avant l'application, dans les pods du cluster : configuration d'Alertmanager validée par `amtool check-config`, 27 règles validées par `promtool check rules`. `amtool config routes test` envoie `Watchdog` vers `heartbeat`, et `NodeDown` critique toujours vers `ntfy-urgent`.
+- Application à 15:01 UTC. Alertmanager redémarré avec le secret monté, règle chargée par Prometheus à 15:01:40.
+- Premier ping à 15:02:16, second à 15:07:28, aucun échec d'envoi. `Watchdog` était la seule alerte active, les deux envois sont donc les siens. Check passé à l'état « up » sur healthchecks.io, constaté par l'utilisateur.
+- Battement suspendu par un silence Alertmanager sur `Watchdog` à 15:07:37. Message « AuditSphere k3s watchdog is DOWN » publié sur le sujet ntfy à 15:22:22, en priorité 5, 15 minutes après le dernier ping. Relu sur le sujet.
+- Silence levé à 15:22:48. Ping suivant reçu, message « AuditSphere k3s watchdog is UP » publié à 15:23:27 en priorité normale. Relu sur le sujet.
+- Non vérifié : réception de ces deux messages sur le téléphone, et vrai arrêt du nœud.
+
+Limites :
+
+- Délai de détection : 15 minutes au plus après le dernier ping, soit environ 20 minutes après l'arrêt réel.
+- Une coupure de l'accès Internet du serveur, ou une panne de healthchecks.io, produit la même alerte qu'un arrêt du nœud.
+- Toute personne qui connaît l'adresse de ping peut simuler un signal de vie. healthchecks.io connaît le nom du sujet ntfy.
+- Le signal prouve que la chaîne d'alerte tourne, pas que chaque règle est juste ni que l'application répond.
+- Un silence posé sur toutes les alertes coupe aussi le battement et déclenche l'alerte de veille 15 minutes plus tard.
 
 ### Phase 7 : sauvegardes et restauration
 
@@ -1254,6 +1286,7 @@ Seule la phase 7 pourrait être reportée, puisque l'instance publique ne porte 
 
 ## Vérifications effectuées
 
+- Veille externe de la supervision, le 2026-10-30 sur le serveur : `Watchdog` envoyé à healthchecks.io toutes les 5 minutes, battement suspendu par un silence, message DOWN publié sur le sujet ntfy 15 minutes après le dernier ping, puis UP au retour. Détails dans la veille externe de la supervision.
 - Incident du socket de `tailscaled`, le 2026-10-29 sur le serveur : cause relevée dans les journaux de Caddy et de dpkg, proxy redémarré, sonde de Garage de nouveau en succès. Correctif durable appliqué, montage du dossier et drop-in constatés, sonde en succès. Non vérifié : vrai redémarrage de `tailscaled`. Détails dans le correctif de la phase 8.
 - Correctif de la mémoire de Kafka, le 2026-10-27 sur le serveur : table du nettoyeur ramenée de 128 à 16 Mio, mémoire de travail passée de 400 à 240 Mio, test avec pannes réussi. Détails dans le correctif.
 - Phase 6 lot 6C, le 2026-10-27 sur le serveur : session d'observation ouverte et fermée, requête tracée de la gateway à audit-service et par Kafka, journaux reliés aux traces. Sortie de la phase 6 atteinte. Détails dans le lot 6C.
