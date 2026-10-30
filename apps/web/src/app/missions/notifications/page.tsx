@@ -14,6 +14,7 @@ type NotificationPage = {
     receivedAt: string;
     readAt: string | null;
     eventType: string;
+    actionId: string | null;
   }[];
   page: number;
   size: number;
@@ -108,10 +109,14 @@ export default function Notifications() {
       setMarkingAll(false);
     }
   }
+  // An auditee never sees the mission: an action notification is only marked read until the
+  // action page exists (F-006 lot 7).
+  const isAction = (n: NotificationPage["items"][number]) =>
+    n.eventType === "audit.action.assigned.v1";
   async function openNotification(n: NotificationPage["items"][number]) {
     if (pending || markingAll) return;
     if (n.readAt) {
-      router.push(`/missions/${n.missionId}`);
+      if (!isAction(n)) router.push(`/missions/${n.missionId}`);
       return;
     }
     const id = n.id;
@@ -136,7 +141,7 @@ export default function Notifications() {
           : old,
       );
       window.dispatchEvent(new Event("notifications-changed"));
-      router.push(`/missions/${n.missionId}`);
+      if (!isAction(n)) router.push(`/missions/${n.missionId}`);
     } catch (e) {
       setMutationError(
         e instanceof Error
@@ -243,7 +248,9 @@ export default function Notifications() {
                       <strong>
                         {n.eventType === "audit.mission.review-requested.v1"
                           ? "Une mission attend votre validation"
-                          : "Vous avez été affecté à une mission"}
+                          : isAction(n)
+                            ? "Une action corrective vous est confiée"
+                            : "Vous avez été affecté à une mission"}
                       </strong>
                       {!n.readAt && <span className="status">Non lue</span>}
                     </td>
@@ -255,14 +262,24 @@ export default function Notifications() {
                     </td>
                     <td>
                       <strong>
-                        {n.missionTitle || "Mission indisponible"}
+                        {isAction(n)
+                          ? "Action corrective"
+                          : n.missionTitle || "Mission indisponible"}
                       </strong>
                     </td>
                     <td className="notification-action-cell">
                       <Link
                         className="notification-open"
-                        aria-label={`Ouvrir la mission : ${n.missionTitle || "Mission indisponible"}`}
-                        href={"/missions/" + n.missionId}
+                        aria-label={
+                          isAction(n)
+                            ? "Marquer comme lue l’action corrective confiée"
+                            : `Ouvrir la mission : ${n.missionTitle || "Mission indisponible"}`
+                        }
+                        href={
+                          isAction(n)
+                            ? "/missions/notifications"
+                            : "/missions/" + n.missionId
+                        }
                         prefetch={false}
                         aria-disabled={pending !== null}
                         onClick={(event) => {
@@ -271,7 +288,11 @@ export default function Notifications() {
                         }}
                       >
                         <span className="notification-open-action">
-                          {pending === n.id ? "Ouverture…" : "Ouvrir"}
+                          {pending === n.id
+                            ? "Ouverture…"
+                            : isAction(n)
+                              ? "Marquer lue"
+                              : "Ouvrir"}
                           <ArrowRight size={16} aria-hidden="true" />
                         </span>
                       </Link>

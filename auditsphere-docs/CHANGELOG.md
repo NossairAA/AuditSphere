@@ -1,5 +1,12 @@
 # Journal des changements
 
+## 2026-10-30 : notification de l’action confiée (F-006 lot 6)
+
+- remediation-service publie `audit.action.assigned.v1` depuis son outbox à la création et à la réaffectation d’une action, avec les seuls identifiants. Schéma dans `contracts/action-assigned-v1.schema.json`, topic et DLT créés par `kafka-init`.
+- notification-service le consomme sans doublon et notifie le nouveau responsable. Migration V4 : `action_id` obligatoire pour ce type seulement. `GET /notifications` renvoie `actionId`.
+- Votre activité affiche « Une action corrective vous est confiée ». Le clic marque la notification lue, la page de l’action arrive au lot 7.
+- Vérifié localement : 25 tests remediation-service, 20 tests notification-service, TypeScript, parcours réel par la gateway jusqu’à la notification de l’audité, smoke réussi. CI distante non exécutée, non déployé dans k3s. Détails dans le [guide des actions correctives](docs/technique/27-actions-correctives.md).
+
 ## 2026-10-30 : justificatifs des actions correctives (F-006 lot 5)
 
 - L’audité dépose, télécharge et retire les justificatifs de ses actions avant leur réalisation. L’équipe d’audit les télécharge. PDF, JPEG ou PNG vérifiés par leur contenu, 10 Mio par fichier, 10 par action, 100 Mio par mission, empreinte SHA-256 contrôlée à chaque téléchargement.

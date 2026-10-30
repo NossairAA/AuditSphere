@@ -148,3 +148,12 @@ notification-service n’a pas ce défaut. Sa chaîne se termine par `anyRequest
 `ErrorDispatchTest` démarre le service sur un port aléatoire avec un `JwtDecoder` de test en `@Primary`. Il exige 400 sur `/notifications?page=-1` et `/notifications?size=0`, 404 sur le marquage d’une notification inconnue et 200 sur la liste. Il protège contre un futur passage à `denyAll()` sans règle pour le type `ERROR`.
 
 Vérifié localement avec JDK 25 et Docker : le test réussit sur la configuration actuelle. Avec une chaîne modifiée temporairement pour finir par `denyAll()`, il échoue avec `expected: <400> but was: <403>`, ce qui prouve qu’il détecte le défaut. Modification retirée ensuite. `./mvnw -B -pl services/notification-service -am verify` réussit avec 18 tests. Non vérifié : CI distante et service déployé dans k3s.
+
+## Affectation d’une action corrective : 2026-10-30
+
+- notification-service consomme aussi `audit.action.assigned.v1`, publié par remediation-service à la création et à la réaffectation d’une action corrective. Le destinataire est le nouveau responsable de l’action. Le précédent ne reçoit rien.
+- Migration V4 : colonne `action_id`, type ajouté à la contrainte, et contrainte qui impose `action_id` pour ce type et l’interdit pour les deux autres. L’événement est validé de la même façon avant l’insertion.
+- La réponse de `GET /notifications` porte `actionId`, nul pour les notifications de mission. Contrat dans `contracts/notification-api.yaml`.
+- La page Votre activité affiche « Une action corrective vous est confiée ». L’audité ne voit pas la mission : le clic marque la notification lue sans naviguer, en attendant la page de l’action prévue au lot 7 des actions correctives.
+- Détails et vérifications dans le [guide des actions correctives](27-actions-correctives.md).
+

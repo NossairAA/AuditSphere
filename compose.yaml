@@ -75,7 +75,7 @@ services:
     entrypoint: [sh, -ec]
     command:
       - |
-        for topic in audit.mission.assigned.v1 audit.mission.review-requested.v1 audit.mission.findings-issued.v1 audit.mission.findings-withdrawn.v1 audit.mission.assigned.v1.DLT audit.mission.review-requested.v1.DLT audit.mission.findings-issued.v1.DLT audit.mission.findings-withdrawn.v1.DLT
+        for topic in audit.mission.assigned.v1 audit.mission.review-requested.v1 audit.mission.findings-issued.v1 audit.mission.findings-withdrawn.v1 audit.action.assigned.v1 audit.mission.assigned.v1.DLT audit.mission.review-requested.v1.DLT audit.mission.findings-issued.v1.DLT audit.mission.findings-withdrawn.v1.DLT audit.action.assigned.v1.DLT
         do
           /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic "$$topic" --partitions 3 --replication-factor 1 --config retention.ms=604800000
         done
@@ -134,6 +134,7 @@ services:
       DB_USER: remediation_runtime
       DB_PASSWORD: ${REMEDIATION_RUNTIME_PASSWORD:-not-provisioned}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      OUTBOX_ENABLED: "true"
       KEYCLOAK_URL: http://keycloak:8080
       REMEDIATION_SYNC_CLIENT_SECRET: ${REMEDIATION_SYNC_CLIENT_SECRET:?Run setup-web.py --configure-only}
       REMEDIATION_DIRECTORY_CLIENT_SECRET: ${REMEDIATION_DIRECTORY_CLIENT_SECRET:?Run setup-web.py --configure-only}

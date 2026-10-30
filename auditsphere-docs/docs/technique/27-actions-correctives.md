@@ -1,6 +1,6 @@
 # Actions correctives : implémentation proposée
 
-**Statut :** découpage accepté par ADR-0022. Lot 1 implémenté, vérifié localement puis par la CI distante, publié dans `main` le 2026-10-24. Lot 2 vérifié par la CI distante et publié dans `main` le 2026-10-26. Lot 3 vérifié par la CI distante et publié dans `main` le 2026-10-29, non déployé dans k3s. Lot 4 vérifié par la CI distante et publié dans `main` le 2026-10-30. Lot 5 implémenté et vérifié localement le 2026-10-30, CI distante non exécutée. Lots 6 à 8 proposés, non implémentés.
+**Statut :** découpage accepté par ADR-0022. Lot 1 implémenté, vérifié localement puis par la CI distante, publié dans `main` le 2026-10-24. Lot 2 vérifié par la CI distante et publié dans `main` le 2026-10-26. Lot 3 vérifié par la CI distante et publié dans `main` le 2026-10-29, non déployé dans k3s. Lot 4 vérifié par la CI distante et publié dans `main` le 2026-10-30. Lot 5 vérifié par la CI distante et publié dans `main` le 2026-10-30. Lot 6 implémenté et vérifié localement le 2026-10-30, CI distante non exécutée. Lots 7 et 8 proposés, non implémentés.
 **Tranche :** F-006, US-006 et US-007. Règles métier dans le [plan métier](../produit/04-plan-metier.md). Découpage du service dans [ADR-0022](../decisions/ADR-0022-actions-correctives-service-dedie.md), accepté le 2026-10-24.
 
 Ce document décrit le découpage technique. Chaque lot est marqué implémenté puis vérifié avec ses preuves de test. Les noms des lots 2 à 8 restent des propositions.
@@ -254,6 +254,20 @@ remediation-service écrit `audit.action.assigned.v1` dans son outbox à la cré
 - Incident pendant la vérification : deux essais interrompus par le script de test ont laissé deux objets sans ligne en base. Ils ont été listés puis supprimés du bucket local. Ce cas reste possible si le processus s’arrête entre l’écriture de l’objet et la transaction : aucun nettoyage automatique des objets orphelins n’existe.
 - Non vérifié : CI distante, interface, Garage du serveur privé où le bucket des justificatifs n’est pas créé, k3s.
 
+## Lot 6 : notification d’affectation
+
+- `AssignmentPublisher` publie les lignes de `remediation_outbox` dans `audit.action.assigned.v1`, avec le protocole de bail des outbox d’audit-service : une ligne à la fois, bail de 30 secondes, nouvelle tentative différée de 2 secondes par tentative, 60 secondes au plus. Clé Kafka `actionId`, pour garder l’ordre des réaffectations d’une même action. Activé par `OUTBOX_ENABLED`, comme audit-service, et activé dans Compose.
+- Le message contient seulement eventId, eventType, eventVersion, actionId, followUpId, missionId, recipientSubject, aggregateVersion et occurredAt. Schéma dans `contracts/action-assigned-v1.schema.json`. Topic et DLT créés par `kafka-init`.
+- notification-service consomme ce topic dans son groupe existant, idempotent par eventId, voir le [guide des notifications](09-notifications-kafka.md). Un événement d’action sans `actionId`, ou de mission avec `actionId`, part dans le DLT.
+
+## Vérifications du lot 6
+
+- `AssignmentPublisherTest`, deux tests avec PostgreSQL Testcontainers et un KafkaTemplate simulé : publication sur le bon topic avec la clé de l’action, champs exactement égaux à ceux du schéma publié, aucun texte de constat ni d’action, ligne marquée publiée puis plus rien à publier. Courtier en échec : bail libéré, tentative comptée, ligne différée et non publiée.
+- `NotificationIntegrationTest`, deux tests ajoutés : notification d’action enregistrée une fois malgré la redélivrance, visible par son destinataire avec `actionId`, invisible pour un autre utilisateur, notification de mission avec `actionId` nul. Événement d’action sans action et événement de mission avec action refusés sans écriture, contrainte V4 vérifiée en base.
+- `./mvnw -B -pl services/remediation-service,services/notification-service -am verify` avec JDK 25 : 25 tests remediation-service et 20 tests notification-service réussis. TypeScript du frontend réussi.
+- Pile locale relancée par `scripts/start-local.sh` : migration V4 de notification-service appliquée, topic `audit.action.assigned.v1` et son DLT créés. Parcours réel par la gateway avec les jetons de démonstration, sur une mission synthétique retirée ensuite : action créée pour `auditee`, ligne d’outbox publiée, notification reçue par l’audité avec `actionId` et le bon type, absente pour le responsable de mission, une seule ligne en base. `scripts/smoke.py` et tests Python réussis.
+- Non vérifié : CI distante, affichage navigateur de la notification, k3s, où il manque le topic, son DLT, les ACL d’écriture de remediation-service et de lecture de notification-service.
+
 ## Lots et vérifications prévues
 
 | Lot | Contenu | Vérification attendue |
@@ -262,8 +276,8 @@ remediation-service écrit `audit.action.assigned.v1` dans son outbox à la cré
 | 2, vérifié et publié | audit-service : V18, outbox d’émission et de retrait, lecture interne, client `remediation-service` et rôle `REMEDIATION_SYNC` | Test Java : un événement par approbation et dérogation APPROVE, aucun après annulation de transaction, retrait sur REOPEN et DELETE, lecture interne refusée sans rôle de service, 409 sur cycle périmé |
 | 3, vérifié et publié | Consommateur, lecture d’instantané et réconciliation | Test d’intégration : redélivrance sans doublon, cycle ancien ignoré, audit-service indisponible sans acquittement, suspension puis réactivation, constat absent passé Retiré |
 | 4, vérifié et publié | API des suivis et actions, annuaire et client `remediation-directory`, journal | Test Java : matrice des permissions, séparation des fonctions y compris par dérogation, versions, retard avec horloge fixée, journal sans UPDATE ni DELETE |
-| 5, vérifié localement | Justificatifs dans Garage | Test : type, taille, nombre, quota concurrent, nettoyage de l’objet après refus, retrait interdit après réalisation |
-| 6 | Notification d’affectation | Test notification-service : consommation idempotente, destinataire seul, reprise après panne du broker |
+| 5, vérifié et publié | Justificatifs dans Garage | Test : type, taille, nombre, quota concurrent, nettoyage de l’objet après refus, retrait interdit après réalisation |
+| 6, vérifié localement | Notification d’affectation | Test notification-service : consommation idempotente, destinataire seul, reprise après panne du broker |
 | 7 | BFF, contrat et interface | Tests unitaires Node, TypeScript, build, Playwright `remediation.spec.ts` : approbation, action, avancement et justificatif par l’audité, renvoi, vérification, demande de clôture, clôture, audité extérieur et utilisateur extérieur refusés |
 | 8 | Documentation et publication | Ce guide passé à implémenté puis vérifié, backlog, changelog, migrations appliquées localement après sauvegarde, CI distante |
 
