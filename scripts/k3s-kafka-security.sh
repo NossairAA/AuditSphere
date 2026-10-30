@@ -9,6 +9,8 @@ umask 077
 bootstrap=127.0.0.1:9094
 bin=/opt/kafka/bin
 events=(audit.mission.assigned.v1 audit.mission.review-requested.v1 audit.mission.findings-issued.v1 audit.mission.findings-withdrawn.v1)
+# Affectations des actions correctives, publiées par remediation-service (F-006 lot 6).
+action_events=(audit.action.assigned.v1)
 kafka() { kubectl --namespace data exec -i kafka-0 -c kafka -- "$@"; }
 secret_exists() { kubectl --namespace "$1" get secret "$2" >/dev/null 2>&1; }
 
@@ -27,11 +29,11 @@ case "${1:-}" in
       kafka "$bin/kafka-topics.sh" --bootstrap-server "$bootstrap" --list >/dev/null 2>&1 && break
       sleep 3
     done
-    for topic in "${events[@]}" "${events[@]/%/.DLT}"; do
+    for topic in "${events[@]}" "${events[@]/%/.DLT}" "${action_events[@]}" "${action_events[@]/%/.DLT}"; do
       kafka "$bin/kafka-topics.sh" --bootstrap-server "$bootstrap" --create --if-not-exists --topic "$topic" \
         --partitions 3 --replication-factor 1 --config retention.ms=604800000 >/dev/null
     done
-    echo "Topics : ${#events[@]} topics métier et leurs DLT."
+    echo "Topics : $((${#events[@]} + ${#action_events[@]})) topics métier et leurs DLT."
 
     # Un compte par service. Le mot de passe existant est réutilisé, sinon il est généré puis rangé
     # dans le secret kafka-<service>, avec la ligne JAAS lue par Spring.
@@ -68,8 +70,8 @@ case "${1:-}" in
     for topic in "${events[@]}"; do
       acl audit-service --operation Write --operation Describe --topic "$topic"
     done
-    # notification-service lit les affectations et les demandes de revue, et met en quarantaine leurs rejets.
-    for topic in audit.mission.assigned.v1 audit.mission.review-requested.v1; do
+    # notification-service lit les affectations, celles des actions et les demandes de revue, et met en quarantaine leurs rejets.
+    for topic in audit.mission.assigned.v1 audit.mission.review-requested.v1 audit.action.assigned.v1; do
       acl notification-service --operation Read --operation Describe --topic "$topic"
       acl notification-service --operation Write --operation Describe --topic "$topic.DLT"
     done
