@@ -669,7 +669,8 @@ Vérifications, le 2026-10-30 :
 - Premier ping à 15:02:16, second à 15:07:28, aucun échec d'envoi. `Watchdog` était la seule alerte active, les deux envois sont donc les siens. Check passé à l'état « up » sur healthchecks.io, constaté par l'utilisateur.
 - Battement suspendu par un silence Alertmanager sur `Watchdog` à 15:07:37. Message « AuditSphere k3s watchdog is DOWN » publié sur le sujet ntfy à 15:22:22, en priorité 5, 15 minutes après le dernier ping. Relu sur le sujet.
 - Silence levé à 15:22:48. Ping suivant reçu, message « AuditSphere k3s watchdog is UP » publié à 15:23:27 en priorité normale. Relu sur le sujet.
-- Non vérifié : réception de ces deux messages sur le téléphone, et vrai arrêt du nœud.
+- Messages DOWN et UP reçus sur le téléphone, confirmé par l'utilisateur. Le DOWN n'apparaissait qu'après une actualisation du sujet dans l'application iOS.
+- Non vérifié : vrai arrêt du nœud.
 
 Limites :
 
@@ -1297,7 +1298,7 @@ Seule la phase 7 pourrait être reportée, puisque l'instance publique ne porte 
 
 ## Vérifications effectuées
 
-- Veille externe de la supervision, le 2026-10-30 sur le serveur : `Watchdog` envoyé à healthchecks.io toutes les 5 minutes, battement suspendu par un silence, message DOWN publié sur le sujet ntfy 15 minutes après le dernier ping, puis UP au retour. Détails dans la veille externe de la supervision.
+- Veille externe de la supervision, le 2026-10-30 sur le serveur : `Watchdog` envoyé à healthchecks.io toutes les 5 minutes, battement suspendu par un silence, message DOWN publié sur le sujet ntfy 15 minutes après le dernier ping, puis UP au retour, les deux reçus sur le téléphone. Non vérifié : vrai arrêt du nœud. Détails dans la veille externe de la supervision.
 - Incident du socket de `tailscaled`, le 2026-10-29 sur le serveur : cause relevée dans les journaux de Caddy et de dpkg, proxy redémarré, sonde de Garage de nouveau en succès. Correctif durable appliqué, montage du dossier et drop-in constatés, sonde en succès. Non vérifié : vrai redémarrage de `tailscaled`. Détails dans le correctif de la phase 8.
 - Correctif de la mémoire de Kafka, le 2026-10-27 sur le serveur : table du nettoyeur ramenée de 128 à 16 Mio, mémoire de travail passée de 400 à 240 Mio, test avec pannes réussi. Détails dans le correctif.
 - Phase 6 lot 6C, le 2026-10-27 sur le serveur : session d'observation ouverte et fermée, requête tracée de la gateway à audit-service et par Kafka, journaux reliés aux traces. Sortie de la phase 6 atteinte. Détails dans le lot 6C.
