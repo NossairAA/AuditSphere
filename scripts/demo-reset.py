@@ -10,7 +10,7 @@ The Temporal and database steps run before seed in their own containers, see inf
 Nothing secret is printed. Values come from the environment and from the demo-accounts secret.
 """
 from pathlib import Path
-import json, os, subprocess, sys, urllib.error, urllib.parse, urllib.request
+import json, os, subprocess, sys, time, urllib.error, urllib.parse, urllib.request
 import demo_accounts
 
 KEYCLOAK = os.environ.get('KEYCLOAK_URL', 'http://keycloak.auditsphere.svc.cluster.local:8080')
@@ -30,6 +30,21 @@ def call(url, data=None, method=None, token=None, form=False):
         return json.loads(body) if body else None
 
 
+def wait_keycloak():
+    # After a restart of k3s, the CronJob catches up a missed run while Keycloak is still starting: wait at most 5 min.
+    for _ in range(60):
+        try:
+            call(REALM)
+            return
+        except urllib.error.HTTPError as error:
+            if error.code < 500:
+                raise
+        except (urllib.error.URLError, TimeoutError):
+            pass
+        time.sleep(5)
+    raise SystemExit('Keycloak injoignable après 5 minutes.')
+
+
 def service_token(client_id, secret_variable):
     form = {'grant_type': 'client_credentials', 'client_id': client_id, 'client_secret': os.environ[secret_variable]}
     return call(REALM + '/protocol/openid-connect/token', form, form=True)['access_token']
@@ -41,6 +56,7 @@ def passwords():
 
 
 def reset_accounts():
+    wait_keycloak()
     token = service_token('demo-reset', 'DEMO_RESET_CLIENT_SECRET')
     secrets = passwords()
     for username, (first, last, _roles) in demo_accounts.PROFILES.items():
