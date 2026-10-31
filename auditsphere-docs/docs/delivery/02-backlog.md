@@ -100,6 +100,7 @@ Pour chaque user story ajoutée, utiliser [le modèle de fonctionnalité](../tem
 | TECH-007 | Observabilité | Trace corrélée HTTP/Kafka et métriques consultables | Proposé |
 | TECH-008 | CI/CD et Kubernetes | Image analysée, déploiement Helm/GitOps et rollback testés | En cours : images analysées en CI par HOST-001, cible k3s par ADR-0023 |
 | TECH-009 | Migration vers Spring Boot 4 | Spring Framework 7, dépendances à jour, analyse Trivy bloquante sans vulnérabilité haute ou critique corrigeable | Implémenté et vérifié localement par [ADR-0024](../decisions/ADR-0024-migration-spring-boot-4.md) : Spring Boot 4.0.9, Spring Cloud 2025.1.4, Trivy sans vulnérabilité corrigeable sur les quatre images Java, parcours Playwright réussis. CI distante réussie sur `main` le 2026-10-25 (`2743acb`), analyse bloquante comprise, cinq images publiées |
+| TECH-010 | Suppression d'un brouillon avec programme | `DELETE /missions/{id}` réussit sur un brouillon dont un contrôle est lié à un risque, avec un test Java | Constaté le 2026-10-30 dans k3s pendant HOST-013. Implémenté et vérifié localement : liens `mission_control_risks`, contrôles puis risques supprimés avant la mission, test `draftDeletionRemovesProgramInDependencyOrder` en échec avant la correction, `./mvnw -B -pl services/audit-service -am verify` réussi avec 91 tests. Non déployé dans k3s |
 
 ## Hébergement privé avec k3s
 
