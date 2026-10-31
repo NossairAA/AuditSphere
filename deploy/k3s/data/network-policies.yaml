@@ -68,7 +68,7 @@ spec:
             matchExpressions:
               - key: app.kubernetes.io/name
                 operator: In
-                values: [audit-service, notification-service]
+                values: [audit-service, notification-service, remediation-service]
       ports:
         - port: 9092
 ---

@@ -3,7 +3,7 @@
 
   accounts : restore the passwords, names and email of the demo accounts. Remove OTP, WebAuthn and recovery codes,
              required actions, sessions and brute-force lockouts. superadmin is never touched.
-  seed     : delete the evidence objects listed by the database step, then reseed the 40 missions of
+  seed     : delete the evidence and attachment objects listed by the database step, then reseed the 40 missions of
              seed-demo-missions.py, with the auditsphere-demo client enabled for this step only (ADR-0032).
 
 The Temporal and database steps run before seed in their own containers, see infra/helm/demo-reset.
@@ -88,17 +88,18 @@ def switch(enabled):
 
 
 def seed():
-    keys = WORK / 'evidence-keys.txt'
-    if keys.exists() and keys.read_text().strip():
-        from evidence_storage import request
-        listed = keys.read_text().split()
-        for key in listed:
-            try:
-                request('DELETE', key)
-            except urllib.error.HTTPError as error:
-                if error.code != 404:
-                    raise
-        print(str(len(listed)) + ' preuves retirées du stockage.', flush=True)
+    for name, prefix, label in [('evidence-keys.txt', 'EVIDENCE', 'preuves'), ('attachment-keys.txt', 'REMEDIATION', 'justificatifs')]:
+        keys = WORK / name
+        if keys.exists() and keys.read_text().strip():
+            from evidence_storage import request
+            listed = keys.read_text().split()
+            for key in listed:
+                try:
+                    request('DELETE', key, prefix=prefix)
+                except urllib.error.HTTPError as error:
+                    if error.code != 404:
+                        raise
+            print(str(len(listed)) + ' ' + label + ' retirés du stockage.', flush=True)
     switch(True)
     try:
         # The seed sets the mode of its manifest folder: a folder it creates, not the root of the emptyDir volume.

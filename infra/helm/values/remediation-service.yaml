@@ -14,14 +14,35 @@ env:
   # TLS vérifié contre la racine hors ligne (phase 8, lot C).
   DB_URL: jdbc:postgresql://postgres.data.svc.cluster.local:5432/remediation?sslmode=verify-full&sslrootcert=/etc/auditsphere/ca/ca.crt
   DB_USER: remediation_runtime
+  # Synchronisation des constats, annuaire des audités et publication des affectations (F-006, HOST-013).
+  KEYCLOAK_URL: http://keycloak.auditsphere.svc.cluster.local:8080
+  OUTBOX_ENABLED: "true"
+  KAFKA_BOOTSTRAP_SERVERS: kafka.data.svc.cluster.local:9092
+  # SASL_SSL avec SCRAM-SHA-512 et TLS vérifié contre la racine hors ligne (phase 8, lot D).
+  SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL: SASL_SSL
+  SPRING_KAFKA_PROPERTIES_SASL_MECHANISM: SCRAM-SHA-512
+  SPRING_KAFKA_PROPERTIES_SSL_TRUSTSTORE_TYPE: PEM
+  SPRING_KAFKA_PROPERTIES_SSL_TRUSTSTORE_LOCATION: /etc/auditsphere/ca/ca.crt
+  # Justificatifs dans leur propre bucket, créé par scripts/k3s-remediation-storage.sh.
+  REMEDIATION_S3_REGION: garage
+  REMEDIATION_S3_BUCKET: auditsphere-remediation-k3s
+  REMEDIATION_S3_PATH_STYLE: "true"
+  # REMEDIATION_S3_ENDPOINT est passé à l'installation depuis .local/k3s.env.
 secretEnv:
   - {name: DB_PASSWORD, secret: db-credentials, key: remediation_runtime}
+  - {name: SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG, secret: kafka-remediation-service, key: jaas}
+  - {name: REMEDIATION_SYNC_CLIENT_SECRET, secret: app-secrets, key: REMEDIATION_SYNC_CLIENT_SECRET}
+  - {name: REMEDIATION_DIRECTORY_CLIENT_SECRET, secret: app-secrets, key: REMEDIATION_DIRECTORY_CLIENT_SECRET}
+  - {name: REMEDIATION_S3_ACCESS_KEY, secret: remediation-s3, key: REMEDIATION_S3_ACCESS_KEY}
+  - {name: REMEDIATION_S3_SECRET_KEY, secret: remediation-s3, key: REMEDIATION_S3_SECRET_KEY}
+# Avec Kafka, l'outbox et le client S3 actifs : 284 Mio sur 320 relevés le 2026-10-30 après un dépôt de justificatif.
+# Limite portée à 384 Mio, comme notification-service (HOST-013).
 resources:
   requests:
     cpu: 50m
     memory: 256Mi
   limits:
-    memory: 320Mi
+    memory: 384Mi
 internalCa:
   enabled: true
 

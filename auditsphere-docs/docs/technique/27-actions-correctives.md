@@ -268,6 +268,10 @@ remediation-service écrit `audit.action.assigned.v1` dans son outbox à la cré
 - Pile locale relancée par `scripts/start-local.sh` : migration V4 de notification-service appliquée, topic `audit.action.assigned.v1` et son DLT créés. Parcours réel par la gateway avec les jetons de démonstration, sur une mission synthétique retirée ensuite : action créée pour `auditee`, ligne d’outbox publiée, notification reçue par l’audité avec `actionId` et le bon type, absente pour le responsable de mission, une seule ligne en base. `scripts/smoke.py` et tests Python réussis.
 - Non vérifié : CI distante, affichage navigateur de la notification, k3s, où il manque le topic, son DLT, les ACL d’écriture de remediation-service et de lecture de notification-service.
 
+## Déploiement dans k3s
+
+Les manques notés aux lots 3 à 6 sont levés le 2026-10-30 par HOST-013 : compte Kafka et ACL, règle réseau, `KEYCLOAK_URL` et secrets clients, client `remediation-directory`, bucket des justificatifs du cluster et outbox active. Parcours vérifié dans k3s par `scripts/test-remediation.py`. Détails dans l'[hébergement k3s](28-hebergement-k3s.md).
+
 ## Lots et vérifications prévues
 
 | Lot | Contenu | Vérification attendue |
