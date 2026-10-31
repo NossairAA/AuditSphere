@@ -1143,6 +1143,35 @@ class MissionIntegrationTest {
   }
 
   @Test
+  void draftDeletionRemovesProgramInDependencyOrder() throws Exception {
+    String id = create();
+    programControl(id);
+    java.util.UUID mission = java.util.UUID.fromString(id);
+    org.junit.jupiter.api.Assertions.assertEquals(
+        1,
+        jdbc.queryForObject(
+            "SELECT count(*) FROM mission_control_risks WHERE mission_id=?", Integer.class, mission));
+    deleteDraft(id, "owner", "AUDIT_MANAGER", 2, "Brouillon de test")
+        .andExpect(status().isNoContent());
+    for (String table :
+        new String[] {
+          "mission_control_risks",
+          "mission_controls",
+          "mission_risks",
+          "mission_assignments",
+          "assignment_outbox"
+        })
+      org.junit.jupiter.api.Assertions.assertEquals(
+          0,
+          jdbc.queryForObject(
+              "SELECT count(*) FROM " + table + " WHERE mission_id=?", Integer.class, mission),
+          table);
+    org.junit.jupiter.api.Assertions.assertEquals(
+        0,
+        jdbc.queryForObject("SELECT count(*) FROM missions WHERE id=?", Integer.class, mission));
+  }
+
+  @Test
   void withdrawalReopensMissionPreservesTraceAndStartsANewCycleOnResubmission() throws Exception {
     String id = pendingReview();
     var cycle =
