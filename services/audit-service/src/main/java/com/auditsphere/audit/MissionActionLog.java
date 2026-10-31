@@ -67,4 +67,12 @@ class MissionActionLog {
   public void removeDraftEvents(UUID mission) {
     jdbc.update("DELETE FROM assignment_outbox WHERE mission_id=?", mission);
   }
+
+  // mission_control_risks has no cascade towards mission_risks: delete links before risks.
+  @Transactional(propagation = Propagation.MANDATORY)
+  public void removeDraftProgram(UUID mission) {
+    jdbc.update("DELETE FROM mission_control_risks WHERE mission_id=?", mission);
+    jdbc.update("DELETE FROM mission_controls WHERE mission_id=?", mission);
+    jdbc.update("DELETE FROM mission_risks WHERE mission_id=?", mission);
+  }
 }

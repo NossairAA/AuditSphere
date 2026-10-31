@@ -2,7 +2,7 @@
 
 ## Parcours
 
-Le responsable propriétaire peut supprimer une mission encore en brouillon. Le formulaire exige une confirmation et un motif non blanc de 2 000 caractères maximum. La suppression retire la mission, ses affectations et ses événements d’affectation encore présents dans l’outbox. Une trace minimale reste dans `mission_action_log` avec identifiant de mission, acteur, motif, version et date.
+Le responsable propriétaire peut supprimer une mission encore en brouillon. Le formulaire exige une confirmation et un motif non blanc de 2 000 caractères maximum. La suppression retire la mission, ses affectations, ses événements d’affectation encore présents dans l’outbox et son programme de travail. Le programme est supprimé dans l’ordre des dépendances : liens entre contrôles et risques, contrôles, puis risques. La clé étrangère de `mission_control_risks` vers `mission_risks` n’a pas de cascade, une suppression directe de la mission échouait donc en 500 (TECH-010). Un brouillon ne porte ni justificatif ni constat, réservés aux missions en cours. Une trace minimale reste dans `mission_action_log` avec identifiant de mission, acteur, motif, version et date. L’historique `program_change_log` est aussi conservé.
 
 Une mission en attente de validation peut être retirée par son responsable propriétaire. Elle revient en cours et affiche la date et le motif du dernier retrait. Une nouvelle soumission crée un nouveau cycle de validation. Les missions approuvées et clôturées ne peuvent être ni retirées ni supprimées par ces actions.
 
@@ -34,5 +34,7 @@ Sauvegarder les bases avec `scripts/harden-databases.py`, arrêter audit-service
 53 tests Java réussis, incluant permissions, statut, motif, version, concurrence retrait contre approbation, rollback de l’outbox et rejeu Temporal pour les trois résultats possibles. Compilation frontend et 14 tests navigateur réussis. Le scénario réel avec arrêts du worker et de Temporal vérifie trois cycles, dont le retrait, leur reprise et le rejeu sans nouveau workflow. La reprise après changement d’adresse peut prendre plusieurs dizaines de secondes.
 
 Les tests navigateur enregistrent leurs identifiants de mission dans un manifeste privé et déclenchent leur nettoyage à la fin. Le script sauvegarde les bases, arrête temporairement les producteurs, attend la consommation Kafka, supprime uniquement les workflows et données associés aux identifiants enregistrés, puis redémarre les services. Le journal des actions reste conservé. Aucun filtrage global par nom ni remise à zéro des bases. Si le nettoyage échoue, le manifeste reste disponible pour reprise.
+
+TECH-010 : le test `draftDeletionRemovesProgramInDependencyOrder` crée un brouillon avec un risque et un contrôle lié, le supprime, attend 204 et vérifie qu’aucune ligne ne reste dans les tables du programme, des affectations et des missions. Il échouait avant la correction avec la violation de `mission_control_risks_mission_id_risk_id_fkey`.
 
 Les anciennes données synthétiques des vérifications ont été retirées. Les six missions de démonstration et la mission créée par l’utilisateur ont été préservées.

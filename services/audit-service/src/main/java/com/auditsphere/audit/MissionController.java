@@ -400,6 +400,7 @@ class MissionController {
           if (!m.status.equals("DRAFT")) throw new ResponseStatusException(HttpStatus.CONFLICT);
           actionLog.append(m, jwt.getSubject(), "DRAFT_DELETED", body.reason().strip());
           actionLog.removeDraftEvents(id);
+          actionLog.removeDraftProgram(id);
           repository.delete(m);
           repository.flush();
           return ResponseEntity.noContent().build();
