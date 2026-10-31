@@ -7,7 +7,7 @@
 - `k3s-remediation-storage.sh`, nouveau : bucket Garage `auditsphere-remediation-k3s` et clé limitée à ce bucket, créés par SSH, secret `remediation-s3`.
 - Valeurs Helm de remediation-service : Kafka en SASL_SSL, outbox active, Keycloak, secrets clients, stockage des justificatifs, limite mémoire de 320 à 384 Mio. demo-reset retire aussi chaque nuit les objets des justificatifs, `evidence_storage.py` prend un préfixe de stockage.
 - `test-remediation.py`, nouveau : parcours F-006 de bout en bout par la gateway.
-- Vérifié sur le serveur : 106 événements de constats synchronisés sans DLT, 24 suivis conformes aux 24 constats validés, parcours réussi avec suivi, notification et justificatif, smoke réussi, aucune alerte hors `Watchdog`. Non vérifié : réinitialisation nocturne avec des justificatifs. Défaut constaté dans audit-service : suppression d'un brouillon avec programme en 500 (TECH-010). Détails dans l'[hébergement k3s](docs/technique/28-hebergement-k3s.md).
+- Vérifié sur le serveur : 106 événements de constats synchronisés sans DLT, 24 suivis conformes aux 24 constats validés, parcours réussi avec suivi, notification et justificatif, smoke réussi, aucune alerte hors `Watchdog`. Non vérifié : réinitialisation nocturne avec des justificatifs, celle du 2026-10-31 n'en avait aucun. Défaut constaté dans audit-service : suppression d'un brouillon avec programme en 500 (TECH-010). Détails dans l'[hébergement k3s](docs/technique/28-hebergement-k3s.md).
 
 ## 2026-10-30 : déploiement des images de `20dd6db`
 

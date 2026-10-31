@@ -998,7 +998,7 @@ Incident : le premier essai de `test-remediation.py` a laissé une mission en br
 
 Limites :
 
-- Non vérifié : une vraie réinitialisation nocturne avec des justificatifs en base. Elle aura lieu à la prochaine exécution du CronJob.
+- Non vérifié : une vraie réinitialisation nocturne avec des justificatifs en base. Celle du 2026-10-31 à 5 h a réussi, mais l'étape `database` a relevé 0 justificatif à retirer : le retrait des objets n'a pas encore servi.
 - La mission approuvée par `test-remediation.py` reste visible jusqu'à la réinitialisation nocturne. `cleanup-test-data.py` ne nettoie pas la base remediation : le retirer laisserait un suivi orphelin.
 - Un objet écrit dans Garage puis refusé par la transaction, si le processus s'arrête entre les deux, reste orphelin, comme noté au lot 5 de F-006. La réinitialisation nocturne ne voit que les objets listés en base.
 - Les ACL ne sont jamais retirées par le script, comme pour les autres comptes.
