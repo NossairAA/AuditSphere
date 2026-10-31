@@ -1,5 +1,11 @@
 # Journal des changements
 
+## 2026-10-31 : suppression d'un brouillon avec programme (TECH-010)
+
+- `DELETE /missions/{id}` répondait 500 sur un brouillon dont un contrôle est lié à un risque. La contrainte `mission_control_risks_mission_id_risk_id_fkey` n'a pas de cascade vers les risques et PostgreSQL refusait la suppression en cascade de la mission.
+- audit-service supprime désormais les liens entre contrôles et risques, puis les contrôles, puis les risques, avant la mission. Ordre repris de `cleanup-test-data.py` et de `demo-reset`. Les journaux `mission_action_log` et `program_change_log` sont conservés.
+- Vérifié localement : nouveau test Testcontainers en échec avant la correction avec cette violation, réussi après. `./mvnw -B -pl services/audit-service -am verify` réussi avec JDK 25, 91 tests. Non déployé dans k3s. Détails dans [retrait et suppression](docs/technique/18-retrait-suppression.md).
+
 ## 2026-10-30 : remediation-service branché dans k3s (HOST-013)
 
 - `k3s-kafka-security.sh` : compte SCRAM `remediation-service`, lecture des topics de constats, écriture de leurs DLT et de `audit.action.assigned.v1`, lecture du groupe `remediation-service-v1`. Règle réseau de Kafka ouverte à remediation-service.

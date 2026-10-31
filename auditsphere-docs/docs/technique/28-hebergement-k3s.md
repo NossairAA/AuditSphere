@@ -994,7 +994,7 @@ Vérifications du 2026-10-30 :
 - Chemin de nettoyage de demo-reset essayé depuis le poste, sans lancer de réinitialisation : écriture, lecture puis suppression d'une clé de test par `evidence_storage.py` avec le préfixe `REMEDIATION`, puis 404.
 - `k3s-deploy-services.sh` rejoué : idempotent, aucun redémarrage hors demo-reset mis à jour. `k3s-check.sh smoke.py` réussi. Mission du smoke retirée par `cleanup-test-data.py`. Groupe `remediation-service-v1` stable, 247 Mio au repos sous 384, aucun redémarrage, aucune alerte hors `Watchdog`. Tests Python des scripts : 25 réussis dont deux ignorés par conception.
 
-Incident : le premier essai de `test-remediation.py` a laissé une mission en brouillon, faute de dates prévues. Sa suppression par `DELETE /missions/{id}` a répondu 500 : audit-service supprime les risques avant les liens entre contrôles et risques, et la contrainte `mission_control_risks_mission_id_risk_id_fkey` refuse. Le brouillon a été retiré par `cleanup-test-data.py`. Le défaut d'audit-service reste à corriger, backlog TECH-010.
+Incident : le premier essai de `test-remediation.py` a laissé une mission en brouillon, faute de dates prévues. Sa suppression par `DELETE /missions/{id}` a répondu 500 : audit-service supprime les risques avant les liens entre contrôles et risques, et la contrainte `mission_control_risks_mission_id_risk_id_fkey` refuse. Le brouillon a été retiré par `cleanup-test-data.py`. Le défaut est corrigé dans audit-service par TECH-010 le 2026-10-31, pas encore déployé dans k3s.
 
 Limites :
 
