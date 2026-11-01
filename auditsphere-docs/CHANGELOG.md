@@ -1,5 +1,10 @@
 # Journal des changements
 
+## 2026-11-01 : déploiement de TECH-011
+
+- Images de la gateway et du web de `6c7cb8d` épinglées par empreinte et déployées par `k3s-deploy-services.sh`. Plafond par identité inchangé dans le cluster, 240 par minute.
+- Vérifié sur le serveur : smoke de l'API et du BFF réussis, aucune alerte hors `Watchdog`. Non vérifié : la réponse 429 dans le cluster. Détails dans l'[hébergement k3s](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-11-01 : déploiement de l'interface des actions correctives
 
 - Image web de `995eff4` épinglée par empreinte et déployée par `k3s-deploy-services.sh`, profil `demo`. Aucun service Java ni migration.
