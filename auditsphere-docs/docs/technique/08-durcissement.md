@@ -62,7 +62,7 @@ Vérifications de TECH-011, le 2026-11-01 sur la pile locale :
 - Diagnostic : un journal temporaire dans `session()`, retiré ensuite, a relevé dix refus 429 de `/account/security` pendant une suite Playwright complète, et aucun autre statut. Avec le plafond par identité relevé, la même suite réussit, 31 tests sur 31, sans aucun refus.
 - Correctif : 17 tests de la gateway réussis, dont un nouveau test du plafond par identité configuré. Test Playwright du BFF ajouté : un 429 de la gateway donne 429 et Retry-After, toute autre erreur 503. `npm run typecheck` et `npm run build` réussis.
 - Suite complète avec Compose à 2400 : deux exécutions enchaînées réussies, 32 tests sur 32, puis une troisième sur le même serveur de dev avec cinq refus 429 attendus en 401. Ce sont les compteurs anonymes du BFF, 60 par minute, gardés en mémoire d'une suite à l'autre. Une nouvelle suite sur un serveur de dev relancé réussit, 32 tests sur 32. Pour enchaîner des suites, `scripts/test-browser-isolated.sh` relance le frontend et la gateway avant chaque fichier.
-- Non vérifié : CI distante, k3s, où le plafond par identité reste 240.
+- CI distante réussie sur la PR et sur `main` (`6c7cb8d`). Déployé dans k3s le 2026-11-01, où le plafond par identité reste 240, voir l'[hébergement k3s](28-hebergement-k3s.md). Non vérifié : la réponse 429 dans le cluster.
 
 Ces limites protègent le déploiement local à une instance. Pour plusieurs réplicas ou un hébergement serverless, utiliser une limite partagée Redis ou un équipement d’entrée de confiance. Une fenêtre fixe autorise un pic à la frontière de deux fenêtres. Il ne faut pas annoncer un quota global de cluster avec cette implémentation.
 
