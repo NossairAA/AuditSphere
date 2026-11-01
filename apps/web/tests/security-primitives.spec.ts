@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { randomBytes } from "node:crypto";
 import { request as httpRequest } from "node:http";
 import { clientAddress, rateLimit } from "../src/lib/rate";
+import { GatewayLimitError, serviceError } from "../src/lib/service-error";
 import { encryptSession, decryptSession } from "../src/lib/session-crypto";
 import { NextRequest } from "next/server";
 import { proxy, config as proxyConfig } from "../src/proxy";
@@ -136,4 +137,14 @@ test("anonymous upload is rejected before its body finishes", async () => {
     upload.write("--security-test\r\nContent-Disposition: form-data; name=\"file\"; filename=\"test.pdf\"\r\n\r\n%PDF-1.4");
   });
   expect(status).toBe(401);
+});
+
+test("a gateway rate limit is reported as 429, any other failure as unavailable", async () => {
+  const limited = serviceError(new GatewayLimitError(), "Service temporairement indisponible");
+  expect(limited.status).toBe(429);
+  expect(limited.headers.get("Retry-After")).toBe("60");
+  expect((await limited.json()).error).toMatch(/Trop de requêtes/);
+  const failed = serviceError(new Error("timeout"), "Service temporairement indisponible");
+  expect(failed.status).toBe(503);
+  expect(failed.headers.get("Cache-Control")).toBe("no-store");
 });

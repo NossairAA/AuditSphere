@@ -5,6 +5,13 @@
 - Image web de `995eff4` épinglée par empreinte et déployée par `k3s-deploy-services.sh`, profil `demo`. Aucun service Java ni migration.
 - Vérifié sur le serveur : `test-remediation.py` réussi, écrans de l'audité et du responsable affichés par le nom public, smoke réussi, aucune alerte hors `Watchdog`. Détails dans l'[hébergement k3s](docs/technique/28-hebergement-k3s.md).
 
+## 2026-11-01 : limite de la gateway et suite navigateur (TECH-011)
+
+- Cause des échecs intermittents de la suite Playwright établie : le BFF vérifie la session par `/account/security` à chaque requête, ce qui double les appels à la gateway, et le plafond de 240 requêtes par minute et par identité répondait 429. Le BFF transformait ce refus en 503.
+- Le BFF répond désormais 429 avec Retry-After quand la gateway limite, par `serviceError`. L'espace de travail affiche « Trop de requêtes ».
+- Gateway : plafonds global et par identité réglables par `GATEWAY_RATE_GLOBAL_LIMIT` et `GATEWAY_RATE_USER_LIMIT`, valeurs par défaut inchangées. Compose relève le plafond par identité à 2400 pour la pile locale, k3s garde 240.
+- Vérifié localement : 17 tests de la gateway, test du BFF, typecheck, build, suite complète réussie 32 sur 32. Non vérifié : CI distante, k3s. Détails dans le [durcissement](docs/technique/08-durcissement.md).
+
 ## 2026-11-01 : interface des actions correctives (F-006, lot 7)
 
 - BFF : route unique `/api/remediation/[...path]` vers remediation-service, liste fermée des routes, champs filtrés, CSRF, limitation de débit, dépôt et téléchargement des justificatifs. Règles pures dans `remediation-rules.ts`, tests unitaires Node.

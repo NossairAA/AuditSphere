@@ -1,4 +1,5 @@
 import "server-only";
+import { GatewayLimitError } from "./service-error";
 import { cookies } from "next/headers";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { Pool } from "pg";
@@ -152,6 +153,7 @@ export async function session(): Promise<Session | null> {
     await pool.query("DELETE FROM web_sessions WHERE id_hash=$1", [hash(id)]);
     return null;
   }
+  if (security.status === 429) throw new GatewayLimitError();
   if (!security.ok && security.status !== 401)
     throw new Error("Vérification de session indisponible");
   if (current.expiresAt > Date.now() + 30_000) {
@@ -240,3 +242,4 @@ export function json(body: unknown, status = 200) {
     headers: { "Cache-Control": "no-store" },
   });
 }
+export { GatewayLimitError, serviceError } from "./service-error";

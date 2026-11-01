@@ -256,6 +256,9 @@ services:
     ports: ["127.0.0.1:8080:8080"]
     environment:
       GATEWAY_RATE_IP_LIMIT: ${GATEWAY_RATE_IP_LIMIT:-1200}
+      # Pile locale : la suite Playwright enchaîne des centaines d'appels par compte de démonstration (TECH-011).
+      # k3s garde la valeur par défaut de la gateway, 240 par minute.
+      GATEWAY_RATE_USER_LIMIT: ${GATEWAY_RATE_USER_LIMIT:-2400}
       AUDIT_URL: http://audit-service:8081
       NOTIFICATION_URL: http://notification-service:8082
       REMEDIATION_URL: http://remediation-service:8083

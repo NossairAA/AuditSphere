@@ -1,5 +1,5 @@
 import "server-only";
-import { json, session, validMutation } from "./auth";
+import { json, serviceError, session, validMutation } from "./auth";
 import { acquireUpload, boundedBody } from "./upload-limits";
 import { rateLimit, rateLimitSession, rateLimitAnonymous } from "./rate";
 
@@ -127,11 +127,8 @@ export async function evidence(
       return new Response(response.body, { status: response.status, headers });
     }
     return json(await response.json(), response.status);
-  } catch {
-    return json(
-      { error: "Service temporairement indisponible. Réessayez." },
-      503,
-    );
+  } catch (error) {
+    return serviceError(error, "Service temporairement indisponible. Réessayez.");
   } finally {
     releaseUpload?.();
   }

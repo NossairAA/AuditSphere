@@ -1,4 +1,4 @@
-import { json, session, validMutation } from "@/lib/auth";
+import { json, serviceError, session, validMutation } from "@/lib/auth";
 import { rateLimit, rateLimitAnonymous, rateLimitSession } from "@/lib/rate";
 import { limitedText, BodyError } from "@/lib/body";
 async function handle(
@@ -89,15 +89,8 @@ async function handle(
       );
     return json(await response.json(), response.status);
   } catch (e) {
-    return json(
-      {
-        error:
-          e instanceof BodyError
-            ? "Formulaire trop volumineux."
-            : "Administration indisponible. Vérifiez le journal avant de réessayer.",
-      },
-      e instanceof BodyError ? 413 : 503,
-    );
+    if (e instanceof BodyError) return json({ error: "Formulaire trop volumineux." }, 413);
+    return serviceError(e, "Administration indisponible. Vérifiez le journal avant de réessayer.");
   }
 }
 export const GET = handle;

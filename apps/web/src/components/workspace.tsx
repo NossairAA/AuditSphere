@@ -35,7 +35,9 @@ export default function Workspace({ children }: { children: React.ReactNode }) {
           throw new Error(
             r.status === 401
               ? "Votre session a expiré."
-              : "Votre espace est temporairement indisponible.",
+              : r.status === 429
+                ? "Trop de requêtes. Réessayez dans une minute."
+                : "Votre espace est temporairement indisponible.",
           );
         setUser(await r.json());
       })

@@ -1,4 +1,4 @@
-import { session, json } from "@/lib/auth";
+import { session, json, serviceError } from "@/lib/auth";
 import { rateLimit, rateLimitAnonymous, rateLimitSession } from "@/lib/rate";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -46,7 +46,7 @@ export async function GET(request: Request) {
         "X-Content-Type-Options": "nosniff",
       },
     });
-  } catch {
-    return json({ error: "Actualisation en direct indisponible" }, 503);
+  } catch (error) {
+    return serviceError(error, "Actualisation en direct indisponible");
   }
 }
