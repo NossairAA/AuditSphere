@@ -1,5 +1,13 @@
 # Journal des changements
 
+## 2026-11-01 : interface des actions correctives (F-006, lot 7)
+
+- BFF : route unique `/api/remediation/[...path]` vers remediation-service, liste fermée des routes, champs filtrés, CSRF, limitation de débit, dépôt et téléchargement des justificatifs. Règles pures dans `remediation-rules.ts`, tests unitaires Node.
+- Onglet Actions correctives dans la fiche d'une mission approuvée ou clôturée : suivis, ajout d'action avec recherche de l'audité, demande de clôture, clôture ou renvoi par le validateur, historique.
+- Page Mes actions et fiche d'action pour l'audité : avancement, justificatifs, déclaration de réalisation. Vérification, renvoi, modification, annulation et réouverture par l'équipe d'audit sur la même fiche. Compte audité seul redirigé vers ses actions, notification d'action reliée à sa fiche.
+- Contrat `contracts/remediation-api.yaml`. `cleanup-test-data.py` nettoie aussi la base remediation et les justificatifs des missions de test.
+- Vérifié localement : tests unitaires, TypeScript, build, parcours Playwright `remediation.spec.ts` seul et dans la suite complète. Échecs intermittents d'autres tests, aussi présents sur `main`, notés en TECH-011. Non vérifié : CI distante, k3s. Détails dans les [actions correctives](docs/technique/27-actions-correctives.md).
+
 ## 2026-11-01 : déploiement du correctif TECH-010
 
 - Images d'audit-service et de workflow-worker de `6eac4e9` épinglées par empreinte et déployées par `k3s-deploy-services.sh`. Aucune migration. Les autres services restent sur `20dd6db`.

@@ -1,13 +1,14 @@
 "use client";
-import { isSuperAdmin, roleLabels } from "@/lib/types";
+import { isAuditeeOnly, isSuperAdmin, roleLabels } from "@/lib/types";
 import Link from "next/link";
 import UnreadCount from "./unread-count";
 import { BrandLockup } from "./brand";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, createContext, useContext } from "react";
 import {
   Bell,
   ClipboardList,
+  ListChecks,
   ShieldCheck,
   LogOut,
   ArrowRight,
@@ -22,7 +23,9 @@ const UserContext = createContext<User | null>(null);
 export const useUser = () => useContext(UserContext);
 export default function Workspace({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const notifications = pathname === "/missions/notifications";
+  const actions = pathname.startsWith("/actions");
   const [user, setUser] = useState<User | null>(null),
     [error, setError] = useState("");
   useEffect(() => {
@@ -38,6 +41,11 @@ export default function Workspace({ children }: { children: React.ReactNode }) {
       })
       .catch((e) => setError(e.message));
   }, []);
+  // L'audité n'a aucune mission : son entrée est la liste de ses actions.
+  const auditeeOnly = isAuditeeOnly(user);
+  useEffect(() => {
+    if (auditeeOnly && pathname === "/missions") router.replace("/actions");
+  }, [auditeeOnly, pathname, router]);
   return (
     <div className="workspace">
       <aside className="sidebar">
@@ -46,18 +54,25 @@ export default function Workspace({ children }: { children: React.ReactNode }) {
         </Link>
         <div className="workspace-label">ESPACE DE TRAVAIL</div>
         <nav>
-          <Link
-            href="/missions"
-            className={
-              "nav-link" +
-              (!notifications && !pathname.startsWith("/missions/admin")
-                ? " active"
-                : "")
-            }
-          >
-            <ClipboardList size={19} /> Missions d’audit{" "}
-            <ArrowRight size={15} />
-          </Link>
+          {!auditeeOnly && (
+            <Link
+              href="/missions"
+              className={
+                "nav-link" +
+                (!notifications && !actions && !pathname.startsWith("/missions/admin")
+                  ? " active"
+                  : "")
+              }
+            >
+              <ClipboardList size={19} /> Missions d’audit{" "}
+              <ArrowRight size={15} />
+            </Link>
+          )}
+          {user?.roles.includes("AUDITEE") && (
+            <Link href="/actions" className={"nav-link" + (actions ? " active" : "")}>
+              <ListChecks size={19} /> Mes actions <ArrowRight size={15} />
+            </Link>
+          )}
           {isSuperAdmin(user) && (
             <>
               <div className="workspace-label">ADMINISTRATION</div>
@@ -90,7 +105,11 @@ export default function Workspace({ children }: { children: React.ReactNode }) {
             <br />
             au bon périmètre.
           </strong>
-          <p>Votre espace rassemble les missions qui vous sont confiées.</p>
+          <p>
+            {auditeeOnly
+              ? "Votre espace rassemble les actions qui vous sont confiées."
+              : "Votre espace rassemble les missions qui vous sont confiées."}
+          </p>
         </div>
         <div className="profile">
           <span className="avatar">
@@ -116,7 +135,8 @@ export default function Workspace({ children }: { children: React.ReactNode }) {
       </aside>
       <div className="workspace-body">
         <nav className="mobile-workspace-nav" aria-label="Navigation mobile">
-          <Link href="/missions">Missions</Link>
+          {!auditeeOnly && <Link href="/missions">Missions</Link>}
+          {user?.roles.includes("AUDITEE") && <Link href="/actions">Mes actions</Link>}
           {isSuperAdmin(user) && (
             <>
               <Link href="/missions/admin">Tableau de bord</Link>
