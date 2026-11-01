@@ -132,7 +132,7 @@ export default function MissionRemediation({ mission }: { mission: Mission }) {
           Actualiser les suivis
         </button>
       )}
-      {notice && <p role="status">{notice}</p>}
+      {notice && <p className="notice" role="status">{notice}</p>}
       {!data && !error && <p role="status">Chargement des suivis…</p>}
       {data && data.state === "SUSPENDED" && (
         <p className="program-lock">Mission rouverte dans l’audit : les suivis sont suspendus et en lecture seule.</p>

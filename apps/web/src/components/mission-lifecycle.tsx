@@ -141,7 +141,7 @@ export default function MissionLifecycle({
           )}
         </>
       )}
-      {notice && <p role="status">{notice}</p>}
+      {notice && <p className="notice" role="status">{notice}</p>}
       {canEdit && mission.status === "DRAFT" && (
         <div className="form-actions">
           {!mission.plannedStartDate && (
