@@ -1035,6 +1035,20 @@ Vérifications du 2026-11-01 :
 
 Limite : la mission de `test-remediation.py` reste visible jusqu'à la réinitialisation nocturne, comme pour HOST-013. Les écritures de l'interface, avancement, dépôt, réalisation, vérification et clôture, sont couvertes par le test Playwright local et par `test-remediation.py` côté API, pas rejouées à la main dans le cluster.
 
+#### Déploiement de `6c7cb8d` : limite de la gateway (TECH-011)
+
+Statut : déployé et vérifié le 2026-11-01 sur le profil `demo`, sur demande de l'utilisateur.
+
+- Images de la gateway et du web passées à `6c7cb8d`, tirées par empreinte. La gateway ne change que par TECH-011 : plafonds global et par identité réglables, valeurs par défaut inchangées. Le web répond 429 au lieu de 503 quand la gateway limite la vérification de session.
+- Les valeurs Helm de la gateway ne règlent que `GATEWAY_RATE_IP_LIMIT`. Le plafond par identité reste donc 240 dans le cluster, seul Compose le relève.
+- `k3s-deploy-services.sh` réussi, pods de la gateway et du web prêts sans redémarrage.
+
+Vérifications du 2026-11-01 :
+
+- `k3s-check.sh smoke.py` et `smoke-bff.py` réussis, le second par le nom public : connexion OIDC, session, 42 missions servies, déconnexion. Mission du smoke retirée par `cleanup-test-data.py`.
+- Aucune alerte active hors `Watchdog`, aucune erreur dans les journaux du web.
+- Non vérifié dans le cluster : la réponse 429 elle-même. La provoquer demanderait plus de 240 requêtes par minute sur un compte de la démo publique. Elle est couverte par le test du BFF et par les tests de la gateway.
+
 #### Lot E1 : Garage en HTTPS et rotation des certificats
 
 Statut : implémenté et vérifié le 2026-10-26, sauf mention contraire.
@@ -1418,6 +1432,7 @@ Seule la phase 7 pourrait être reportée, puisque l'instance publique ne porte 
 
 ## Vérifications effectuées
 
+- Déploiement de `6c7cb8d`, le 2026-11-01 sur le serveur : TECH-011 dans la gateway et le web, smoke de l'API et du BFF réussis, aucune alerte hors `Watchdog`. Non vérifié : la réponse 429 dans le cluster. Détails dans le déploiement de `6c7cb8d`.
 - Déploiement de `995eff4`, le 2026-11-01 sur le serveur : interface des actions correctives, parcours F-006 réussi par `test-remediation.py`, écrans de l'audité et du responsable affichés par le nom public, smoke réussi, aucune alerte hors `Watchdog`. Détails dans le déploiement de `995eff4`.
 - Déploiement de `6eac4e9`, le 2026-11-01 sur le serveur : correctif TECH-010 dans audit-service, brouillon avec contrôle lié à un risque supprimé en 204 puis 404, smoke réussi, aucune alerte hors `Watchdog`. Détails dans le déploiement de `6eac4e9`.
 - HOST-013, le 2026-10-30 sur le serveur : remediation-service branché sur Kafka, Keycloak et Garage. 106 événements de constats synchronisés sans DLT, parcours F-006 réussi par `test-remediation.py` : suivi créé par Kafka, action notifiée à l'audité, justificatif déposé, relu et retiré. Smoke réussi, limite mémoire portée à 384 Mio. Non vérifié : réinitialisation nocturne avec des justificatifs. Détails dans la section HOST-013.

@@ -7,6 +7,11 @@
 - Pagination numérotée sur l'annuaire des missions et la liste des utilisateurs, avec la plage visible et le paramètre `page` conservé dans l'URL.
 - Vérifié localement : typecheck, build, captures à 1440 et 375 pixels, 5 parcours Playwright réussis. Non vérifié : Safari, CI distante, déploiement. Détails dans le [frontend](docs/technique/05-frontend-bff.md#base-des-formulaires-et-pagination).
 
+## 2026-11-01 : déploiement de TECH-011
+
+- Images de la gateway et du web de `6c7cb8d` épinglées par empreinte et déployées par `k3s-deploy-services.sh`. Plafond par identité inchangé dans le cluster, 240 par minute.
+- Vérifié sur le serveur : smoke de l'API et du BFF réussis, aucune alerte hors `Watchdog`. Non vérifié : la réponse 429 dans le cluster. Détails dans l'[hébergement k3s](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-11-01 : déploiement de l'interface des actions correctives
 
 - Image web de `995eff4` épinglée par empreinte et déployée par `k3s-deploy-services.sh`, profil `demo`. Aucun service Java ni migration.
