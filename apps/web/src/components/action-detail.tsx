@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { ArrowLeft, ListChecks, Paperclip } from "lucide-react";
+import { ArrowLeft, History, ListChecks, Paperclip } from "lucide-react";
 import { canManageMission, isAuditeeOnly, isSuperAdmin, type Mission } from "@/lib/types";
 import { severityLabels } from "./mission-findings";
 import { ErrorNotice, useUser } from "./workspace";
@@ -199,7 +199,7 @@ export default function ActionDetail({ id }: { id: string }) {
         </span>
       </div>
       {error && <ErrorNotice message={error} />}
-      {notice && <p role="status">{notice}</p>}
+      {notice && <p className="notice" role="status">{notice}</p>}
       {!openPlan && (
         <p className="program-lock">
           Suivi {followUpStatusLabels[finding.status].toLowerCase()} : l’action est en lecture seule.
@@ -211,12 +211,13 @@ export default function ActionDetail({ id }: { id: string }) {
             <ListChecks size={20} aria-hidden="true" />
             <h2>Constat à corriger</h2>
           </div>
-          <p>
-            <strong>C-{String(finding.reference).padStart(2, "0")} · {finding.title}</strong>{" "}
+          <h3 className="finding-heading">
+            <span className="finding-reference">C-{String(finding.reference).padStart(2, "0")}</span>
+            <span>{finding.title}</span>
             <span className={`status finding-severity-${finding.severity.toLowerCase()}`}>
               Gravité {severityLabels[finding.severity].toLowerCase()}
             </span>
-          </p>
+          </h3>
           <dl className="finding-fields">
             <dt>Condition observée</dt>
             <dd className="preserve">{finding.conditionText}</dd>
@@ -346,6 +347,7 @@ export default function ActionDetail({ id }: { id: string }) {
         </section>
         <section className="panel detail-main" aria-label="Avancement et historique">
           <div className="section-label">
+            <History size={20} aria-hidden="true" />
             <h2>Avancement</h2>
           </div>
           {owner && workable && (
@@ -358,15 +360,17 @@ export default function ActionDetail({ id }: { id: string }) {
             </form>
           )}
           {!detail.progress.length && <p className="panel-message">Aucun avancement saisi.</p>}
-          <ol className="finding-history" aria-label="Avancements">
-            {detail.progress.map((p) => (
-              <li key={p.id}>
-                <strong>{name(p.authorSubject)}</strong> · {new Date(p.createdAt).toLocaleString("fr-FR")}
-                <p className="preserve">{p.note}</p>
-              </li>
-            ))}
-          </ol>
-          <h3>Historique</h3>
+          {detail.progress.length > 0 && (
+            <ol className="finding-history" aria-label="Avancements">
+              {detail.progress.map((p) => (
+                <li key={p.id}>
+                  <strong>{name(p.authorSubject)}</strong> · {new Date(p.createdAt).toLocaleString("fr-FR")}
+                  <p className="preserve">{p.note}</p>
+                </li>
+              ))}
+            </ol>
+          )}
+          <h3 className="subsection-heading">Historique</h3>
           <ol className="finding-history" aria-label="Historique de l’action">
             {detail.history.map((h) => (
               <li key={h.id}>

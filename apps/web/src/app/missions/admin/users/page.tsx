@@ -4,6 +4,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ErrorNotice, useUser } from "@/components/workspace";
 import { isSuperAdmin } from "@/lib/types";
 import { useUnsavedGuard } from "@/components/unsaved-guard";
+import { Pagination } from "@/components/pagination";
+// Page size of the admin user listing, set by the admin API.
+const PAGE_SIZE = 20;
 type Person = {
   id: string;
   username: string;
@@ -179,7 +182,7 @@ function Users() {
         </button>
       </div>
       <section className="panel">
-        {notice && <p role="status">{notice}</p>}
+        {notice && <p className="notice" role="status">{notice}</p>}
         <form
           className="directory-filters"
           key={query}
@@ -279,26 +282,13 @@ function Users() {
             )}
           </div>
         )}
-        <div className="table-footer">
-          <span>{data?.total ?? "…"} utilisateurs</span>
-          <div>
-            <button
-              className="button secondary compact"
-              disabled={!data || data.page === 0}
-              onClick={() => update({ page: String(data!.page - 1) })}
-            >
-              Précédente
-            </button>
-            <span>Page {(data?.page ?? 0) + 1}</span>
-            <button
-              className="button secondary compact"
-              disabled={!data || (data.page + 1) * 20 >= data.total}
-              onClick={() => update({ page: String(data!.page + 1) })}
-            >
-              Suivante
-            </button>
-          </div>
-        </div>
+        <Pagination
+          page={data?.page ?? Math.max(0, Number(params.get("page")) || 0)}
+          size={PAGE_SIZE}
+          total={data?.total}
+          unit={["utilisateur", "utilisateurs"]}
+          onPage={(next) => update({ page: String(next) })}
+        />
       </section>
       {editor && (
         <dialog

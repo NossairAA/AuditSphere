@@ -67,6 +67,31 @@ Le logo AuditSphere associe une tuile carrée arrondie vert pâle `#D9E7C1` à u
 
 Vérifié localement le 2026-10-28 : TypeScript strict et build Next.js réussis, page de connexion et barre latérale inspectées à la largeur d’un ordinateur et à 375 pixels, sans défilement horizontal. Les cinq fichiers d’icône et de logo répondent 200 avec le bon type de contenu, et les balises `icon` et `apple-touch-icon` sont présentes dans la page. La signature est vérifiée avec `DEMO_ENTRY` à `true` : une ligne de 32 pixels à 800 et 1024 pixels de large, trois lignes de 70 pixels à 375 pixels, sans chevauchement de la barre latérale ni défilement horizontal. Non déployé : l’image du BFF reste à reconstruire et à épingler après la fusion.
 
+## Base des formulaires et pagination
+
+**Date :** 2026-11-01
+
+`globals.css` importe Tailwind, mais aucune classe utilitaire n'est employée. Seul le preflight agit : il retire les marges, les bordures et le style natif des contrôles. Le CSS du projet supposait pourtant les marges natives. Défauts constatés avant correction :
+
+- Paragraphes sans marge basse, boutons collés au texte ou au champ qui les précède.
+- Listes déroulantes plus basses que les champs sous Safari, qui ignore leur padding sans `appearance: none`.
+- Case « En retard uniquement » de `/actions` étirée sur toute la largeur par la règle des filtres.
+- Bouton du champ fichier sans bordure ni espace.
+- Sept variantes de bordure, padding et rayon selon les écrans. Messages de succès sans style. Filtres et messages vides décalés dans les panneaux déjà rembourrés.
+- Fiche action : bouton collé aux métadonnées, titre du constat en gris, deux styles de libellés, liste vide affichée.
+
+Choix : garder le preflight et poser une base explicite plutôt que retirer Tailwind, ce qui aurait changé toutes les pages d'un coup.
+
+- Paragraphes avec une marge basse de 12 pixels, sauf le dernier.
+- Un style commun pour `input`, `select` et `textarea` : 40 pixels de hauteur minimale, bordure `#cdd8d1`, rayon de 6 pixels, focus vert. Les sélecteurs `:where()` gardent une spécificité nulle, les règles ciblées ne fixent plus que la largeur ou le fond.
+- Listes déroulantes sans apparence native, avec un chevron en SVG. Cases et boutons radio à 16 pixels. Bouton du champ fichier stylé comme un bouton secondaire.
+- Boutons à 40 pixels, alignés sur les champs. Espace de 12 pixels entre un champ et le bouton qui le suit.
+- Les messages de succès utilisent la classe `notice`.
+
+Pagination : le composant `src/components/pagination.tsx` remplace les boutons « Précédente » et « Suivante » de l'annuaire des missions et de la liste des utilisateurs. Il affiche la plage visible, par exemple « 21 à 40 sur 74 missions », puis la première et la dernière page, la page courante avec ses voisines et des points de suspension pour les pages masquées. La page courante porte `aria-current="page"`. Le paramètre `page` de l'URL reste la source, le lien est donc partageable et le retour arrière fonctionne. Sur téléphone, les numéros laissent place à « Page 2 sur 4 » entre les deux flèches. La navigation disparaît quand tout tient sur une page.
+
+Vérifié localement le 2026-11-01 sur la pile Compose : typecheck et build réussis. Captures avant et après à 1440 et 375 pixels des pages de connexion, annuaire, création, sept onglets de fiche mission, notifications, administration, utilisateurs, mes actions, fiche action, tiroir de commentaire et contrôle, sans défilement horizontal. Pagination testée dans Chromium : page 3, précédente, suivante, retour arrière et dernière page avec la flèche suivante désactivée. Parcours Playwright `directory`, `remediation`, `findings`, `program` et `admin-users` réussis, 5 sur 5. Non vérifié : rendu dans Safari, CI distante, déploiement.
+
 ## Démarrage
 
 Suivre le [README racine](../../../README.md). La base du BFF est publiée uniquement sur 127.0.0.1:5544 pour le processus Next.js exécuté sur l’hôte. Tous les exemples utilisent des données synthétiques.

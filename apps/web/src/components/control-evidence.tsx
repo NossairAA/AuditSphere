@@ -117,10 +117,10 @@ export default function ControlEvidence({
           {!busy && !error && items.length === 0 && (
             <p>Aucune preuve jointe.</p>
           )}
-          <ul>
+          <ul className="attachment-list">
             {items.map((item) => (
               <li key={item.id} className="evidence-item">
-                <a href={`${url}/${item.id}`} className="back-link" download>
+                <a href={`${url}/${item.id}`} download>
                   {item.originalName}
                 </a>
                 <p className="program-rating">

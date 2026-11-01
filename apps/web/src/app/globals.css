@@ -62,6 +62,70 @@ h3 {
 p {
   line-height: 1.7;
   color: var(--muted);
+  margin-bottom: 12px;
+}
+/* The Tailwind preflight removes native margins: restore a bottom margin, none on the last paragraph. */
+p:where(:last-child) {
+  margin-bottom: 0;
+}
+/* Shared form controls. :where() keeps the specificity at zero so targeted rules still win. */
+:where(input:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"]), select, textarea) {
+  min-height: 40px;
+  padding: 9px 12px;
+  border: 1px solid #cdd8d1;
+  border-radius: 6px;
+  background-color: #fff;
+  color: var(--ink);
+  line-height: 1.4;
+}
+:where(textarea) {
+  line-height: 1.6;
+  resize: vertical;
+}
+:where(select) {
+  appearance: none;
+  padding-right: 34px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2375807a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  cursor: pointer;
+}
+:where(select:disabled, input:disabled, textarea:disabled) {
+  background-color: #f3f5f1;
+  cursor: not-allowed;
+}
+:where(input, textarea)::placeholder {
+  color: #98a092;
+}
+:is(input, select, textarea):focus-visible {
+  outline: 2px solid #a5bfa0;
+  outline-offset: 0;
+  border-color: #567c57;
+}
+:where(input[type="checkbox"], input[type="radio"]) {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex: none;
+  accent-color: var(--green);
+}
+:where(input[type="file"]) {
+  max-width: 100%;
+  font-size: 12px;
+  color: var(--muted);
+}
+:where(input[type="file"])::file-selector-button {
+  margin-right: 12px;
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 600;
+  cursor: pointer;
+}
+:where(input[type="file"])::file-selector-button:hover {
+  background: #edf2e9;
 }
 .green {
   color: var(--green);
@@ -287,7 +351,8 @@ p {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 12px 17px;
+  min-height: 40px;
+  padding: 10px 17px;
   border: 1px solid transparent;
   border-radius: 6px;
   font-size: 12px;
@@ -416,6 +481,8 @@ p {
   width: 310px;
 }
 .search input {
+  min-height: 0;
+  padding: 0;
   border: 0;
   outline: 0;
   background: transparent;
@@ -607,29 +674,11 @@ td {
   font-size: 12px;
   margin: 23px 0 9px;
 }
-.mission-form input,
+.mission-form input:not([type="checkbox"]),
 .mission-form textarea,
 .review-form textarea {
   width: 100%;
-  border: 1px solid #dce3d9;
-  border-radius: 6px;
-  padding: 12px 14px;
   background: #fcfdfa;
-  color: var(--ink);
-  resize: vertical;
-}
-.mission-form input::placeholder,
-.mission-form textarea::placeholder,
-.review-form textarea::placeholder {
-  color: #98a092;
-  font-size: 12px;
-}
-.mission-form input:focus,
-.mission-form textarea:focus,
-.review-form textarea:focus {
-  outline: 2px solid #a5bfa0;
-  outline-offset: 0;
-  border-color: #567c57;
 }
 .form-actions {
   display: flex;
@@ -1225,7 +1274,6 @@ body.demo .sidebar {
 
 .lifecycle-form { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; }
 .lifecycle-form label { display: grid; gap: 8px; }
-.lifecycle-form input { padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: white; }
 
 .review-form label {
   display: flex;
@@ -1319,7 +1367,7 @@ body.demo .sidebar {
 .mission-section-help { font-size: 13px; margin: 6px 0 16px; color: #657367; }
 .mission-content .participants { margin-top: 14px; padding: 24px; }
 .mission-content .participants h2 { margin-top: 0; }
-.mission-content .participants select { width: 100%; min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 7px; background: white; margin-top: 8px; }
+.mission-content .participants select { width: 100%; min-width: 0; margin-top: 8px; }
 .mission-content .form-actions { flex-wrap: wrap; gap: 10px; }
 .mission-actions { border: 1px solid #d0ddce; border-radius: 12px; overflow: hidden; background: white; }
 .mission-next-step { padding: 24px; background: #edf3e9; border-bottom: 1px solid #d0ddce; }
@@ -1356,9 +1404,9 @@ body.demo .sidebar {
 .admin-mission-panel { margin: 0 24px 24px; padding-top: 18px; border-top: 1px solid #dbc5a2; }
 .admin-mission-panel summary { cursor: pointer; color: #775527; font-size: 14px; font-weight: 600; }
 .admin-mission-panel p, .admin-mission-panel small { font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
-.admin-mission-panel select { width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: white; }
+.admin-mission-panel select { width: 100%; }
 .admin-mission-panel .admin-confirm { display: flex; flex-direction: row; align-items: start; font-size: 12px; margin: 16px 0; }
-.admin-confirm input { width: 16px; height: 16px; flex-shrink: 0; margin: 2px 0; }
+.admin-confirm input { margin: 2px 0; }
 .admin-mission-panel .button { margin-top: 14px; width: 100%; }
 .admin-mission-panel ul { padding-left: 16px; }
 .admin-mission-panel li { padding: 12px 0; border-bottom: 1px solid var(--line); }
@@ -1469,21 +1517,26 @@ body.demo .sidebar {
   font-size: 14px;
   font-weight: 600;
 }
-.program-editor input:not([type="checkbox"]),
+.program-editor input:not([type="checkbox"], [type="radio"], [type="file"]),
 .program-editor textarea,
 .program-editor select {
   display: block;
   width: 100%;
-  border: 1px solid #cbd7ce;
-  border-radius: 8px;
-  padding: 12px;
-  background: white;
-  font: inherit;
-  color: inherit;
 }
 .program-editor textarea {
-  resize: vertical;
   min-height: 100px;
+}
+/* A submit button placed right after a field. */
+.program-editor > button,
+.program-editor fieldset > button,
+.attachment-form > button {
+  margin-top: 12px;
+  justify-self: start;
+}
+.section-label + .program-editor {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
 }
 .program-rating-fields {
   display: grid;
@@ -1524,10 +1577,11 @@ body.demo .sidebar {
 /* Compact workspaces and accessible native editor dialogs. */
 .directory-filters { display:flex; gap:1rem; align-items:end; flex-wrap:wrap; padding:1.25rem; }
 .directory-filters label { display:flex; flex-direction:column; gap:.4rem; font-size:.85rem; font-weight:600; flex:1 1 140px; }
-.directory-filters input,.directory-filters select { width:100%; padding:.7rem; border:1px solid #cdd8d1; border-radius:8px; background:white; color:#203b32; min-height:44px; }
-.directory-filters .checkbox-label { flex-direction:row; align-items:center; }
-.checkbox-label input { width:auto; }
-.button.compact { padding:.5rem .8rem; min-height:40px; font-size:.85rem; white-space:nowrap; }
+.directory-filters input:not([type=checkbox]),.directory-filters select { width:100%; }
+.directory-filters label:has(> input[type=checkbox]) { flex:0 0 auto; flex-direction:row; align-items:center; gap:.5rem; min-height:40px; }
+.mission-program .directory-filters { padding-inline:0; }
+:is(.detail-main,.mission-program) .panel-message { padding:0 0 4px; }
+.button.compact { padding:.5rem .8rem; font-size:.85rem; white-space:nowrap; }
 .row-buttons { display:flex; gap:.5rem; flex-wrap:wrap; }
 .directory-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-bottom:1.5rem; }
 .directory-stats button { padding:1rem; display:flex; flex-direction:column; align-items:start; gap:.4rem; cursor:pointer; }
@@ -1544,14 +1598,12 @@ body.demo .sidebar {
 .control-detail > .button { margin:1rem 0; }
 .admin-user-form { display:grid; gap:1rem; }
 .admin-user-form label { display:grid; gap:.4rem; }
-.admin-user-form input { padding:.7rem; border:1px solid #cdd8d1; border-radius:6px; }
 .admin-user-form fieldset label { display:flex; align-items:center; gap:.6rem; margin:.5rem 0; }
 .admin-secret { border:2px solid #9f7830; padding:1rem; overflow-wrap:anywhere; }
 :focus-visible { outline:3px solid #4c8d78; outline-offset:3px; }
 @media(max-width:760px) { .directory-stats {grid-template-columns:repeat(2,1fr);} .editor-drawer{padding:1.2rem;} .mission-section-nav {overflow-x:auto; flex-wrap:nowrap;} .mission-section-nav a{white-space:nowrap;} }
 .admin-user-form > fieldset > label { display:grid; margin:1rem 0; }
-.admin-user-form textarea { width:100%; padding:.7rem; border:1px solid #cdd8d1; border-radius:6px; }
-.editor-drawer input[type=checkbox] { width:auto; }
+.admin-user-form textarea { width:100%; }
 .mobile-workspace-nav { display:none; }
 @media(max-width:760px) { .mobile-workspace-nav {display:flex; gap:1rem; overflow-x:auto; padding:.7rem 1.2rem; background:#e7eee8; font-size:.85rem; font-weight:600;} }
 
@@ -1602,7 +1654,6 @@ body.demo .sidebar {
 
 /* Actions correctives (F-006, lot 7) */
 .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
-.checkbox-filter { display:flex; align-items:center; gap:.5rem; }
 .action-status-todo { color:#275d71; background:#edf5f8; border-color:#d3e4e9; }
 .action-status-in_progress { color:#775322; background:#faf1df; border-color:#e7d8b9; }
 .action-status-done { color:#4b3f80; background:#efedf8; border-color:#dcd7ee; }
@@ -1622,3 +1673,23 @@ body.demo .sidebar {
 .attachment-list small { color:var(--muted); }
 .attachment-form { display:grid; gap:.5rem; margin-top:1rem; max-width:32rem; }
 .action-title { white-space:pre-wrap; overflow-wrap:anywhere; }
+.detail-main .finding-heading { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem .75rem; margin:0 0 1rem; font-size:15px; color:var(--ink); overflow-wrap:anywhere; }
+.action-layout .mission-dates dt { font-size:.85rem; font-weight:600; color:#61715f; }
+.action-layout .row-buttons { margin-top:20px; }
+.action-layout .row-buttons + .program-rating { margin-top:10px; }
+.detail-main .subsection-heading { margin:24px 0 8px; }
+.action-layout .program-editor { margin-bottom:16px; }
+
+/* Numbered pagination of the listings */
+.pagination { gap:1rem; flex-wrap:wrap; font-size:11px; }
+.pagination nav { display:flex; align-items:center; gap:4px; }
+.pagination .button.compact { min-width:36px; min-height:36px; padding:0 10px; font-variant-numeric:tabular-nums; }
+.pagination-page[aria-current="page"] { background:var(--green); border-color:var(--green); color:#fff; cursor:default; }
+.pagination-page[aria-current="page"]:disabled { opacity:1; }
+.pagination-gap { min-width:20px; text-align:center; color:#8c958d; }
+.pagination-status { display:none; padding:0 10px; font-size:12px; color:var(--ink); white-space:nowrap; }
+@media(max-width:760px) {
+  .pagination { padding:14px 20px; }
+  .pagination-page, .pagination-gap { display:none; }
+  .pagination-status { display:inline; }
+}

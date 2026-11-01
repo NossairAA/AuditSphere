@@ -212,7 +212,7 @@ export default function AuditProgram({
           Actualiser le programme
         </button>
       )}
-      {notice && <p role="status">{notice}</p>}
+      {notice && <p className="notice" role="status">{notice}</p>}
       {loading && <p role="status">Chargement du programme…</p>}
       {program && (
         <>

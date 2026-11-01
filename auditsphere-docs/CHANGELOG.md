@@ -1,5 +1,12 @@
 # Journal des changements
 
+## 2026-11-01 : cohérence des écrans et pagination (TECH-012)
+
+- Cause établie : le preflight de Tailwind retire marges et styles natifs alors qu'aucune classe Tailwind n'est utilisée. Base explicite ajoutée : marges des paragraphes, style unique des champs, listes déroulantes et cases, bouton du champ fichier, boutons à 40 pixels.
+- Corrigés : case à cocher géante de `/actions`, listes déroulantes trop basses, boutons collés, filtres décalés, fiche action.
+- Pagination numérotée sur l'annuaire des missions et la liste des utilisateurs, avec la plage visible et le paramètre `page` conservé dans l'URL.
+- Vérifié localement : typecheck, build, captures à 1440 et 375 pixels, 5 parcours Playwright réussis. Non vérifié : Safari, CI distante, déploiement. Détails dans le [frontend](docs/technique/05-frontend-bff.md#base-des-formulaires-et-pagination).
+
 ## 2026-11-01 : déploiement de l'interface des actions correctives
 
 - Image web de `995eff4` épinglée par empreinte et déployée par `k3s-deploy-services.sh`, profil `demo`. Aucun service Java ni migration.

@@ -203,7 +203,7 @@ export function Participants({
           </button>
         </>
       )}
-      {notice && <p role="status">{notice}</p>}
+      {notice && <p className="notice" role="status">{notice}</p>}
       <p>
         <strong>Responsable :</strong> {name(mission.ownerSubject)}
       </p>

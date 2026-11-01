@@ -10,6 +10,7 @@ import {
   type MissionPage,
 } from "@/lib/types";
 import { ErrorNotice, useUser } from "./workspace";
+import { Pagination } from "./pagination";
 const statuses = [
   "DRAFT",
   "IN_PROGRESS",
@@ -241,30 +242,13 @@ export default function MissionDirectory() {
             </table>
           </div>
         )}
-        <div className="table-footer">
-          <span>
-            {data
-              ? `${data.total} résultat${data.total === 1 ? "" : "s"}`
-              : "Chargement…"}
-          </span>
-          <div>
-            <button
-              className="button secondary compact"
-              disabled={!data || page === 0}
-              onClick={() => update({ page: String(page - 1) })}
-            >
-              Précédente
-            </button>
-            <span>Page {page + 1}</span>
-            <button
-              className="button secondary compact"
-              disabled={!data || (page + 1) * data.size >= data.total}
-              onClick={() => update({ page: String(page + 1) })}
-            >
-              Suivante
-            </button>
-          </div>
-        </div>
+        <Pagination
+          page={page}
+          size={data?.size ?? 20}
+          total={data?.total}
+          unit={["mission", "missions"]}
+          onPage={(next) => update({ page: String(next) })}
+        />
       </section>
     </>
   );

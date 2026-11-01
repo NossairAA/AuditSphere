@@ -333,7 +333,7 @@ export default function MissionFindings({ mission }: { mission: Mission }) {
           Actualiser les constats
         </button>
       )}
-      {notice && <p role="status">{notice}</p>}
+      {notice && <p className="notice" role="status">{notice}</p>}
       {!findings && !error && <p role="status">Chargement des constats…</p>}
       {findings && (
         <>
