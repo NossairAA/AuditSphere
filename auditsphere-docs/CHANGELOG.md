@@ -1,5 +1,10 @@
 # Journal des changements
 
+## 2026-11-01 : déploiement du correctif TECH-010
+
+- Images d'audit-service et de workflow-worker de `6eac4e9` épinglées par empreinte et déployées par `k3s-deploy-services.sh`. Aucune migration. Les autres services restent sur `20dd6db`.
+- Vérifié sur le serveur : brouillon avec un contrôle lié à un risque supprimé en 204 puis 404, smoke réussi, aucune alerte hors `Watchdog`. Détails dans l'[hébergement k3s](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-31 : suppression d'un brouillon avec programme (TECH-010)
 
 - `DELETE /missions/{id}` répondait 500 sur un brouillon dont un contrôle est lié à un risque. La contrainte `mission_control_risks_mission_id_risk_id_fkey` n'a pas de cascade vers les risques et PostgreSQL refusait la suppression en cascade de la mission.
