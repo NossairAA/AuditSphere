@@ -1,5 +1,10 @@
 # Journal des changements
 
+## 2026-11-01 : déploiement de l'interface des actions correctives
+
+- Image web de `995eff4` épinglée par empreinte et déployée par `k3s-deploy-services.sh`, profil `demo`. Aucun service Java ni migration.
+- Vérifié sur le serveur : `test-remediation.py` réussi, écrans de l'audité et du responsable affichés par le nom public, smoke réussi, aucune alerte hors `Watchdog`. Détails dans l'[hébergement k3s](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-11-01 : limite de la gateway et suite navigateur (TECH-011)
 
 - Cause des échecs intermittents de la suite Playwright établie : le BFF vérifie la session par `/account/security` à chaque requête, ce qui double les appels à la gateway, et le plafond de 240 requêtes par minute et par identité répondait 429. Le BFF transformait ce refus en 503.
