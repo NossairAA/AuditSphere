@@ -1,5 +1,5 @@
 import "server-only";
-import { json, session, validMutation } from "./auth";
+import { json, serviceError, session, validMutation } from "./auth";
 import { limitedText, BodyError } from "./body";
 import { rateLimit, rateLimitAnonymous, rateLimitSession } from "./rate";
 import { acquireUpload, boundedBody } from "./upload-limits";
@@ -122,7 +122,7 @@ export async function remediation(request: Request, segments: string[]) {
     return json(await response.json(), response.status);
   } catch (error) {
     if (error instanceof BodyError) return json({ error: "Corps de requête refusé" }, error.status);
-    return json({ error: "Service temporairement indisponible. Réessayez." }, 503);
+    return serviceError(error, "Service temporairement indisponible. Réessayez.");
   } finally {
     releaseUpload?.();
   }

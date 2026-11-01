@@ -1,5 +1,5 @@
 import "server-only";
-import { json, session, validMutation } from "@/lib/auth";
+import { json, serviceError, session, validMutation } from "@/lib/auth";
 import { rateLimit, rateLimitAnonymous, rateLimitSession } from "@/lib/rate";
 export async function notificationRequest(
   request: Request,
@@ -92,13 +92,7 @@ export async function notificationRequest(
       }));
     }
     return json(body);
-  } catch {
-    return json(
-      {
-        error:
-          "Les notifications sont temporairement indisponibles. Réessayez.",
-      },
-      503,
-    );
+  } catch (error) {
+    return serviceError(error, "Les notifications sont temporairement indisponibles. Réessayez.");
   }
 }

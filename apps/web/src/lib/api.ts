@@ -1,7 +1,7 @@
 import "server-only";
 import { rateLimit, rateLimitAnonymous, rateLimitSession } from "./rate";
 import { limitedText, BodyError } from "./body";
-import { json, session, validMutation } from "./auth";
+import { json, serviceError, session, validMutation } from "./auth";
 import { pendingFindingsError } from "./findings-rules";
 export async function missions(
   request: Request,
@@ -209,9 +209,6 @@ export async function missions(
   } catch (error) {
     if (error instanceof BodyError)
       return json({ error: "Corps de requête refusé" }, error.status);
-    return json(
-      { error: "Service temporairement indisponible. Réessayez." },
-      503,
-    );
+    return serviceError(error, "Service temporairement indisponible. Réessayez.");
   }
 }

@@ -32,6 +32,12 @@ class RequestLimits implements GlobalFilter, Ordered {
   @org.springframework.beans.factory.annotation.Value("${gateway.rate.ip-limit:600}")
   private int ipLimit = 600;
 
+  @org.springframework.beans.factory.annotation.Value("${gateway.rate.user-limit:240}")
+  private int userLimit = 240;
+
+  @org.springframework.beans.factory.annotation.Value("${gateway.rate.global-limit:1200}")
+  private int globalLimit = 1200;
+
   record Bucket(AtomicInteger count, long until) {}
 
   private final ConcurrentHashMap<String, Bucket> buckets = new ConcurrentHashMap<>();
@@ -79,7 +85,7 @@ class RequestLimits implements GlobalFilter, Ordered {
             exchange.getRequest().getRemoteAddress() == null
                 ? "unknown"
                 : exchange.getRequest().getRemoteAddress().getAddress());
-    if (!allow("global", 1200) || !allow("ip:" + address, ipLimit))
+    if (!allow("global", globalLimit) || !allow("ip:" + address, ipLimit))
       return reject(exchange, HttpStatus.TOO_MANY_REQUESTS);
     return exchange
         .getPrincipal()
@@ -87,7 +93,7 @@ class RequestLimits implements GlobalFilter, Ordered {
         .defaultIfEmpty("anonymous")
         .flatMap(
             subject -> {
-              if (!allow("user:" + subject, 240))
+              if (!allow("user:" + subject, userLimit))
                 return reject(exchange, HttpStatus.TOO_MANY_REQUESTS);
               if (exchange.getRequest().getHeaders().getContentLength() > maxBody)
                 return reject(exchange, HttpStatus.PAYLOAD_TOO_LARGE);
