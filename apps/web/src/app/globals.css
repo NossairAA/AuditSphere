@@ -1599,3 +1599,26 @@ body.demo .sidebar {
 .finding-status-rejected { color:#5d5d5d; background:#f0f0ee; border-color:#dcdcd8; }
 .finding-status-draft { color:#275d71; background:#edf5f8; border-color:#d3e4e9; }
 @media(max-width:760px) { .finding-fields { grid-template-columns:minmax(0,1fr); } .finding-fields dd { margin-bottom:.5rem; } }
+
+/* Actions correctives (F-006, lot 7) */
+.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+.checkbox-filter { display:flex; align-items:center; gap:.5rem; }
+.action-status-todo { color:#275d71; background:#edf5f8; border-color:#d3e4e9; }
+.action-status-in_progress { color:#775322; background:#faf1df; border-color:#e7d8b9; }
+.action-status-done { color:#4b3f80; background:#efedf8; border-color:#dcd7ee; }
+.action-status-verified { color:#245b3d; background:#eaf2e5; border-color:#cfdfc6; }
+.action-status-cancelled { color:#5d5d5d; background:#f0f0ee; border-color:#dcdcd8; }
+.action-overdue { color:#8a2b22; background:#fbe9e6; border-color:#efcdc7; margin-left:.4rem; }
+.followup-status-to_plan { color:#275d71; background:#edf5f8; border-color:#d3e4e9; }
+.followup-status-action_plan { color:#775322; background:#faf1df; border-color:#e7d8b9; }
+.followup-status-verification { color:#4b3f80; background:#efedf8; border-color:#dcd7ee; }
+.followup-status-closed { color:#245b3d; background:#eaf2e5; border-color:#cfdfc6; }
+.followup-status-withdrawn { color:#5d5d5d; background:#f0f0ee; border-color:#dcdcd8; }
+.action-layout { display:grid; gap:1rem; margin-top:1rem; }
+.action-table { margin-top:1rem; font-size:.9rem; }
+.attachment-list { list-style:none; margin:0; padding:0; display:grid; gap:.6rem; }
+.attachment-list li { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem .8rem; }
+.attachment-list a { font-weight:600; overflow-wrap:anywhere; }
+.attachment-list small { color:var(--muted); }
+.attachment-form { display:grid; gap:.5rem; margin-top:1rem; max-width:32rem; }
+.action-title { white-space:pre-wrap; overflow-wrap:anywhere; }

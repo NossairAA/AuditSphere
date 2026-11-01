@@ -116,7 +116,7 @@ export default function Notifications() {
   async function openNotification(n: NotificationPage["items"][number]) {
     if (pending || markingAll) return;
     if (n.readAt) {
-      if (!isAction(n)) router.push(`/missions/${n.missionId}`);
+      router.push(isAction(n) ? `/actions/${n.actionId}` : `/missions/${n.missionId}`);
       return;
     }
     const id = n.id;
@@ -141,7 +141,7 @@ export default function Notifications() {
           : old,
       );
       window.dispatchEvent(new Event("notifications-changed"));
-      if (!isAction(n)) router.push(`/missions/${n.missionId}`);
+      router.push(isAction(n) ? `/actions/${n.actionId}` : `/missions/${n.missionId}`);
     } catch (e) {
       setMutationError(
         e instanceof Error
@@ -272,12 +272,12 @@ export default function Notifications() {
                         className="notification-open"
                         aria-label={
                           isAction(n)
-                            ? "Marquer comme lue l’action corrective confiée"
+                            ? "Ouvrir l’action corrective confiée"
                             : `Ouvrir la mission : ${n.missionTitle || "Mission indisponible"}`
                         }
                         href={
                           isAction(n)
-                            ? "/missions/notifications"
+                            ? "/actions/" + n.actionId
                             : "/missions/" + n.missionId
                         }
                         prefetch={false}
@@ -290,9 +290,7 @@ export default function Notifications() {
                         <span className="notification-open-action">
                           {pending === n.id
                             ? "Ouverture…"
-                            : isAction(n)
-                              ? "Marquer lue"
-                              : "Ouvrir"}
+                            : "Ouvrir"}
                           <ArrowRight size={16} aria-hidden="true" />
                         </span>
                       </Link>
