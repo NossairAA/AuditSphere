@@ -994,7 +994,7 @@ Vérifications du 2026-10-30 :
 - Chemin de nettoyage de demo-reset essayé depuis le poste, sans lancer de réinitialisation : écriture, lecture puis suppression d'une clé de test par `evidence_storage.py` avec le préfixe `REMEDIATION`, puis 404.
 - `k3s-deploy-services.sh` rejoué : idempotent, aucun redémarrage hors demo-reset mis à jour. `k3s-check.sh smoke.py` réussi. Mission du smoke retirée par `cleanup-test-data.py`. Groupe `remediation-service-v1` stable, 247 Mio au repos sous 384, aucun redémarrage, aucune alerte hors `Watchdog`. Tests Python des scripts : 25 réussis dont deux ignorés par conception.
 
-Incident : le premier essai de `test-remediation.py` a laissé une mission en brouillon, faute de dates prévues. Sa suppression par `DELETE /missions/{id}` a répondu 500 : audit-service supprime les risques avant les liens entre contrôles et risques, et la contrainte `mission_control_risks_mission_id_risk_id_fkey` refuse. Le brouillon a été retiré par `cleanup-test-data.py`. Le défaut est corrigé dans audit-service par TECH-010 le 2026-10-31, pas encore déployé dans k3s.
+Incident : le premier essai de `test-remediation.py` a laissé une mission en brouillon, faute de dates prévues. Sa suppression par `DELETE /missions/{id}` a répondu 500 : audit-service supprime les risques avant les liens entre contrôles et risques, et la contrainte `mission_control_risks_mission_id_risk_id_fkey` refuse. Le brouillon a été retiré par `cleanup-test-data.py`. Le défaut est corrigé dans audit-service par TECH-010 le 2026-10-31, puis déployé et vérifié le 2026-11-01, voir le déploiement de `6eac4e9`.
 
 Limites :
 
@@ -1002,6 +1002,22 @@ Limites :
 - La mission approuvée par `test-remediation.py` reste visible jusqu'à la réinitialisation nocturne. `cleanup-test-data.py` ne nettoie pas la base remediation : le retirer laisserait un suivi orphelin.
 - Un objet écrit dans Garage puis refusé par la transaction, si le processus s'arrête entre les deux, reste orphelin, comme noté au lot 5 de F-006. La réinitialisation nocturne ne voit que les objets listés en base.
 - Les ACL ne sont jamais retirées par le script, comme pour les autres comptes.
+
+#### Déploiement de `6eac4e9` : correctif TECH-010
+
+Statut : déployé et vérifié le 2026-11-01, sur demande de l'utilisateur.
+
+- Seul audit-service a changé depuis `20dd6db` : suppression d'un brouillon dans l'ordre des dépendances du programme (TECH-010). L'image d'audit-service et celle de workflow-worker, qui la partage, passent à `6eac4e9`, tirées par empreinte. Les autres services restent sur `20dd6db`, leur code est identique.
+- Aucune migration dans ce lot. Pas de sauvegarde préalable : un retour arrière se limite à rétablir l'empreinte précédente.
+- `k3s-deploy-services.sh` réussi, pods d'audit-service et de workflow-worker prêts sans redémarrage. Les Jobs de migration des autres services se sont relancés sans rien appliquer.
+
+Vérifications du 2026-11-01 :
+
+- Brouillon synthétique créé par la gateway avec un risque et un contrôle lié, puis `DELETE /missions/{id}` : 204, puis `GET` en 404. Avant le correctif, le même cas répondait 500.
+- `k3s-check.sh smoke.py` réussi. Mission du smoke retirée par `cleanup-test-data.py`, sauvegarde privée préalable.
+- Aucune alerte active hors `Watchdog`, aucune erreur dans les journaux d'audit-service. Mémoire relevée : audit-service 441 Mio, workflow-worker 128 Mio.
+
+Limite : le script de cette vérification est resté hors du dépôt. Le test Java `draftDeletionRemovesProgramInDependencyOrder` couvre le même cas en CI.
 
 #### Lot E1 : Garage en HTTPS et rotation des certificats
 
@@ -1386,6 +1402,7 @@ Seule la phase 7 pourrait être reportée, puisque l'instance publique ne porte 
 
 ## Vérifications effectuées
 
+- Déploiement de `6eac4e9`, le 2026-11-01 sur le serveur : correctif TECH-010 dans audit-service, brouillon avec contrôle lié à un risque supprimé en 204 puis 404, smoke réussi, aucune alerte hors `Watchdog`. Détails dans le déploiement de `6eac4e9`.
 - HOST-013, le 2026-10-30 sur le serveur : remediation-service branché sur Kafka, Keycloak et Garage. 106 événements de constats synchronisés sans DLT, parcours F-006 réussi par `test-remediation.py` : suivi créé par Kafka, action notifiée à l'audité, justificatif déposé, relu et retiré. Smoke réussi, limite mémoire portée à 384 Mio. Non vérifié : réinitialisation nocturne avec des justificatifs. Détails dans la section HOST-013.
 - Déploiement de `20dd6db`, le 2026-10-30 sur le serveur : migrations appliquées après sauvegarde, smoke de l'API et du BFF réussis, consommateur de notification-service rétabli après l'ajout du topic `audit.action.assigned.v1` et de son ACL. Non vérifié : flux F-006 dans k3s, faute de compte Kafka et de bucket pour remediation-service. Détails dans le déploiement de `20dd6db`.
 - Veille externe de la supervision, le 2026-10-30 sur le serveur : `Watchdog` envoyé à healthchecks.io toutes les 5 minutes, battement suspendu par un silence, message DOWN publié sur le sujet ntfy 15 minutes après le dernier ping, puis UP au retour, les deux reçus sur le téléphone. Non vérifié : vrai arrêt du nœud. Détails dans la veille externe de la supervision.
