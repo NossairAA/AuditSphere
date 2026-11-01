@@ -1,6 +1,7 @@
 "use client";
 import AuditProgram from "@/components/audit-program";
 import MissionFindings from "@/components/mission-findings";
+import MissionRemediation from "@/components/mission-remediation";
 import AdminMissionActions from "@/components/admin-mission-actions";
 import { isSuperAdmin } from "@/lib/types";
 import { Suspense, use, useEffect, useState } from "react";
@@ -27,7 +28,7 @@ import {
 function Detail({ params }: { params: Promise<{ id: string }> }) {
   const search = useSearchParams();
   const requestedTab = search.get("tab") || "overview";
-  const tab = ["overview", "risks", "controls", "findings", "team", "followup"].includes(
+  const tab = ["overview", "risks", "controls", "findings", "remediation", "team", "followup"].includes(
     requestedTab,
   )
     ? requestedTab
@@ -203,9 +204,13 @@ function Detail({ params }: { params: Promise<{ id: string }> }) {
               ["risks", "Risques"],
               ["controls", "Contrôles"],
               ["findings", "Constats"],
+              ["remediation", "Actions correctives"],
               ["team", "Équipe"],
               ["followup", "Suivi"],
-            ].map(([key, label]) => (
+            ]
+              // Les suivis n'existent qu'après l'approbation de la mission.
+              .filter(([key]) => key !== "remediation" || mission.status === "APPROVED" || mission.status === "CLOSED")
+              .map(([key, label]) => (
               <Link
                 key={key}
                 aria-current={tab === key ? "page" : undefined}
@@ -253,6 +258,9 @@ function Detail({ params }: { params: Promise<{ id: string }> }) {
               )}
               {tab === "findings" && (
                 <MissionFindings key={mission.id} mission={mission} />
+              )}
+              {tab === "remediation" && (
+                <MissionRemediation key={mission.id} mission={mission} />
               )}
               {tab === "team" && (
                 <>

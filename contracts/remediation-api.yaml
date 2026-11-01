@@ -1,0 +1,363 @@
+openapi: 3.0.3
+info:
+  title: AuditSphere Actions correctives
+  version: 0.1.0
+  description: >-
+    API de remediation-service exposée par la gateway sous /remediation (F-006). Les droits sont vérifiés par le service.
+    404 hors périmètre, 403 pour un rôle insuffisant ou une séparation des fonctions non respectée, 409 pour un statut
+    ou une version. Les messages d'erreur ne sont jamais exposés.
+servers:
+  - url: http://localhost:8080
+security:
+  - bearerAuth: []
+paths:
+  /remediation/missions/{missionId}/follow-ups:
+    get:
+      summary: Suivis d'une mission approuvée, avec leurs actions
+      description: Responsable propriétaire, auditeurs affectés, validateur désigné et superadministrateur.
+      parameters: [{$ref: '#/components/parameters/missionId'}]
+      responses:
+        '200':
+          description: Périmètre et suivis triés par référence de constat
+          content: {application/json: {schema: {$ref: '#/components/schemas/MissionFollowUps'}}}
+        '404': {description: Mission jamais émise ou hors périmètre}
+  /remediation/follow-ups/{id}/history:
+    get:
+      summary: Journal du suivi et de ses actions
+      parameters: [{$ref: '#/components/parameters/id'}]
+      responses:
+        '200':
+          description: Entrées par ordre chronologique
+          content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/HistoryEntry'}}}}
+        '404': {description: Hors périmètre}
+  /remediation/follow-ups/{id}/transition:
+    put:
+      summary: Demande de clôture, clôture ou renvoi d'un suivi
+      description: >-
+        REQUEST_CLOSURE par le responsable, une action vérifiée au moins et aucune ouverte. CLOSE et RETURN par le validateur
+        désigné, jamais par la personne qui a demandé la clôture. Commentaire obligatoire pour RETURN.
+      parameters: [{$ref: '#/components/parameters/id'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version, action]
+              properties:
+                version: {type: integer, minimum: 0}
+                action: {type: string, enum: [REQUEST_CLOSURE, CLOSE, RETURN]}
+                comment: {type: string, maxLength: 2000, nullable: true}
+      responses:
+        '200':
+          description: Nouveau statut et version
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: {type: string, format: uuid}
+                  status: {$ref: '#/components/schemas/FollowUpStatus'}
+                  version: {type: integer}
+        '400': {description: Commentaire manquant pour RETURN}
+        '403': {description: Rôle insuffisant ou séparation des fonctions}
+        '409': {description: Statut, version ou actions ouvertes}
+  /remediation/follow-ups/{id}/actions:
+    post:
+      summary: Création d'une action par le responsable de mission
+      description: Vingt actions au plus par suivi. Le responsable de l'action est un compte AUDITEE actif. L'affectation est publiée sur audit.action.assigned.v1.
+      parameters: [{$ref: '#/components/parameters/id'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [description, ownerSubject, dueDate]
+              properties:
+                description: {type: string, maxLength: 2000}
+                ownerSubject: {type: string, maxLength: 255}
+                dueDate: {type: string, format: date, description: Ni passée ni au-delà de cinq ans}
+      responses:
+        '201':
+          description: Action créée
+          content: {application/json: {schema: {$ref: '#/components/schemas/Action'}}}
+        '400': {description: Champ invalide, échéance hors bornes ou responsable non audité}
+        '409': {description: Suivi fermé ou limite atteinte}
+  /remediation/actions/{id}:
+    get:
+      summary: Fiche d'action
+      description: Lisible par l'équipe d'audit de la mission et par le responsable de l'action.
+      parameters: [{$ref: '#/components/parameters/id'}]
+      responses:
+        '200':
+          description: Action, copie du constat, avancement, justificatifs et historique
+          content: {application/json: {schema: {$ref: '#/components/schemas/ActionDetail'}}}
+        '404': {description: Hors périmètre}
+    put:
+      summary: Description, responsable ou échéance, par le responsable de mission
+      description: Motif obligatoire pour tout changement d'échéance. Action à faire ou en cours seulement.
+      parameters: [{$ref: '#/components/parameters/id'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version]
+              properties:
+                version: {type: integer, minimum: 0}
+                description: {type: string, maxLength: 2000}
+                ownerSubject: {type: string, maxLength: 255}
+                dueDate: {type: string, format: date}
+                reason: {type: string, maxLength: 2000, nullable: true}
+      responses:
+        '200':
+          description: Action à jour
+          content: {application/json: {schema: {$ref: '#/components/schemas/Action'}}}
+        '400': {description: Champ invalide ou motif manquant}
+        '409': {description: Statut ou version}
+  /remediation/actions/{id}/transition:
+    put:
+      summary: Réalisation, vérification, renvoi, annulation ou réouverture
+      description: >-
+        COMPLETE par le responsable de l'action avec un justificatif au moins. VERIFY et RETURN par l'équipe d'audit, jamais
+        par le responsable de l'action. CANCEL et REOPEN par le responsable de mission. Commentaire obligatoire sauf VERIFY.
+      parameters: [{$ref: '#/components/parameters/id'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version, action]
+              properties:
+                version: {type: integer, minimum: 0}
+                action: {type: string, enum: [COMPLETE, VERIFY, RETURN, CANCEL, REOPEN]}
+                comment: {type: string, maxLength: 2000, nullable: true}
+      responses:
+        '200':
+          description: Action à jour
+          content: {application/json: {schema: {$ref: '#/components/schemas/Action'}}}
+        '400': {description: Commentaire manquant}
+        '403': {description: Rôle insuffisant ou séparation des fonctions}
+        '409': {description: Statut, version ou justificatif manquant}
+  /remediation/actions/{id}/progress:
+    post:
+      summary: Avancement par le responsable de l'action
+      parameters: [{$ref: '#/components/parameters/id'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version, note]
+              properties:
+                version: {type: integer, minimum: 0}
+                note: {type: string, maxLength: 2000}
+      responses:
+        '200':
+          description: Action à jour, passée En cours si elle était À faire
+          content: {application/json: {schema: {$ref: '#/components/schemas/Action'}}}
+  /remediation/actions/{id}/attachments:
+    post:
+      summary: Dépôt d'un justificatif par le responsable de l'action
+      description: PDF, JPEG ou PNG reconnus par leur contenu, 10 Mio au plus, dix par action, quota par mission.
+      parameters: [{$ref: '#/components/parameters/id'}]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, version]
+              properties:
+                file: {type: string, format: binary}
+                version: {type: integer, minimum: 0}
+      responses:
+        '201':
+          description: Justificatif enregistré
+          content: {application/json: {schema: {$ref: '#/components/schemas/Attachment'}}}
+        '400': {description: Type déclaré différent du contenu}
+        '409': {description: Action réalisée, limite ou quota atteint, version}
+        '413': {description: Fichier trop volumineux}
+  /remediation/actions/{id}/attachments/{attachmentId}:
+    get:
+      summary: Téléchargement d'un justificatif
+      parameters:
+        - {$ref: '#/components/parameters/id'}
+        - {in: path, name: attachmentId, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Contenu en pièce jointe
+          content:
+            application/octet-stream: {schema: {type: string, format: binary}}
+    delete:
+      summary: Retrait par son auteur avant la réalisation
+      parameters:
+        - {$ref: '#/components/parameters/id'}
+        - {in: path, name: attachmentId, required: true, schema: {type: string, format: uuid}}
+        - {in: query, name: version, required: true, schema: {type: integer, minimum: 0}}
+      responses:
+        '204': {description: Justificatif retiré}
+        '403': {description: Pas l'auteur}
+        '409': {description: Action réalisée ou version}
+  /remediation/me/actions:
+    get:
+      summary: Actions du sujet authentifié
+      parameters:
+        - {in: query, name: status, schema: {$ref: '#/components/schemas/ActionStatus'}}
+        - {in: query, name: overdue, schema: {type: boolean, default: false}}
+      responses:
+        '200':
+          description: 500 actions au plus, triées par échéance
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: {type: string, format: uuid}
+                    followUpId: {type: string, format: uuid}
+                    missionId: {type: string, format: uuid}
+                    findingReference: {type: integer}
+                    reference: {type: integer}
+                    description: {type: string}
+                    status: {$ref: '#/components/schemas/ActionStatus'}
+                    dueDate: {type: string, format: date}
+                    overdue: {type: boolean}
+                    version: {type: integer}
+  /remediation/directory/auditees:
+    get:
+      summary: Recherche des comptes AUDITEE par le responsable de mission
+      parameters:
+        - {in: query, name: q, schema: {type: string, maxLength: 100}}
+      responses:
+        '200':
+          description: Comptes trouvés
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    subject: {type: string}
+                    name: {type: string}
+                    active: {type: boolean}
+        '403': {description: Rôle insuffisant}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
+  parameters:
+    id: {in: path, name: id, required: true, schema: {type: string, format: uuid}}
+    missionId: {in: path, name: missionId, required: true, schema: {type: string, format: uuid}}
+  schemas:
+    ActionStatus: {type: string, enum: [TODO, IN_PROGRESS, DONE, VERIFIED, CANCELLED]}
+    FollowUpStatus: {type: string, enum: [TO_PLAN, ACTION_PLAN, VERIFICATION, CLOSED, WITHDRAWN]}
+    Action:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        followUpId: {type: string, format: uuid}
+        missionId: {type: string, format: uuid}
+        findingReference: {type: integer}
+        reference: {type: integer}
+        description: {type: string}
+        ownerSubject: {type: string}
+        ownerName: {type: string, nullable: true}
+        ownerActive: {type: boolean, nullable: true}
+        dueDate: {type: string, format: date}
+        status: {$ref: '#/components/schemas/ActionStatus'}
+        overdue: {type: boolean, description: Calculé à la lecture pour une action à faire ou en cours}
+        version: {type: integer}
+        completionNote: {type: string, nullable: true}
+        completedAt: {type: string, format: date-time, nullable: true}
+        verifiedBy: {type: string, nullable: true}
+        verifiedAt: {type: string, format: date-time, nullable: true}
+        verificationComment: {type: string, nullable: true}
+        cancelReason: {type: string, nullable: true}
+        dueDateChanges: {type: integer}
+        attachmentCount: {type: integer}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    Attachment:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        fileName: {type: string}
+        contentType: {type: string, enum: [application/pdf, image/jpeg, image/png]}
+        sizeBytes: {type: integer}
+        sha256: {type: string}
+        uploadedBy: {type: string}
+        uploadedAt: {type: string, format: date-time}
+    HistoryEntry:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        actionId: {type: string, format: uuid, nullable: true}
+        actorSubject: {type: string}
+        action: {type: string}
+        entityVersion: {type: integer}
+        reason: {type: string, nullable: true}
+        override: {type: boolean}
+        previousData: {type: object, nullable: true}
+        resultingData: {type: object, nullable: true}
+        occurredAt: {type: string, format: date-time}
+    FollowUp:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        reference: {type: integer}
+        findingVersion: {type: integer}
+        title: {type: string}
+        severity: {type: string, enum: [LOW, MODERATE, HIGH, CRITICAL]}
+        conditionText: {type: string}
+        cause: {type: string, nullable: true}
+        recommendation: {type: string, nullable: true}
+        status: {$ref: '#/components/schemas/FollowUpStatus'}
+        version: {type: integer}
+        closureRequestedBy: {type: string, nullable: true}
+        closureRequestedAt: {type: string, format: date-time, nullable: true}
+        closedBy: {type: string, nullable: true}
+        closedAt: {type: string, format: date-time, nullable: true}
+        returnComment: {type: string, nullable: true}
+        actions: {type: array, items: {$ref: '#/components/schemas/Action'}}
+    MissionFollowUps:
+      type: object
+      properties:
+        missionId: {type: string, format: uuid}
+        title: {type: string}
+        issueCycle: {type: integer}
+        state: {type: string, enum: [ACTIVE, SUSPENDED, WITHDRAWN]}
+        syncedAt: {type: string, format: date-time}
+        validatorSubject: {type: string, nullable: true}
+        followUps: {type: array, items: {$ref: '#/components/schemas/FollowUp'}}
+    ActionDetail:
+      type: object
+      properties:
+        action: {$ref: '#/components/schemas/Action'}
+        finding:
+          type: object
+          properties:
+            followUpId: {type: string, format: uuid}
+            reference: {type: integer}
+            title: {type: string}
+            severity: {type: string, enum: [LOW, MODERATE, HIGH, CRITICAL]}
+            conditionText: {type: string}
+            cause: {type: string, nullable: true}
+            recommendation: {type: string, nullable: true}
+            status: {$ref: '#/components/schemas/FollowUpStatus'}
+        progress:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: string, format: uuid}
+              authorSubject: {type: string}
+              note: {type: string}
+              createdAt: {type: string, format: date-time}
+        attachments: {type: array, items: {$ref: '#/components/schemas/Attachment'}}
+        history: {type: array, items: {$ref: '#/components/schemas/HistoryEntry'}}

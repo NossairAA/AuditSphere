@@ -20,10 +20,13 @@ os.umask(0o077)
 backup=root/'.local'/'backups'/('test-cleanup-'+str(uuid.uuid4()))
 backup.mkdir(parents=True)
 # Preserve evidence and allow recovery before deleting anything.
-for db in ['audit','notification']:
+# The remediation base exists since F-006: older stacks are cleaned without it.
+remediation=sql('remediation',"SELECT to_regclass('public.mission_scopes') IS NOT NULL")=='t'
+for db in ['audit','notification']+(['remediation'] if remediation else []):
  with (backup/(db+'.dump')).open('wb') as f: target.dump(db,f)
 (backup/'mission-ids.txt').write_text('\n'.join(ids)+'\n')
-producers=target.running(['audit-service','workflow-worker'])
+# remediation-service publishes action assignments: stopped too, so the notification drain covers them.
+producers=target.running(['audit-service','workflow-worker','remediation-service'])
 try:
  if producers: target.stop(*producers)
  # Drain existing Kafka records before removing their notifications. Never reset shared offsets.
@@ -55,6 +58,15 @@ try:
  if sql('audit',"SELECT to_regclass('public.findings_issue_outbox') IS NOT NULL") == 't':
   program_cleanup += f"DELETE FROM findings_issue_outbox WHERE mission_id IN ({values}); "
  sql('audit',f"BEGIN; {program_cleanup}DELETE FROM assignment_outbox WHERE mission_id IN ({values}); DELETE FROM review_workflow_outbox WHERE mission_id IN ({values}); DELETE FROM mission_assignments WHERE mission_id IN ({values}); DELETE FROM missions WHERE id IN ({values}); COMMIT;")
+ if remediation:
+  keys=sql('remediation',f"SELECT object_key FROM action_attachments WHERE mission_id IN ({values})")
+  if keys and target.K3S: raise RuntimeError('Justificatifs présents dans k3s, nettoyage abandonné sans suppression')
+  from evidence_storage import request as storage_request
+  for key in keys.splitlines(): storage_request('DELETE',key,prefix='REMEDIATION')
+  # Same order as demo-reset. remediation_change_log and processed_events are kept.
+  actions=f"SELECT id FROM corrective_actions WHERE mission_id IN ({values})"
+  follow_ups=f"SELECT id FROM finding_follow_ups WHERE mission_id IN ({values})"
+  sql('remediation',f"BEGIN; DELETE FROM remediation_outbox WHERE mission_id IN ({values}); DELETE FROM action_attachments WHERE mission_id IN ({values}); DELETE FROM action_progress_notes WHERE action_id IN ({actions}); DELETE FROM corrective_actions WHERE mission_id IN ({values}); DELETE FROM action_sequences WHERE follow_up_id IN ({follow_ups}); DELETE FROM finding_follow_ups WHERE mission_id IN ({values}); DELETE FROM mission_scope_auditors WHERE mission_id IN ({values}); DELETE FROM mission_scopes WHERE mission_id IN ({values}); COMMIT;")
  sql('notification',f"DELETE FROM notifications WHERE mission_id IN ({values})")
  # Keep mission_action_log, including evidence of draft deletion.
  manifest.unlink()

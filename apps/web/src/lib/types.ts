@@ -72,3 +72,7 @@ export const canManageMission = (
   (!!user &&
     user.subject === mission.ownerSubject &&
     user.roles.includes("AUDIT_MANAGER"));
+// Compte audité sans rôle d'audit : son espace se limite à ses actions et à ses notifications.
+export const isAuditeeOnly = (user?: { roles: string[] } | null) =>
+  !!user?.roles.includes("AUDITEE") &&
+  !["SUPER_ADMIN", "AUDIT_MANAGER", "AUDITOR", "AUDIT_VALIDATOR"].some((role) => user.roles.includes(role));
