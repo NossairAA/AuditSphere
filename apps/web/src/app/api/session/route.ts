@@ -1,5 +1,5 @@
 import { rateLimit, rateLimitAnonymous, rateLimitSession } from "@/lib/rate";
-import { session, json } from "@/lib/auth";
+import { session, json, serviceError } from "@/lib/auth";
 export async function GET(request: Request) {
   const rejection = rateLimit(request);
   if (rejection) return rejection;
@@ -15,7 +15,7 @@ export async function GET(request: Request) {
           csrf: data.csrf,
         })
       : json({ error: "Session expirée" }, 401);
-  } catch {
-    return json({ error: "Service temporairement indisponible" }, 503);
+  } catch (error) {
+    return serviceError(error, "Service temporairement indisponible");
   }
 }

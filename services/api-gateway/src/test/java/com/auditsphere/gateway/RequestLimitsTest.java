@@ -39,6 +39,20 @@ class RequestLimitsTest {
   }
 
   @Test
+  void identityLimitIsConfigurable() {
+    // TECH-011 : Compose relève ce plafond pour la pile locale, k3s garde 240.
+    var filter = new RequestLimits();
+    org.springframework.test.util.ReflectionTestUtils.setField(filter, "userLimit", 300);
+    for (int i = 0; i < 301; i++) {
+      var exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/missions"));
+      filter.filter(exchange, e -> Mono.empty()).block();
+      if (i == 299) assertNull(exchange.getResponse().getStatusCode());
+      if (i == 300)
+        assertEquals(HttpStatus.TOO_MANY_REQUESTS, exchange.getResponse().getStatusCode());
+    }
+  }
+
+  @Test
   void forwardsSmallBodyExactly() {
     var filter = new RequestLimits();
     var exchange =
