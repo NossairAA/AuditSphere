@@ -790,7 +790,7 @@ Statut : implémenté et vérifié le 2026-10-26.
 | keycloak | 8080 | proxy Tailscale, api-gateway, audit-service, notification-service, remediation-service |
 | web et edge | 3000, 8000 | inchangés depuis la phase 4 : edge, puis proxy Tailscale |
 | postgres | 5432 | Temporal, Jobs d'amorçage, audit, notification, remediation, Keycloak, web, web-schema |
-| kafka | 9092 | audit-service, notification-service |
+| kafka | 9092 | audit-service, notification-service, remediation-service depuis HOST-013 |
 | temporal | 7233 | lui-même sur tous ses ports, CLI éphémère, Job du namespace, audit-service, workflow-worker |
 
 Les Jobs de migration Flyway portent le nom de leur service et héritent de ses droits vers PostgreSQL. Les sondes du kubelet, `kubectl exec` et `kubectl port-forward` ne passent pas par ces règles : les scripts de vérification fonctionnent sans exception.
@@ -959,6 +959,49 @@ Limites :
 
 - remediation-service n'a ni compte Kafka ni bucket Garage dans le cluster. Son consommateur cherche `localhost:9092` en boucle et journalise un avertissement par seconde environ. La synchronisation des constats, les justificatifs et la publication des affectations d'actions restent inactives dans k3s. Le service démarre et répond, comme le confirme le smoke.
 - HOST-012 : le worker démarre sans redémarrage, mais le démarrage avec Temporal indisponible n'a pas été provoqué dans le cluster.
+
+#### Accès de remediation-service à Kafka, Keycloak et Garage (HOST-013)
+
+Statut : déployé et vérifié le 2026-10-30. Lève la limite ci-dessus : la synchronisation des constats, l'annuaire des audités, la publication des affectations d'actions et les justificatifs de F-006 fonctionnent dans k3s.
+
+Kafka :
+
+- [scripts/k3s-kafka-security.sh](../../../scripts/k3s-kafka-security.sh) crée le compte SCRAM `remediation-service` et son secret `kafka-remediation-service`, avec la même méthode que les deux autres comptes : mot de passe par l'entrée standard, erreurs de l'outil masquées.
+- ACL de remediation-service : lecture de `audit.mission.findings-issued.v1` et `audit.mission.findings-withdrawn.v1`, écriture de leurs DLT, écriture de `audit.action.assigned.v1`, lecture du groupe `remediation-service-v1`. Aucune autre permission. Les topics sont ceux de `FindingsIssueConsumer` et de `AssignmentPublisher`.
+- [deploy/k3s/data/network-policies.yaml](../../../deploy/k3s/data/network-policies.yaml) admet remediation-service sur le port 9092 de Kafka. Sans cette règle, le compte et les ACL ne suffisaient pas.
+
+Keycloak :
+
+- Le service a besoin de deux clients, absents jusque-là de ses valeurs : `remediation-service` pour lire l'instantané des constats émis, et `remediation-directory` pour l'annuaire des audités. Le second n'existait pas dans le royaume du cluster.
+- [scripts/k3s-setup-keycloak.py](../../../scripts/k3s-setup-keycloak.py) crée `remediation-directory` avec `view-users` et `view-realm` seulement, comme `setup-web.py` en local. Son secret `REMEDIATION_DIRECTORY_CLIENT_SECRET` est généré une fois dans `app-secrets`, sans affichage, puis réutilisé.
+
+Garage :
+
+- [scripts/k3s-remediation-storage.sh](../../../scripts/k3s-remediation-storage.sh) crée par SSH le bucket `auditsphere-remediation-k3s` et la clé `auditsphere-remediation-k3s`, sur le modèle de la clé de sauvegarde. La clé n'a que la lecture et l'écriture sur ce bucket. Le bucket des preuves de contrôle et sa clé ne changent pas. Le secret `auditsphere/remediation-s3` porte la clé. Le script ne fait rien si le secret existe déjà.
+- Le bucket n'est pas copié par `deploy/garage/backup.sh` ni par la copie restic, qui ne visent que les preuves de contrôle. Acceptable pour des justificatifs de démonstration effacés chaque nuit, à revoir avant toute donnée réelle.
+
+Service et réinitialisation :
+
+- [infra/helm/values/remediation-service.yaml](../../../infra/helm/values/remediation-service.yaml) : `KAFKA_BOOTSTRAP_SERVERS` et SASL_SSL comme notification-service, `OUTBOX_ENABLED=true`, `KEYCLOAK_URL`, les deux secrets clients et `REMEDIATION_S3_*` comme les preuves d'audit-service. `k3s-deploy-services.sh` passe `REMEDIATION_S3_ENDPOINT` depuis `GARAGE_ENDPOINT`.
+- demo-reset efface déjà chaque nuit les lignes de justificatifs. Sans changement, leurs objets seraient restés dans Garage. L'étape `database` relève désormais `object_key` de `action_attachments` avant l'effacement, et l'étape `seed` retire ces objets comme les preuves. `scripts/evidence_storage.py` prend un préfixe, `EVIDENCE` par défaut ou `REMEDIATION`, pour signer les requêtes du bon bucket.
+- Mémoire : 246 Mio au démarrage avec Kafka, 284 Mio sur 320 après un dépôt de justificatif. Limite portée à 384 Mio, comme notification-service. Le nœud reste en surengagement de limites, environ 4,1 Gio consommés par les pods.
+
+Vérifications du 2026-10-30 :
+
+- Script Kafka appliqué : compte créé, trois ACL de lecture, trois d'écriture, cinq de description pour remediation-service.
+- Au premier démarrage, le groupe `remediation-service-v1` a lu les 106 événements restés dans les topics de constats, retard nul, aucune DLT alimentée, aucun avertissement. Résultat comparé à la base audit : 13 missions approuvées ou clôturées avec un cycle émis et 24 constats validés, pour 13 périmètres actifs et 24 suivis dans remediation. Les autres événements visaient des missions effacées par les réinitialisations, refusées en 404 ou 409 par audit-service puis acquittées, comme prévu.
+- [scripts/test-remediation.py](../../../scripts/test-remediation.py), nouveau, lancé par `k3s-check.sh` : mission synthétique approuvée avec un constat validé, suivi À planifier créé par Kafka, recherche de l'audité dans l'annuaire, action affectée à `auditee`, notification reçue par lui seul, justificatif PDF déposé par l'audité, relu identique par l'auditeur, puis retiré. Bucket vide ensuite, outbox publiée, DLT vides.
+- Chemin de nettoyage de demo-reset essayé depuis le poste, sans lancer de réinitialisation : écriture, lecture puis suppression d'une clé de test par `evidence_storage.py` avec le préfixe `REMEDIATION`, puis 404.
+- `k3s-deploy-services.sh` rejoué : idempotent, aucun redémarrage hors demo-reset mis à jour. `k3s-check.sh smoke.py` réussi. Mission du smoke retirée par `cleanup-test-data.py`. Groupe `remediation-service-v1` stable, 247 Mio au repos sous 384, aucun redémarrage, aucune alerte hors `Watchdog`. Tests Python des scripts : 25 réussis dont deux ignorés par conception.
+
+Incident : le premier essai de `test-remediation.py` a laissé une mission en brouillon, faute de dates prévues. Sa suppression par `DELETE /missions/{id}` a répondu 500 : audit-service supprime les risques avant les liens entre contrôles et risques, et la contrainte `mission_control_risks_mission_id_risk_id_fkey` refuse. Le brouillon a été retiré par `cleanup-test-data.py`. Le défaut est corrigé dans audit-service par TECH-010 le 2026-10-31, pas encore déployé dans k3s.
+
+Limites :
+
+- Non vérifié : une vraie réinitialisation nocturne avec des justificatifs en base. Celle du 2026-10-31 à 5 h a réussi, mais l'étape `database` a relevé 0 justificatif à retirer : le retrait des objets n'a pas encore servi.
+- La mission approuvée par `test-remediation.py` reste visible jusqu'à la réinitialisation nocturne. `cleanup-test-data.py` ne nettoie pas la base remediation : le retirer laisserait un suivi orphelin.
+- Un objet écrit dans Garage puis refusé par la transaction, si le processus s'arrête entre les deux, reste orphelin, comme noté au lot 5 de F-006. La réinitialisation nocturne ne voit que les objets listés en base.
+- Les ACL ne sont jamais retirées par le script, comme pour les autres comptes.
 
 #### Lot E1 : Garage en HTTPS et rotation des certificats
 
@@ -1343,6 +1386,7 @@ Seule la phase 7 pourrait être reportée, puisque l'instance publique ne porte 
 
 ## Vérifications effectuées
 
+- HOST-013, le 2026-10-30 sur le serveur : remediation-service branché sur Kafka, Keycloak et Garage. 106 événements de constats synchronisés sans DLT, parcours F-006 réussi par `test-remediation.py` : suivi créé par Kafka, action notifiée à l'audité, justificatif déposé, relu et retiré. Smoke réussi, limite mémoire portée à 384 Mio. Non vérifié : réinitialisation nocturne avec des justificatifs. Détails dans la section HOST-013.
 - Déploiement de `20dd6db`, le 2026-10-30 sur le serveur : migrations appliquées après sauvegarde, smoke de l'API et du BFF réussis, consommateur de notification-service rétabli après l'ajout du topic `audit.action.assigned.v1` et de son ACL. Non vérifié : flux F-006 dans k3s, faute de compte Kafka et de bucket pour remediation-service. Détails dans le déploiement de `20dd6db`.
 - Veille externe de la supervision, le 2026-10-30 sur le serveur : `Watchdog` envoyé à healthchecks.io toutes les 5 minutes, battement suspendu par un silence, message DOWN publié sur le sujet ntfy 15 minutes après le dernier ping, puis UP au retour, les deux reçus sur le téléphone. Non vérifié : vrai arrêt du nœud. Détails dans la veille externe de la supervision.
 - Incident du socket de `tailscaled`, le 2026-10-29 sur le serveur : cause relevée dans les journaux de Caddy et de dpkg, proxy redémarré, sonde de Garage de nouveau en succès. Correctif durable appliqué, montage du dossier et drop-in constatés, sonde en succès. Non vérifié : vrai redémarrage de `tailscaled`. Détails dans le correctif de la phase 8.

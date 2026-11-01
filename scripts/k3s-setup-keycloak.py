@@ -184,7 +184,12 @@ server = {'protocol': 'openid-connect', 'publicClient': False, 'standardFlowEnab
 service_account(ensure_client({**server, 'clientId': 'auditsphere-directory', 'secret': app['DIRECTORY_CLIENT_SECRET']}), ['view-users', 'view-realm'])
 service_account(ensure_client({**server, 'clientId': 'auditsphere-user-admin', 'secret': app['USER_ADMIN_CLIENT_SECRET']}), ['view-users', 'query-users', 'manage-users', 'view-realm'])
 service_account(ensure_client({**server, 'clientId': 'remediation-service', 'secret': app['REMEDIATION_SYNC_CLIENT_SECRET'], 'protocolMappers': audience}), realm_roles=['REMEDIATION_SYNC'])
-print('Clients serveur annuaire, gestion des utilisateurs et remediation-service configurés avec les secrets du cluster.')
+# Read-only directory of remediation-service, distinct from its sync account (F-006 lot 4). Its secret is created once in app-secrets.
+if 'REMEDIATION_DIRECTORY_CLIENT_SECRET' not in app:
+    app['REMEDIATION_DIRECTORY_CLIENT_SECRET'] = secrets.token_urlsafe(32)
+    save_secret('app-secrets', app)
+service_account(ensure_client({**server, 'clientId': 'remediation-directory', 'secret': app['REMEDIATION_DIRECTORY_CLIENT_SECRET']}), ['view-users', 'view-realm'])
+print('Clients serveur annuaire, gestion des utilisateurs, remediation-service et remediation-directory configurés avec les secrets du cluster.')
 
 # Switch of auditsphere-demo, limited to the clients of this realm instead of the master administrator (ADR-0032).
 switch = secret('keycloak-demo-switch') or {'client_secret': secrets.token_urlsafe(32)}

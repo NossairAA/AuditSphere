@@ -28,7 +28,7 @@ helm upgrade --install keycloak "$root/infra/helm/keycloak" --namespace auditsph
 # audit-service porte les migrations dont dépendent les autres services, il passe en premier.
 deploy audit-service --set-string env.EVIDENCE_S3_ENDPOINT="$GARAGE_ENDPOINT"
 deploy notification-service
-deploy remediation-service
+deploy remediation-service --set-string env.REMEDIATION_S3_ENDPOINT="$GARAGE_ENDPOINT"
 deploy workflow-worker
 deploy api-gateway
 

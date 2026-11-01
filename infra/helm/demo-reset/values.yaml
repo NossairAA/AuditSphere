@@ -25,6 +25,10 @@ evidence:
   endpoint: ""
   bucket: auditsphere-evidence-k3s
 
+# Bucket des justificatifs d'actions correctives, créé par scripts/k3s-remediation-storage.sh.
+remediation:
+  bucket: auditsphere-remediation-k3s
+
 # Racine hors ligne (ADR-0026), montée en /etc/auditsphere/ca.
 internalCa:
   configMap: internal-ca

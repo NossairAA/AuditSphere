@@ -8,6 +8,8 @@ sql() { PGUSER="$1_migrator" PGPASSWORD="$2" psql -X -At -v ON_ERROR_STOP=1 -d "
 # Clés des preuves, retirées du stockage par le conteneur seed. Le journal mission_action_log et les journaux
 # de modification sont conservés, comme dans scripts/cleanup-test-data.py.
 sql audit "$AUDIT_PASSWORD" "SELECT object_key FROM control_evidence" > /work/evidence-keys.txt
+# Justificatifs des actions correctives, dans leur propre bucket (HOST-013).
+sql remediation "$REMEDIATION_PASSWORD" "SELECT object_key FROM action_attachments" > /work/attachment-keys.txt
 sql audit "$AUDIT_PASSWORD" "BEGIN;
   DELETE FROM mission_finding_controls; DELETE FROM mission_findings; DELETE FROM mission_finding_sequences;
   DELETE FROM findings_issue_outbox; DELETE FROM control_evidence; DELETE FROM mission_control_risks;
@@ -20,4 +22,4 @@ sql remediation "$REMEDIATION_PASSWORD" "BEGIN;
   DELETE FROM corrective_actions; DELETE FROM action_sequences; DELETE FROM finding_follow_ups;
   DELETE FROM mission_scope_auditors; DELETE FROM mission_scopes;
   COMMIT;"
-echo "bases : missions, notifications et suivis retirés, $(wc -l < /work/evidence-keys.txt) preuves à retirer"
+echo "bases : missions, notifications et suivis retirés, $(wc -l < /work/evidence-keys.txt) preuves et $(wc -l < /work/attachment-keys.txt) justificatifs à retirer"

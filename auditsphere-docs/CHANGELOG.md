@@ -6,6 +6,15 @@
 - audit-service supprime désormais les liens entre contrôles et risques, puis les contrôles, puis les risques, avant la mission. Ordre repris de `cleanup-test-data.py` et de `demo-reset`. Les journaux `mission_action_log` et `program_change_log` sont conservés.
 - Vérifié localement : nouveau test Testcontainers en échec avant la correction avec cette violation, réussi après. `./mvnw -B -pl services/audit-service -am verify` réussi avec JDK 25, 91 tests. Non déployé dans k3s. Détails dans [retrait et suppression](docs/technique/18-retrait-suppression.md).
 
+## 2026-10-30 : remediation-service branché dans k3s (HOST-013)
+
+- `k3s-kafka-security.sh` : compte SCRAM `remediation-service`, lecture des topics de constats, écriture de leurs DLT et de `audit.action.assigned.v1`, lecture du groupe `remediation-service-v1`. Règle réseau de Kafka ouverte à remediation-service.
+- `k3s-setup-keycloak.py` : client `remediation-directory` en lecture seule de l'annuaire, secret généré dans `app-secrets`.
+- `k3s-remediation-storage.sh`, nouveau : bucket Garage `auditsphere-remediation-k3s` et clé limitée à ce bucket, créés par SSH, secret `remediation-s3`.
+- Valeurs Helm de remediation-service : Kafka en SASL_SSL, outbox active, Keycloak, secrets clients, stockage des justificatifs, limite mémoire de 320 à 384 Mio. demo-reset retire aussi chaque nuit les objets des justificatifs, `evidence_storage.py` prend un préfixe de stockage.
+- `test-remediation.py`, nouveau : parcours F-006 de bout en bout par la gateway.
+- Vérifié sur le serveur : 106 événements de constats synchronisés sans DLT, 24 suivis conformes aux 24 constats validés, parcours réussi avec suivi, notification et justificatif, smoke réussi, aucune alerte hors `Watchdog`. Non vérifié : réinitialisation nocturne avec des justificatifs, celle du 2026-10-31 n'en avait aucun. Défaut constaté dans audit-service : suppression d'un brouillon avec programme en 500 (TECH-010). Détails dans l'[hébergement k3s](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-10-30 : déploiement des images de `20dd6db`
 
 - Images Spring et BFF de `20dd6db` épinglées par empreinte et déployées par `k3s-deploy-services.sh`, après une sauvegarde `k3s-backup.sh run` pour les migrations de remediation-service et de notification-service.

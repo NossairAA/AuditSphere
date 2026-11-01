@@ -124,6 +124,23 @@ spec:
                     secretKeyRef:
                       name: evidence-s3
                       key: EVIDENCE_S3_SECRET_KEY
+                # Justificatifs des actions correctives, même Garage, bucket et clé propres (HOST-013).
+                - name: REMEDIATION_S3_ENDPOINT
+                  value: {{ .Values.evidence.endpoint | quote }}
+                - name: REMEDIATION_S3_BUCKET
+                  value: {{ .Values.remediation.bucket | quote }}
+                - name: REMEDIATION_S3_REGION
+                  value: garage
+                - name: REMEDIATION_S3_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: remediation-s3
+                      key: REMEDIATION_S3_ACCESS_KEY
+                - name: REMEDIATION_S3_SECRET_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: remediation-s3
+                      key: REMEDIATION_S3_SECRET_KEY
               resources:
                 {{- include "demo-reset.resources" . | nindent 16 }}
               securityContext:

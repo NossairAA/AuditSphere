@@ -37,7 +37,7 @@ case "${1:-}" in
 
     # Un compte par service. Le mot de passe existant est réutilisé, sinon il est généré puis rangé
     # dans le secret kafka-<service>, avec la ligne JAAS lue par Spring.
-    for user in audit-service notification-service; do
+    for user in audit-service notification-service remediation-service; do
       if secret_exists auditsphere "kafka-$user"; then
         password=$(kubectl --namespace auditsphere get secret "kafka-$user" -o jsonpath='{.data.password}' | base64 -d)
       else
@@ -76,6 +76,16 @@ case "${1:-}" in
       acl notification-service --operation Write --operation Describe --topic "$topic.DLT"
     done
     acl notification-service --operation Read --group notification-service-v1
+    # remediation-service lit les émissions et retraits de constats, met en quarantaine leurs rejets
+    # et publie les affectations d'actions depuis son outbox (F-006 lots 3 et 6).
+    for topic in audit.mission.findings-issued.v1 audit.mission.findings-withdrawn.v1; do
+      acl remediation-service --operation Read --operation Describe --topic "$topic"
+      acl remediation-service --operation Write --operation Describe --topic "$topic.DLT"
+    done
+    for topic in "${action_events[@]}"; do
+      acl remediation-service --operation Write --operation Describe --topic "$topic"
+    done
+    acl remediation-service --operation Read --group remediation-service-v1
     echo "ACL à jour :"
     kafka "$bin/kafka-acls.sh" --bootstrap-server "$bootstrap" --list 2>/dev/null \
       | grep -o 'principal=User:[a-z-]*, host=[^,]*, operation=[A-Z_]*' | sort | uniq -c
