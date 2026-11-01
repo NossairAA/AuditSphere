@@ -1019,6 +1019,22 @@ Vérifications du 2026-11-01 :
 
 Limite : le script de cette vérification est resté hors du dépôt. Le test Java `draftDeletionRemovesProgramInDependencyOrder` couvre le même cas en CI.
 
+#### Déploiement de `995eff4` : interface des actions correctives
+
+Statut : déployé et vérifié le 2026-11-01 sur le profil `demo`, sur demande de l'utilisateur.
+
+- Seule l'image web passe de `20dd6db` à `995eff4`, tirée par empreinte. Elle apporte le lot 7 de F-006 : route `/api/remediation` du BFF, onglet Actions correctives, page Mes actions et fiche d'action. Aucun service Java ne change, aucune migration.
+- `k3s-deploy-services.sh` réussi, pod web prêt. Les Jobs de migration se sont relancés sans rien appliquer.
+
+Vérifications du 2026-11-01 :
+
+- `k3s-check.sh test-remediation.py` réussi : mission approuvée, suivi créé par Kafka, action notifiée à l'audité, justificatif déposé, relu puis retiré.
+- Navigateur, par le nom public et l'entrée en un clic : l'audité arrive sur `/actions`, voit l'action du test et ouvre sa fiche avec la copie du constat, l'avancement, les justificatifs et l'historique. Le responsable voit l'onglet Actions correctives de la mission avec le suivi en plan d'action. Sessions de démonstration fermées ensuite.
+- `k3s-check.sh smoke.py` réussi. Mission du smoke retirée par `cleanup-test-data.py`, désormais étendu à la base remediation : sauvegarde privée, services arrêtés puis revenus prêts.
+- Aucune alerte active hors `Watchdog`. Pod web à 85 Mio.
+
+Limite : la mission de `test-remediation.py` reste visible jusqu'à la réinitialisation nocturne, comme pour HOST-013. Les écritures de l'interface, avancement, dépôt, réalisation, vérification et clôture, sont couvertes par le test Playwright local et par `test-remediation.py` côté API, pas rejouées à la main dans le cluster.
+
 #### Lot E1 : Garage en HTTPS et rotation des certificats
 
 Statut : implémenté et vérifié le 2026-10-26, sauf mention contraire.
@@ -1402,6 +1418,7 @@ Seule la phase 7 pourrait être reportée, puisque l'instance publique ne porte 
 
 ## Vérifications effectuées
 
+- Déploiement de `995eff4`, le 2026-11-01 sur le serveur : interface des actions correctives, parcours F-006 réussi par `test-remediation.py`, écrans de l'audité et du responsable affichés par le nom public, smoke réussi, aucune alerte hors `Watchdog`. Détails dans le déploiement de `995eff4`.
 - Déploiement de `6eac4e9`, le 2026-11-01 sur le serveur : correctif TECH-010 dans audit-service, brouillon avec contrôle lié à un risque supprimé en 204 puis 404, smoke réussi, aucune alerte hors `Watchdog`. Détails dans le déploiement de `6eac4e9`.
 - HOST-013, le 2026-10-30 sur le serveur : remediation-service branché sur Kafka, Keycloak et Garage. 106 événements de constats synchronisés sans DLT, parcours F-006 réussi par `test-remediation.py` : suivi créé par Kafka, action notifiée à l'audité, justificatif déposé, relu et retiré. Smoke réussi, limite mémoire portée à 384 Mio. Non vérifié : réinitialisation nocturne avec des justificatifs. Détails dans la section HOST-013.
 - Déploiement de `20dd6db`, le 2026-10-30 sur le serveur : migrations appliquées après sauvegarde, smoke de l'API et du BFF réussis, consommateur de notification-service rétabli après l'ajout du topic `audit.action.assigned.v1` et de son ACL. Non vérifié : flux F-006 dans k3s, faute de compte Kafka et de bucket pour remediation-service. Détails dans le déploiement de `20dd6db`.

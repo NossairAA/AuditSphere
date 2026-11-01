@@ -1,6 +1,6 @@
 # Actions correctives : implémentation proposée
 
-**Statut :** découpage accepté par ADR-0022. Lot 1 implémenté, vérifié localement puis par la CI distante, publié dans `main` le 2026-10-24. Lot 2 vérifié par la CI distante et publié dans `main` le 2026-10-26. Lot 3 vérifié par la CI distante et publié dans `main` le 2026-10-29, non déployé dans k3s. Lot 4 vérifié par la CI distante et publié dans `main` le 2026-10-30. Lot 5 vérifié par la CI distante et publié dans `main` le 2026-10-30. Lot 6 implémenté et vérifié localement le 2026-10-30, publié dans `main` puis déployé dans k3s par HOST-013. Lot 7 implémenté et vérifié localement le 2026-11-01, CI distante et k3s non vérifiés. Lot 8 proposé.
+**Statut :** découpage accepté par ADR-0022. Lot 1 implémenté, vérifié localement puis par la CI distante, publié dans `main` le 2026-10-24. Lot 2 vérifié par la CI distante et publié dans `main` le 2026-10-26. Lot 3 vérifié par la CI distante et publié dans `main` le 2026-10-29, non déployé dans k3s. Lot 4 vérifié par la CI distante et publié dans `main` le 2026-10-30. Lot 5 vérifié par la CI distante et publié dans `main` le 2026-10-30. Lot 6 implémenté et vérifié localement le 2026-10-30, publié dans `main` puis déployé dans k3s par HOST-013. Lot 7 implémenté et vérifié localement le 2026-11-01, publié dans `main` puis déployé dans k3s le même jour. Lot 8 proposé.
 **Tranche :** F-006, US-006 et US-007. Règles métier dans le [plan métier](../produit/04-plan-metier.md). Découpage du service dans [ADR-0022](../decisions/ADR-0022-actions-correctives-service-dedie.md), accepté le 2026-10-24.
 
 Ce document décrit le découpage technique. Chaque lot est marqué implémenté puis vérifié avec ses preuves de test. Les noms des lots 2 à 8 restent des propositions.
@@ -287,7 +287,8 @@ remediation-service écrit `audit.action.assigned.v1` dans son outbox à la cré
 - Nettoyage de fin de suite constaté en base : aucun périmètre de la mission de test et aucun justificatif orphelin dans remediation.
 - `npm run typecheck` et `npm run build` réussis.
 - Suite Playwright complète, le 2026-11-01 : `remediation.spec.ts` réussi au sein de la suite. Des échecs intermittents touchent d'autres tests, avec des réponses 503 du BFF ou une page de connexion qui ne s'affiche pas. Ils existent aussi sur `main` sans le lot 7 : quatre échecs sur une exécution de référence, sur `missions.spec.ts`, `program.spec.ts` et `withdrawal.spec.ts`. Les tests touchés changent d'une exécution à l'autre. Une limite de débit de la gateway relevée à titre d'essai les réduit sans les supprimer, la cause n'est donc pas établie. Les limites en mémoire du serveur de dev aggravent le phénomène quand les exécutions s'enchaînent.
-- Non vérifié : CI distante, k3s, lecteur d'écran.
+- CI distante réussie sur la PR et sur `main` (`995eff4`). Déployé dans k3s le 2026-11-01, voir l'[hébergement k3s](28-hebergement-k3s.md).
+- Non vérifié : lecteur d'écran.
 
 ## Déploiement dans k3s
 
