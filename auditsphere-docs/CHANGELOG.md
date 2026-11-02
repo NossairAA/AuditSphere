@@ -1,5 +1,10 @@
 # Journal des changements
 
+## 2026-11-02 : déploiement de TECH-012
+
+- Image web de `1cd3d78` épinglée par empreinte et déployée par `k3s-deploy-services.sh`, profil `demo`. Aucun service Java ni migration.
+- Vérifié sur le serveur : smoke de l'API et du BFF réussis, filtres à 40 pixels et pagination contrôlés par le nom public, aucune alerte hors `Watchdog`. Non vérifié : Safari. La mission du smoke reste visible jusqu'à la réinitialisation nocturne. Détails dans l'[hébergement k3s](docs/technique/28-hebergement-k3s.md).
+
 ## 2026-11-01 : cohérence des écrans et pagination (TECH-012)
 
 - Cause établie : le preflight de Tailwind retire marges et styles natifs alors qu'aucune classe Tailwind n'est utilisée. Base explicite ajoutée : marges des paragraphes, style unique des champs, listes déroulantes et cases, bouton du champ fichier, boutons à 40 pixels.
