@@ -173,3 +173,7 @@ Le projet privilégie la profondeur technique, sans prétendre à une production
 ## Auteur
 
 Conçu et développé par **Nossair AIT AHMED** ([GitHub](https://github.com/NossairAA)).
+
+## Licence
+
+Copyright (c) 2026 Nossair AIT AHMED. Tous droits réservés. Le code est public pour la consultation et l'évaluation uniquement, voir [LICENSE](LICENSE).
