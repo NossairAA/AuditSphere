@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """The corrective actions of demo_dataset.py must be reachable through the rules of remediation-service."""
 import ast
+import importlib.util
 from pathlib import Path
 import unittest
+from unittest import mock
 
 STATUSES = {'TODO', 'IN_PROGRESS', 'DONE', 'VERIFIED', 'CANCELLED'}
 MAX_ACTIONS = 20
@@ -65,6 +67,36 @@ class DemoActions(unittest.TestCase):
             descriptions = [a['description'] for a in finding['actions']]
             self.assertEqual(len(descriptions), len(set(descriptions)), finding['title'])
             self.assertLessEqual(len(descriptions), MAX_ACTIONS)
+
+
+class WaitFollowUps(unittest.TestCase):
+    def setUp(self):
+        path = Path(__file__).resolve().parent / 'seed-demo-missions.py'
+        spec = importlib.util.spec_from_file_location('seed_demo_missions', path)
+        self.seed = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.seed)
+        sleep = mock.patch.object(self.seed.time, 'sleep')
+        sleep.start()
+        self.addCleanup(sleep.stop)
+
+    def test_mission_not_yet_known_is_waited_for(self):
+        api = mock.Mock()
+        api.call.side_effect = [self.seed.ApiError('HTTP 404', 404), {'followUps': [{'title': 'Constat'}]}]
+        self.assertIn('Constat', self.seed.wait_follow_ups(api, 'mission', {'Constat'}))
+        self.assertEqual(api.call.call_count, 2)
+
+    def test_other_errors_stop_the_seed(self):
+        api = mock.Mock()
+        api.call.side_effect = self.seed.ApiError('HTTP 403', 403)
+        with self.assertRaises(self.seed.ApiError):
+            self.seed.wait_follow_ups(api, 'mission', {'Constat'})
+        self.assertEqual(api.call.call_count, 1)
+
+    def test_mission_that_never_arrives_stops_the_seed(self):
+        api = mock.Mock()
+        api.call.side_effect = self.seed.ApiError('HTTP 404', 404)
+        with self.assertRaisesRegex(self.seed.ApiError, 'suivis non reçus'):
+            self.seed.wait_follow_ups(api, 'mission', {'Constat'})
 
 
 if __name__ == '__main__':

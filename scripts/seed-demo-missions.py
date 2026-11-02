@@ -65,7 +65,9 @@ assert [m['index'] for m in MISSIONS] == list(range(40))
 
 
 class ApiError(RuntimeError):
-    pass
+    def __init__(self, message, status=None):
+        super().__init__(message)
+        self.status = status
 
 
 class Client:
@@ -111,7 +113,7 @@ class Client:
                 if exc.code == 429 and attempt < 2:
                     time.sleep(min(60, int(exc.headers.get('Retry-After', '60')) + 1))
                     continue
-                raise ApiError(f'{method or "GET"} {path}: HTTP {exc.code}') from None
+                raise ApiError(f'{method or "GET"} {path}: HTTP {exc.code}', exc.code) from None
             except (OSError, TimeoutError) as exc:
                 raise ApiError(f'{method or "GET"} {path}: connexion interrompue ({type(exc).__name__})') from None
         raise ApiError(f'{method or "GET"} {path}: tentatives épuisées')
@@ -416,8 +418,14 @@ def reopen_first_finding(api, mission, case, anchor):
 
 def wait_follow_ups(api, mid, titles):
     # audit-service issues the follow-ups through Kafka after the approval: they appear shortly after.
+    # Until then remediation-service does not know the mission and answers 404.
     for _ in range(90):
-        follow_ups = {f['title']: f for f in api.call('manager', f'/remediation/missions/{mid}/follow-ups')['followUps']}
+        try:
+            follow_ups = {f['title']: f for f in api.call('manager', f'/remediation/missions/{mid}/follow-ups')['followUps']}
+        except ApiError as exc:
+            if exc.status != 404:
+                raise
+            follow_ups = {}
         if titles <= follow_ups.keys():
             return follow_ups
         time.sleep(2)
