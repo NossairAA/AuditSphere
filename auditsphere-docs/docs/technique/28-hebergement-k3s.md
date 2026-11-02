@@ -1049,6 +1049,21 @@ Vérifications du 2026-11-01 :
 - Aucune alerte active hors `Watchdog`, aucune erreur dans les journaux du web.
 - Non vérifié dans le cluster : la réponse 429 elle-même. La provoquer demanderait plus de 240 requêtes par minute sur un compte de la démo publique. Elle est couverte par le test du BFF et par les tests de la gateway.
 
+#### Déploiement de `1cd3d78` : cohérence des écrans et pagination (TECH-012)
+
+Statut : déployé et vérifié le 2026-11-02 sur le profil `demo`, sur demande de l'utilisateur.
+
+- Seule l'image web passe de `6c7cb8d` à `1cd3d78`, tirée par empreinte. Elle apporte la base commune des formulaires et la pagination numérotée. Aucun service Java ne change, aucune migration.
+- `k3s-deploy-services.sh` réussi, pod web prêt sans redémarrage. Les Jobs de migration se sont relancés sans rien appliquer.
+
+Vérifications du 2026-11-02 :
+
+- `k3s-check.sh smoke.py` et `smoke-bff.py` réussis, le second par le nom public : connexion OIDC, session, 41 missions servies, déconnexion.
+- Chromium, par le nom public et l'entrée en un clic du responsable : champ, listes déroulantes et bouton des filtres à 40 pixels, listes déroulantes sans apparence native, passage à la page 2 avec `page=1` dans l'URL. Session fermée ensuite.
+- Aucune alerte active hors `Watchdog`, aucune erreur dans les 200 dernières lignes du journal du web. Pod web à 84 Mio.
+
+Limites : la mission du smoke reste visible jusqu'à la réinitialisation nocturne, car `cleanup-test-data.py` arrête brièvement les services. Non vérifié dans le cluster : rendu dans Safari, écrans de la fiche action et de `/actions`, couverts par les captures et les tests locaux.
+
 #### Lot E1 : Garage en HTTPS et rotation des certificats
 
 Statut : implémenté et vérifié le 2026-10-26, sauf mention contraire.
@@ -1432,6 +1447,7 @@ Seule la phase 7 pourrait être reportée, puisque l'instance publique ne porte 
 
 ## Vérifications effectuées
 
+- Déploiement de `1cd3d78`, le 2026-11-02 sur le serveur : cohérence des écrans et pagination (TECH-012), smoke de l'API et du BFF réussis, filtres et pagination contrôlés par le nom public, aucune alerte hors `Watchdog`. Non vérifié : Safari. Détails dans le déploiement de `1cd3d78`.
 - Déploiement de `6c7cb8d`, le 2026-11-01 sur le serveur : TECH-011 dans la gateway et le web, smoke de l'API et du BFF réussis, aucune alerte hors `Watchdog`. Non vérifié : la réponse 429 dans le cluster. Détails dans le déploiement de `6c7cb8d`.
 - Déploiement de `995eff4`, le 2026-11-01 sur le serveur : interface des actions correctives, parcours F-006 réussi par `test-remediation.py`, écrans de l'audité et du responsable affichés par le nom public, smoke réussi, aucune alerte hors `Watchdog`. Détails dans le déploiement de `995eff4`.
 - Déploiement de `6eac4e9`, le 2026-11-01 sur le serveur : correctif TECH-010 dans audit-service, brouillon avec contrôle lié à un risque supprimé en 204 puis 404, smoke réussi, aucune alerte hors `Watchdog`. Détails dans le déploiement de `6eac4e9`.
