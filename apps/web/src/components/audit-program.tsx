@@ -26,14 +26,14 @@ type Program = { mission: Mission; risks: Risk[]; controls: Control[] };
 type Editor =
   | { kind: "risks"; value?: Risk }
   | { kind: "controls"; value?: Control; riskId?: string };
-const probabilities = [
+export const probabilities = [
   "Très faible",
   "Faible",
   "Modérée",
   "Élevée",
   "Très élevée",
 ];
-const impacts = ["Mineur", "Limité", "Significatif", "Majeur", "Critique"];
+export const impacts = ["Mineur", "Limité", "Significatif", "Majeur", "Critique"];
 export default function AuditProgram({
   mission,
   mode = "risks",

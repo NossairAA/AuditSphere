@@ -8,6 +8,7 @@ import {
   type Mission,
   type MissionPage,
 } from "@/lib/types";
+import { progressRamp, StackedBar } from "./charts";
 import { ErrorNotice, useUser } from "./workspace";
 
 type Summary = {
@@ -174,25 +175,18 @@ export default function AdminDashboard() {
                   Aucune mission à afficher pour le moment.
                 </p>
               )}
-              <ul className="dashboard-distribution">
-                {statuses.map((status) => (
-                  <li key={status}>
-                    <Link href={`/missions?status=${status}`}>
-                      <span className="dashboard-bar-label">
-                        <span>{statusLabel(status)}</span>
-                        <strong>{data.summary.byStatus[status]}</strong>
-                      </span>
-                      <span className="dashboard-bar" aria-hidden="true">
-                        <span
-                          style={{
-                            width: `${data.summary.total ? (data.summary.byStatus[status] / data.summary.total) * 100 : 0}%`,
-                          }}
-                        />
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              <div className="chart-panel-body">
+                <StackedBar
+                  label="Répartition des missions par statut"
+                  segments={statuses.map((status, index) => ({
+                    key: status,
+                    label: statusLabel(status),
+                    value: data.summary.byStatus[status],
+                    color: progressRamp[index],
+                    href: `/missions?status=${status}`,
+                  }))}
+                />
+              </div>
             </section>
           </div>
         </>

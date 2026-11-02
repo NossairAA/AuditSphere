@@ -2,7 +2,8 @@
 .local
 .env
 **/target
-auditsphere-docs
+.ai-docs
+docs
 
 .env.*
 *.key
