@@ -8,7 +8,7 @@ Projet personnel conçu, développé et exploité de bout en bout pour pratiquer
 
 **[Essayer la démo en ligne](https://auditsphereapp.online)** : entrée en un clic comme responsable, auditeur, validateur ou audité, sans compte à créer. Les données sont réinitialisées chaque nuit.
 
-![Indicateurs d'une mission : résultats des contrôles, constats par gravité et matrice des risques](docs/images/indicateurs.png)
+![Indicateurs d'une mission : résultats des contrôles, constats par gravité et matrice des risques](docs/images/accueil.png)
 
 ## En bref
 
