@@ -8412,6 +8412,16 @@ MISSIONS = [{'index': 0,
                                   'responsable de site. Le directeur des moyens généraux suivra chaque mois le taux '
                                   'de réalisation du préventif.',
                 'severity': 'HIGH',
+                'actions': [{'description': 'Réaliser les ordres de maintenance en retard sur les équipements '
+                                            'critiques et joindre les rapports d’intervention.',
+                             'due': 45,
+                             'status': 'IN_PROGRESS',
+                             'progress': 'Planning validé avec les trois sites. 14 ordres sur 38 sont réalisés, les '
+                                         'arrêts de ligne restants sont fixés.'},
+                            {'description': 'Désactiver dans la GMAO la clôture d’un ordre sans rapport '
+                                            'd’intervention.',
+                             'due': 60,
+                             'status': 'TODO'}],
                 'controls': [0],
                 'decision': 'VALIDATE'},
                {'title': 'Pannes récurrentes sans analyse de cause ni décision de remplacement',
@@ -8708,6 +8718,33 @@ MISSIONS = [{'index': 0,
                                   'd’audit le résultat du recalcul. Les plans d’écoulement seront suivis chaque '
                                   'trimestre par la direction logistique.',
                 'severity': 'HIGH',
+                'actions': [{'description': 'Recalculer la provision sur les 4 100 références sans mouvement et '
+                                            'soumettre le résultat au directeur financier.',
+                             'due': 20,
+                             'status': 'DONE',
+                             'progress': 'Extraction SAP terminée, recalcul en cours de relecture par la '
+                                         'comptabilité industrielle.',
+                             'completion': 'Recalcul terminé et validé par le directeur financier. Le complément de '
+                                           'provision est passé sur la période.',
+                             'attachment': {'file': 'Recalcul_provision_stocks.pdf',
+                                            'type': 'memo',
+                                            'title': 'Recalcul de la provision pour dépréciation',
+                                            'meta': [['Émetteur', 'Comptabilité industrielle'],
+                                                     ['Transmis par', 'Nadia Rousseau'],
+                                                     ['Date', '{date:-2}']],
+                                            'sections': [['Travaux réalisés',
+                                                          'La provision a été recalculée sur les 4 100 références '
+                                                          'selon la grille d’ancienneté en vigueur, à partir de '
+                                                          'l’extraction SAP de {month:0}.'],
+                                                         ['Résultat constaté',
+                                                          'Le complément de provision a été validé par le directeur '
+                                                          'financier et comptabilisé. Le détail reste disponible '
+                                                          'dans le dossier de clôture.']]}},
+                            {'description': 'Formaliser la revue trimestrielle des références lentes avec la '
+                                            'direction achats.',
+                             'due': 50,
+                             'status': 'IN_PROGRESS',
+                             'progress': 'Projet de procédure transmis à la direction achats, relecture attendue.'}],
                 'controls': [0],
                 'decision': 'VALIDATE'},
                {'title': 'Trois articles valorisés au-dessus du dernier prix d’achat',
@@ -8742,6 +8779,9 @@ MISSIONS = [{'index': 0,
                                   'clôture. Les trois articles seront corrigés avant la prochaine clôture et la '
                                   'méthode de valorisation sera rappelée aux équipes.',
                 'severity': 'LOW',
+                'actions': [{'description': 'Corriger la valorisation des trois articles avant la prochaine clôture.',
+                             'due': 30,
+                             'status': 'TODO'}],
                 'controls': [1],
                 'decision': 'RETURN',
                 'decisionComment': 'Justifier la sévérité faible en comparant l’extrapolation au seuil de '
@@ -8979,6 +9019,10 @@ MISSIONS = [{'index': 0,
                                   'au comité logistique. Les équipes de quai seront formées au contrôle par scan, et '
                                   'les modifications tardives seront soumises à validation du responsable.',
                 'severity': 'MODERATE',
+                'actions': [{'description': 'Rendre obligatoire le scan de contrôle avant la remise au transporteur '
+                                            'et former les équipes de quai.',
+                             'due': 75,
+                             'status': 'TODO'}],
                 'controls': [0],
                 'decision': 'VALIDATE'},
                {'title': 'Retours clients reçus en entrepôt non enregistrés dans SAP',
@@ -9011,6 +9055,34 @@ MISSIONS = [{'index': 0,
                                   'retours en attente, ancienneté comprise. Les trois retours relevés seront traités '
                                   'immédiatement et les clients concernés recevront leur avoir.',
                 'severity': 'HIGH',
+                'actions': [{'description': 'Enregistrer les trois retours relevés dans SAP et émettre les avoirs '
+                                            'des clients concernés.',
+                             'due': 10,
+                             'status': 'VERIFIED',
+                             'progress': 'Deux retours enregistrés, le troisième attend le rapport de qualité.',
+                             'completion': 'Les trois retours sont enregistrés dans SAP et les avoirs sont émis.',
+                             'verification': 'Écritures SAP et avoirs rapprochés des trois bons de retour, sans '
+                                             'écart.',
+                             'attachment': {'file': 'Regularisation_retours_clients.pdf',
+                                            'type': 'memo',
+                                            'title': 'Régularisation des trois retours clients',
+                                            'meta': [['Émetteur', 'Responsable des entrepôts'],
+                                                     ['Transmis par', 'Nadia Rousseau'],
+                                                     ['Date', '{date:-2}']],
+                                            'sections': [['Travaux réalisés',
+                                                          'Les trois colis ont été identifiés en zone de retours, '
+                                                          'enregistrés dans SAP et contrôlés par le service '
+                                                          'qualité.'],
+                                                         ['Résultat constaté',
+                                                          'Les avoirs ont été émis et transmis aux clients. La zone '
+                                                          'de retours ne contient plus de colis antérieur à '
+                                                          '{month:-1}.']]}},
+                            {'description': 'Mettre en place l’étiquetage à la réception et l’inventaire '
+                                            'hebdomadaire de la zone de retours.',
+                             'due': 40,
+                             'status': 'IN_PROGRESS',
+                             'progress': 'Étiquettes déployées à Lyon. Le déploiement des deux autres entrepôts est '
+                                         'prévu ce mois-ci.'}],
                 'controls': [1],
                 'decision': 'VALIDATE'}],
   'review': {'approve': 'Les deux constats sont validés. Le contrôle des retours est prioritaire et la direction '
@@ -9241,6 +9313,50 @@ MISSIONS = [{'index': 0,
                                   'jours, et former un suppléant à la procédure. Le comité d’audit sera informé de '
                                   'l’avancement à chaque séance.',
                 'severity': 'HIGH',
+                'actions': [{'description': 'Mettre à jour les hypothèses de DSO des trois segments concernés dans '
+                                            'le modèle de prévision.',
+                             'due': 7,
+                             'status': 'VERIFIED',
+                             'progress': 'DSO recalculés sur le dernier trimestre, validation du trésorier groupe '
+                                         'demandée.',
+                             'completion': 'Les trois segments sont mis à jour dans le modèle et la validation du '
+                                           'trésorier groupe est archivée.',
+                             'verification': 'Hypothèses du modèle comparées au DSO constaté sur le trimestre : '
+                                             'écart inférieur à deux jours.',
+                             'attachment': {'file': 'Mise_a_jour_hypotheses_DSO.pdf',
+                                            'type': 'memo',
+                                            'title': 'Mise à jour des hypothèses de DSO',
+                                            'meta': [['Émetteur', 'Trésorerie groupe'],
+                                                     ['Transmis par', 'Nadia Rousseau'],
+                                                     ['Date', '{date:-2}']],
+                                            'sections': [['Travaux réalisés',
+                                                          'Les DSO des installateurs, des collectivités et du négoce '
+                                                          'indépendant ont été recalculés sur {quarter:-1}, puis '
+                                                          'reportés dans le modèle de prévision.'],
+                                                         ['Résultat constaté',
+                                                          'Le trésorier groupe a validé les nouvelles hypothèses. La '
+                                                          'validation est classée dans la GED.']]}},
+                            {'description': 'Inscrire la revue trimestrielle des DSO au calendrier de clôture et '
+                                            'définir le seuil de revue exceptionnelle.',
+                             'due': 35,
+                             'status': 'DONE',
+                             'progress': 'Calendrier de clôture modifié, seuil de trois jours proposé au trésorier '
+                                         'groupe.',
+                             'completion': 'La revue figure au calendrier de clôture. Le seuil de trois jours est '
+                                           'validé et un suppléant est formé.',
+                             'attachment': {'file': 'Calendrier_revue_DSO.pdf',
+                                            'type': 'memo',
+                                            'title': 'Revue trimestrielle des DSO',
+                                            'meta': [['Émetteur', 'Trésorerie groupe'],
+                                                     ['Transmis par', 'Nadia Rousseau'],
+                                                     ['Date', '{date:-2}']],
+                                            'sections': [['Travaux réalisés',
+                                                          'La revue a été ajoutée au calendrier de clôture et le '
+                                                          'seuil de revue exceptionnelle a été formalisé dans la '
+                                                          'procédure de prévision.'],
+                                                         ['Résultat constaté',
+                                                          'La procédure mise à jour est classée dans la GED. Un '
+                                                          'suppléant a suivi la formation le {date:-3}.']]}}],
                 'controls': [0],
                 'decision': 'VALIDATE'},
                {'title': 'Écarts de prévision supérieurs à 5 % sans analyse documentée',
@@ -9634,6 +9750,30 @@ MISSIONS = [{'index': 0,
                                   'trimestre le nombre d’écarts à la grille jusqu’à leur disparition complète, avec '
                                   'présentation des mesures correctrices.',
                 'severity': 'HIGH',
+                'actions': [{'description': 'Reparamétrer Kyriba pour bloquer la transmission tant que tous les '
+                                            'niveaux de la grille n’ont pas approuvé.',
+                             'due': 25,
+                             'status': 'IN_PROGRESS',
+                             'progress': 'Paramétrage réalisé en recette, test mené sur cinq ordres.',
+                             'completion': 'Blocage activé en production après le test de recette.',
+                             'return': 'Le justificatif ne couvre que la recette. Joindre la preuve de l’activation '
+                                       'en production et le test d’un ordre bloqué.',
+                             'attachment': {'file': 'Parametrage_Kyriba_recette.pdf',
+                                            'type': 'memo',
+                                            'title': 'Paramétrage du blocage dans Kyriba',
+                                            'meta': [['Émetteur', 'Trésorerie groupe'],
+                                                     ['Transmis par', 'Nadia Rousseau'],
+                                                     ['Date', '{date:-2}']],
+                                            'sections': [['Travaux réalisés',
+                                                          'Le circuit d’approbation a été reparamétré en recette '
+                                                          'selon la grille en vigueur, puis testé sur cinq ordres '
+                                                          'fictifs.'],
+                                                         ['Résultat constaté',
+                                                          'Les cinq ordres incomplets ont été bloqués en '
+                                                          'recette.']]}},
+                            {'description': 'Nommer des suppléants pour chaque niveau d’approbation de la grille.',
+                             'due': 30,
+                             'status': 'TODO'}],
                 'controls': [0],
                 'decision': 'VALIDATE'},
                {'title': 'Paiements exceptionnels réalisés après modification de RIB sans contre-appel',
@@ -9668,6 +9808,55 @@ MISSIONS = [{'index': 0,
                                   '15 jours. Les gestionnaires seront formés avant la fin du mois et un test '
                                   'd’hameçonnage sera organisé.',
                 'severity': 'CRITICAL',
+                'actions': [{'description': 'Vérifier auprès des fournisseurs les trois paiements réalisés après '
+                                            'modification de RIB.',
+                             'due': 7,
+                             'status': 'VERIFIED',
+                             'progress': 'Deux fournisseurs ont confirmé leur RIB, le troisième a été relancé.',
+                             'completion': 'Les trois fournisseurs ont confirmé par contre-appel les paiements et '
+                                           'leurs coordonnées bancaires.',
+                             'verification': 'Comptes rendus de contre-appel contrôlés sur les trois paiements. '
+                                             'Numéros appelés issus du contrat, pas de la demande.',
+                             'attachment': {'file': 'Contre_appels_fournisseurs.pdf',
+                                            'type': 'memo',
+                                            'title': 'Contre-appels des trois fournisseurs',
+                                            'meta': [['Émetteur', 'Données de base fournisseurs'],
+                                                     ['Transmis par', 'Nadia Rousseau'],
+                                                     ['Date', '{date:-2}']],
+                                            'sections': [['Travaux réalisés',
+                                                          'Chaque fournisseur a été rappelé au numéro figurant dans '
+                                                          'son contrat afin de confirmer le paiement et les '
+                                                          'coordonnées bancaires.'],
+                                                         ['Résultat constaté',
+                                                          'Les trois paiements sont confirmés et aucune fraude n’est '
+                                                          'constatée. Les comptes rendus sont classés dans la '
+                                                          'GED.']]}},
+                            {'description': 'Rendre le contre-appel bloquant dans SAP et Kyriba avant tout paiement '
+                                            'suivant une modification de RIB.',
+                             'due': 14,
+                             'status': 'DONE',
+                             'progress': 'Blocage activé dans SAP, activation dans Kyriba programmée.',
+                             'completion': 'Le contre-appel est bloquant dans les deux outils et le formulaire est '
+                                           'obligatoire.',
+                             'attachment': {'file': 'Blocage_contre_appel.pdf',
+                                            'type': 'memo',
+                                            'title': 'Blocage du paiement sans contre-appel',
+                                            'meta': [['Émetteur', 'Données de base fournisseurs'],
+                                                     ['Transmis par', 'Nadia Rousseau'],
+                                                     ['Date', '{date:-2}']],
+                                            'sections': [['Travaux réalisés',
+                                                          'Un blocage de paiement est posé à chaque modification de '
+                                                          'RIB. Il n’est levé qu’après dépôt du formulaire de '
+                                                          'contre-appel.'],
+                                                         ['Résultat constaté',
+                                                          'Le test en production a bloqué un paiement de contrôle '
+                                                          'jusqu’au dépôt du formulaire.']]}},
+                            {'description': 'Former les gestionnaires à la procédure de contre-appel et organiser un '
+                                            'test d’hameçonnage.',
+                             'due': 25,
+                             'status': 'IN_PROGRESS',
+                             'progress': 'Première session de formation réalisée. La seconde et le test sont '
+                                         'planifiés.'}],
                 'controls': [1],
                 'decision': 'VALIDATE'}],
   'review': {'approve': 'Rapport de la mission sur l’autorisation des paiements exceptionnels approuvé. Le constat '
@@ -9940,6 +10129,20 @@ MISSIONS = [{'index': 0,
                                   'des dossiers dépassant 5 %. Le guide du chef de projet sera remis et signé à '
                                   'chaque prise de fonction.',
                 'severity': 'HIGH',
+                'actions': [{'description': 'Présenter un avenant de régularisation des deux dossiers au prochain '
+                                            'comité d’investissement.',
+                             'due': 40,
+                             'status': 'TODO'},
+                            {'description': 'Paramétrer une alerte SAP au franchissement de 8 % d’écart sur les '
+                                            'projets d’investissement.',
+                             'due': 55,
+                             'status': 'IN_PROGRESS',
+                             'progress': 'Spécification transmise à l’équipe SAP, développement en cours.'},
+                            {'description': 'Acheter un outil dédié au suivi des écarts des projets.',
+                             'due': 90,
+                             'status': 'CANCELLED',
+                             'cancel': 'Le tableau de suivi ajouté au comité et l’alerte SAP couvrent le besoin, '
+                                       'sans outil supplémentaire.'}],
                 'controls': [0],
                 'decision': 'VALIDATE'},
                {'title': 'Absence de revue post-investissement sur cinq dossiers en service',
@@ -10254,6 +10457,28 @@ MISSIONS = [{'index': 0,
                                   'avec une revue mensuelle par le directeur de l’audit interne et un point '
                                   'd’avancement à chaque séance du comité jusqu’à la résorption des retards.',
                 'severity': 'HIGH',
+                'actions': [{'description': 'Configurer dans ServiceNow les relances à J+15 et l’escalade à J+30 des '
+                                            'actions échues.',
+                             'due': 20,
+                             'status': 'DONE',
+                             'progress': 'Règles de relance créées, test sur le registre en cours.',
+                             'completion': 'Les relances et l’escalade sont actives dans ServiceNow.',
+                             'attachment': {'file': 'Relances_ServiceNow.pdf',
+                                            'type': 'memo',
+                                            'title': 'Relances automatiques dans ServiceNow',
+                                            'meta': [['Émetteur', 'Administration ServiceNow'],
+                                                     ['Transmis par', 'Nadia Rousseau'],
+                                                     ['Date', '{date:-2}']],
+                                            'sections': [['Travaux réalisés',
+                                                          'Deux règles ont été créées pour les relances à J+15 et '
+                                                          'l’escalade à J+30, puis testées sur des actions de '
+                                                          'contrôle.'],
+                                                         ['Résultat constaté',
+                                                          'Les relances et l’alerte d’escalade ont été reçues par '
+                                                          'les destinataires attendus.']]}},
+                            {'description': 'Présenter au comité d’audit la liste nominative des actions échues.',
+                             'due': 30,
+                             'status': 'TODO'}],
                 'controls': [0],
                 'decision': 'VALIDATE'},
                {'title': 'Clôtures d’actions sans preuve probante examinée par l’audit interne',
@@ -10288,6 +10513,12 @@ MISSIONS = [{'index': 0,
                                   'des clôtures sera réalisée chaque trimestre par un second auditeur, avec '
                                   'restitution des résultats au comité d’audit.',
                 'severity': 'MODERATE',
+                'actions': [{'description': 'Reprendre les cinq clôtures en exception pour les documenter ou les '
+                                            'rouvrir.',
+                             'due': 45,
+                             'status': 'IN_PROGRESS',
+                             'progress': 'Deux clôtures documentées, une rouverte. Les deux dernières attendent les '
+                                         'pièces des métiers.'}],
                 'controls': [1],
                 'decision': 'RETURN',
                 'decisionComment': 'Préciser l’exposition des risques d’origine liés aux cinq actions clôturées sans '
@@ -10575,6 +10806,51 @@ MISSIONS = [{'index': 0,
                                   'prochaine publication avec une note explicative au comité de direction, et une '
                                   'revue trimestrielle des écarts de recalcul sera présentée au comité d’audit.',
                 'severity': 'HIGH',
+                'followUp': 'CLOSED',
+                'closure': 'Actions vérifiées et efficacité confirmée sur la dernière publication.',
+                'actions': [{'description': 'Corriger les trois indicateurs et publier une note explicative au '
+                                            'comité de direction.',
+                             'due': 10,
+                             'status': 'VERIFIED',
+                             'progress': 'Recalcul terminé, note explicative en relecture.',
+                             'completion': 'Les trois indicateurs sont corrigés et la note explicative est publiée.',
+                             'verification': 'Recalcul indépendant des trois indicateurs : résultats identiques à la '
+                                             'publication.',
+                             'attachment': {'file': 'Correction_indicateurs.pdf',
+                                            'type': 'memo',
+                                            'title': 'Correction des trois indicateurs',
+                                            'meta': [['Émetteur', 'Contrôle de gestion'],
+                                                     ['Transmis par', 'Nadia Rousseau'],
+                                                     ['Date', '{date:-2}']],
+                                            'sections': [['Travaux réalisés',
+                                                          'Les trois indicateurs ont été recalculés sur {quarter:-1} '
+                                                          'à partir des données SAP, puis publiés avec une note '
+                                                          'explicative.'],
+                                                         ['Résultat constaté',
+                                                          'La note a été présentée au comité de direction. Les '
+                                                          'écarts relevés par l’audit sont résorbés.']]}},
+                            {'description': 'Instaurer la revue par un second analyste, avec une check-list tracée '
+                                            'avant publication.',
+                             'due': 30,
+                             'status': 'VERIFIED',
+                             'progress': 'Check-list rédigée et testée sur une publication.',
+                             'completion': 'La revue par un second analyste est appliquée depuis la dernière '
+                                           'publication.',
+                             'verification': 'Check-list signée par un second analyste contrôlée sur la dernière '
+                                             'publication.',
+                             'attachment': {'file': 'Checklist_revue_indicateurs.pdf',
+                                            'type': 'memo',
+                                            'title': 'Revue des indicateurs avant publication',
+                                            'meta': [['Émetteur', 'Contrôle de gestion'],
+                                                     ['Transmis par', 'Nadia Rousseau'],
+                                                     ['Date', '{date:-2}']],
+                                            'sections': [['Travaux réalisés',
+                                                          'Une check-list couvre les sources, le recalcul et la '
+                                                          'comparaison à la période précédente. Elle est signée par '
+                                                          'un second analyste.'],
+                                                         ['Résultat constaté',
+                                                          'La check-list a été appliquée à la publication de '
+                                                          '{month:-1} et classée dans la GED.']]}}],
                 'controls': [1],
                 'decision': 'VALIDATE'},
                {'title': 'Sources réelles différentes des sources déclarées pour trois indicateurs',
@@ -10610,6 +10886,32 @@ MISSIONS = [{'index': 0,
                                   'le comité de direction, et l’audit interne vérifiera l’exactitude des fiches sur '
                                   'un échantillon lors de la prochaine mission de suivi.',
                 'severity': 'MODERATE',
+                'followUp': 'VERIFICATION',
+                'actions': [{'description': 'Mettre à jour les fiches des trois indicateurs et planifier leur revue '
+                                            'annuelle.',
+                             'due': 15,
+                             'status': 'VERIFIED',
+                             'progress': 'Fiches corrigées, revue annuelle à inscrire au calendrier.',
+                             'completion': 'Les trois fiches sont à jour et la revue annuelle est planifiée.',
+                             'verification': 'Sources des trois fiches comparées aux extractions utilisées : '
+                                             'concordance constatée.',
+                             'attachment': {'file': 'Fiches_indicateurs.pdf',
+                                            'type': 'memo',
+                                            'title': 'Mise à jour des fiches d’indicateurs',
+                                            'meta': [['Émetteur', 'Contrôle de gestion'],
+                                                     ['Transmis par', 'Nadia Rousseau'],
+                                                     ['Date', '{date:-2}']],
+                                            'sections': [['Travaux réalisés',
+                                                          'Les fiches des trois indicateurs ont été corrigées pour '
+                                                          'citer leurs sources réelles.'],
+                                                         ['Résultat constaté',
+                                                          'La revue annuelle de toutes les fiches est inscrite au '
+                                                          'calendrier du contrôle de gestion.']]}},
+                            {'description': 'Remplacer les tableurs manuels par des extractions SAP automatisées.',
+                             'due': 80,
+                             'status': 'CANCELLED',
+                             'cancel': 'Sujet repris dans le projet d’entrepôt de données, suivi par la DSI hors de '
+                                       'ce plan d’action.'}],
                 'controls': [0],
                 'decision': 'RETURN',
                 'decisionComment': 'Ajouter une cause racine plus précise sur les extractions SAP jugées instables '
@@ -10971,6 +11273,51 @@ MISSIONS = [{'index': 0,
                                   'Une sensibilisation ciblée des quatre utilisateurs sera menée et le comité de '
                                   'sécurité suivra le nombre d’exports non validés chaque mois.',
                 'severity': 'CRITICAL',
+                'actions': [{'description': 'Enquêter sur les quatre exports et informer le délégué à la protection '
+                                            'des données.',
+                             'due': 7,
+                             'status': 'VERIFIED',
+                             'progress': 'Entretiens menés avec trois des quatre utilisateurs.',
+                             'completion': 'L’enquête est terminée et le délégué à la protection des données a reçu '
+                                           'le rapport.',
+                             'verification': 'Rapport d’enquête relu : les quatre exports sont expliqués, et le '
+                                             'délégué en a accusé réception.',
+                             'attachment': {'file': 'Enquete_exports_sensibles.pdf',
+                                            'type': 'memo',
+                                            'title': 'Enquête sur les quatre exports',
+                                            'meta': [['Émetteur', 'Sécurité des systèmes d’information'],
+                                                     ['Transmis par', 'Nadia Rousseau'],
+                                                     ['Date', '{date:-2}']],
+                                            'sections': [['Travaux réalisés',
+                                                          'Les journaux d’accès ont été analysés et les quatre '
+                                                          'utilisateurs ont été interrogés sur la finalité de chaque '
+                                                          'export.'],
+                                                         ['Résultat constaté',
+                                                          'Le rapport a été remis au délégué à la protection des '
+                                                          'données, qui en a accusé réception le {date:-4}.']]}},
+                            {'description': 'Bloquer techniquement les destinations non maîtrisées sur les postes de '
+                                            'travail.',
+                             'due': 14,
+                             'status': 'DONE',
+                             'progress': 'Règle déployée sur le siège, déploiement des filiales en cours.',
+                             'completion': 'La règle de blocage est active sur tous les postes.',
+                             'attachment': {'file': 'Blocage_destinations.pdf',
+                                            'type': 'memo',
+                                            'title': 'Blocage des destinations non maîtrisées',
+                                            'meta': [['Émetteur', 'Sécurité des systèmes d’information'],
+                                                     ['Transmis par', 'Nadia Rousseau'],
+                                                     ['Date', '{date:-2}']],
+                                            'sections': [['Travaux réalisés',
+                                                          'Une règle bloque l’envoi vers les stockages personnels et '
+                                                          'les supports amovibles non référencés.'],
+                                                         ['Résultat constaté',
+                                                          'Le test réalisé sur dix postes a confirmé le blocage. Les '
+                                                          'filiales sont couvertes depuis le {date:-3}.']]}},
+                            {'description': 'Déployer un outil de prévention de fuite sur les jeux de données '
+                                            'sensibles.',
+                             'due': 70,
+                             'status': 'IN_PROGRESS',
+                             'progress': 'Outil retenu, pilote lancé sur le jeu de données de paie.'}],
                 'controls': [1],
                 'decision': 'VALIDATE'},
                {'title': 'Droits d’accès excessifs sur les données de paie et sur les conditions d’achat',
@@ -11007,6 +11354,30 @@ MISSIONS = [{'index': 0,
                                   'des revues et un contrôle de second niveau sera réalisé sur les quatre autres '
                                   'jeux.',
                 'severity': 'HIGH',
+                'actions': [{'description': 'Retirer les 29 accès non justifiés sur les données de paie et sur les '
+                                            'conditions d’achat.',
+                             'due': 10,
+                             'status': 'VERIFIED',
+                             'progress': '21 accès retirés, 8 attendent l’accord des responsables.',
+                             'completion': 'Les 29 accès sont retirés.',
+                             'verification': 'Nouvelle extraction des droits : aucun des 29 comptes ne conserve '
+                                             'd’accès.',
+                             'attachment': {'file': 'Retrait_acces.pdf',
+                                            'type': 'memo',
+                                            'title': 'Retrait des 29 accès',
+                                            'meta': [['Émetteur', 'Direction des systèmes d’information'],
+                                                     ['Transmis par', 'Nadia Rousseau'],
+                                                     ['Date', '{date:-2}']],
+                                            'sections': [['Travaux réalisés',
+                                                          'Les 29 accès ont été retirés dans SAP et dans le SIRH '
+                                                          'après accord des responsables.'],
+                                                         ['Résultat constaté',
+                                                          'L’extraction du {date:-2} ne montre plus aucun de ces '
+                                                          'accès.']]}},
+                            {'description': 'Désigner les propriétaires des données de paie et d’achat, puis '
+                                            'relancer la campagne de revue.',
+                             'due': 30,
+                             'status': 'TODO'}],
                 'controls': [0],
                 'decision': 'RETURN',
                 'decisionComment': 'Préciser le nombre de salariés dont les données de paie sont accessibles à tort '
@@ -11295,6 +11666,45 @@ MISSIONS = [{'index': 0,
                                   'mois. Un indicateur de l’âge de la file sera ajouté aux revues de service '
                                   'mensuelles. Le suivi sera présenté chaque mois au comité de pilotage de la DSI.',
                 'severity': 'HIGH',
+                'followUp': 'CLOSED',
+                'closure': 'File d’erreurs résorbée et indicateur suivi en revue de service.',
+                'actions': [{'description': 'Désigner un propriétaire fonctionnel par interface.',
+                             'due': 12,
+                             'status': 'VERIFIED',
+                             'progress': 'Liste proposée aux directions métiers.',
+                             'completion': 'Chaque interface a un propriétaire fonctionnel nommé.',
+                             'verification': 'Registre des interfaces contrôlé : aucune interface sans propriétaire.',
+                             'attachment': {'file': 'Proprietaires_interfaces.pdf',
+                                            'type': 'memo',
+                                            'title': 'Propriétaires des interfaces',
+                                            'meta': [['Émetteur', 'Intégration applicative'],
+                                                     ['Transmis par', 'Nadia Rousseau'],
+                                                     ['Date', '{date:-2}']],
+                                            'sections': [['Travaux réalisés',
+                                                          'Un propriétaire a été désigné avec chaque direction '
+                                                          'métier et reporté dans le registre des interfaces.'],
+                                                         ['Résultat constaté',
+                                                          'Le registre est à jour et les propriétaires ont été '
+                                                          'informés de leur rôle.']]}},
+                            {'description': 'Traiter les 187 messages ouverts de la file d’erreurs, en commençant '
+                                            'par les plus anciens.',
+                             'due': 40,
+                             'status': 'VERIFIED',
+                             'progress': '120 messages traités, le reste concerne deux interfaces.',
+                             'completion': 'Les 187 messages sont corrigés ou rejetés avec motif.',
+                             'verification': 'File d’erreurs consultée : aucun message de plus de 30 jours.',
+                             'attachment': {'file': 'Traitement_file_erreurs.pdf',
+                                            'type': 'memo',
+                                            'title': 'Traitement de la file d’erreurs',
+                                            'meta': [['Émetteur', 'Intégration applicative'],
+                                                     ['Transmis par', 'Nadia Rousseau'],
+                                                     ['Date', '{date:-2}']],
+                                            'sections': [['Travaux réalisés',
+                                                          'Les messages ont été traités par ancienneté avec les '
+                                                          'propriétaires des interfaces.'],
+                                                         ['Résultat constaté',
+                                                          'La file ne contient plus de message de plus de 30 jours. '
+                                                          'Le suivi est présenté en revue de service.']]}}],
                 'controls': [1],
                 'decision': 'VALIDATE'},
                {'title': 'Interruptions de flux détectées au-delà de 24 heures sans alerte automatique',
@@ -11332,6 +11742,28 @@ MISSIONS = [{'index': 0,
                                   'sous quatre heures sera suivi comme indicateur de service par la DSI, avec une '
                                   'revue annuelle du classement de criticité des flux.',
                 'severity': 'MODERATE',
+                'followUp': 'CLOSED',
+                'closure': 'Alertes testées et détection sous quatre heures confirmée.',
+                'actions': [{'description': 'Paramétrer les alertes de silence sur les 22 interfaces et tester leur '
+                                            'déclenchement.',
+                             'due': 25,
+                             'status': 'VERIFIED',
+                             'progress': '15 interfaces paramétrées.',
+                             'completion': 'Les 22 interfaces sont couvertes et le test d’alerte est concluant.',
+                             'verification': 'Test d’interruption rejoué sur deux flux : alerte reçue en moins de '
+                                             'quatre heures.',
+                             'attachment': {'file': 'Alertes_silence_interfaces.pdf',
+                                            'type': 'memo',
+                                            'title': 'Alertes de silence des interfaces',
+                                            'meta': [['Émetteur', 'Exploitation de la DSI'],
+                                                     ['Transmis par', 'Nadia Rousseau'],
+                                                     ['Date', '{date:-2}']],
+                                            'sections': [['Travaux réalisés',
+                                                          'Une règle d’alerte a été définie pour chaque interface, '
+                                                          'selon sa fréquence attendue.'],
+                                                         ['Résultat constaté',
+                                                          'Le test du {date:-5} a déclenché l’alerte attendue sur '
+                                                          'chacun des flux testés.']]}}],
                 'controls': [0],
                 'decision': 'VALIDATE'}],
   'review': {'approve': 'Rapport approuvé. Les deux constats sont chiffrés à partir des échantillons examinés et '
@@ -11563,6 +11995,31 @@ MISSIONS = [{'index': 0,
                                   'Un indicateur du taux de services testés dans l’année sera suivi chaque '
                                   'trimestre.',
                 'severity': 'HIGH',
+                'actions': [{'description': 'Réaliser le test de bascule du SIRH.',
+                             'due': 15,
+                             'status': 'VERIFIED',
+                             'progress': 'Fenêtre de test validée avec la direction des ressources humaines.',
+                             'completion': 'Le test de bascule du SIRH est réalisé, dans l’objectif de reprise.',
+                             'verification': 'Rapport de test contrôlé : reprise constatée sous l’objectif, et '
+                                             'données cohérentes après bascule.',
+                             'attachment': {'file': 'Test_bascule_SIRH.pdf',
+                                            'type': 'memo',
+                                            'title': 'Test de bascule du SIRH',
+                                            'meta': [['Émetteur', 'Exploitation de la DSI'],
+                                                     ['Transmis par', 'Nadia Rousseau'],
+                                                     ['Date', '{date:-2}']],
+                                            'sections': [['Travaux réalisés',
+                                                          'Le SIRH a basculé sur le site de secours pendant la '
+                                                          'fenêtre prévue, puis a été rétabli sur le site '
+                                                          'principal.'],
+                                                         ['Résultat constaté',
+                                                          'L’objectif de reprise a été respecté et aucune perte de '
+                                                          'données n’a été constatée.']]}},
+                            {'description': 'Réaliser les tests de bascule de ServiceNow et de la GED.',
+                             'due': 65,
+                             'status': 'IN_PROGRESS',
+                             'progress': 'Le scénario de ServiceNow est rédigé. Le test de la GED attend la fin de '
+                                         'la migration.'}],
                 'controls': [0],
                 'decision': 'VALIDATE'},
                {'title': 'Dépendances techniques et tiers non documentées sur trois services',
@@ -11601,6 +12058,9 @@ MISSIONS = [{'index': 0,
                                   'des composants raccordés et les fiches sera ajouté à la revue semestrielle des '
                                   'architectes pour éviter toute dérive de la documentation.',
                 'severity': 'MODERATE',
+                'actions': [{'description': 'Compléter les fiches de dépendances des trois services.',
+                             'due': 60,
+                             'status': 'TODO'}],
                 'controls': [2],
                 'decision': 'VALIDATE'}],
   'review': {'approve': 'Rapport approuvé. Les constats sont étayés par les tests exhaustifs des huit services. Les '
@@ -11958,6 +12418,28 @@ MISSIONS = [{'index': 0,
                                   'trimestriel du taux de notes hors politique sera présenté au comité de direction. '
                                   'Les dérogations légitimes seront saisies dans l’outil.',
                 'severity': 'MODERATE',
+                'followUp': 'VERIFICATION',
+                'actions': [{'description': 'Passer les contrôles de plafond en mode bloquant, sauf dérogation '
+                                            'saisie dans l’outil.',
+                             'due': 20,
+                             'status': 'VERIFIED',
+                             'progress': 'Paramétrage testé sur une filiale.',
+                             'completion': 'Le contrôle bloquant est actif sur tout le groupe.',
+                             'verification': 'Note de test hors plafond refusée sans dérogation, acceptée avec '
+                                             'dérogation saisie.',
+                             'attachment': {'file': 'Plafonds_bloquants.pdf',
+                                            'type': 'memo',
+                                            'title': 'Contrôle bloquant des plafonds',
+                                            'meta': [['Émetteur', 'Direction administrative et financière'],
+                                                     ['Transmis par', 'Nadia Rousseau'],
+                                                     ['Date', '{date:-2}']],
+                                            'sections': [['Travaux réalisés',
+                                                          'Les plafonds de la politique de déplacement sont '
+                                                          'maintenant bloquants, et une dérogation motivée peut être '
+                                                          'saisie dans l’outil.'],
+                                                         ['Résultat constaté',
+                                                          'Le test a confirmé le blocage et le rappel de la '
+                                                          'procédure a été envoyé aux managers.']]}}],
                 'controls': [0],
                 'decision': 'RETURN',
                 'decisionComment': 'Chiffrer l’extrapolation à la population de 4 126 notes et préciser si un '
@@ -11996,6 +12478,45 @@ MISSIONS = [{'index': 0,
                                   'analyste distinct des approbateurs et son résultat présenté chaque trimestre au '
                                   'directeur administratif et financier.',
                 'severity': 'HIGH',
+                'actions': [{'description': 'Recouvrer les 2 739,60 € auprès des collaborateurs concernés.',
+                             'due': 25,
+                             'status': 'VERIFIED',
+                             'progress': 'Courriers envoyés, 1 900 € recouvrés.',
+                             'completion': 'Le montant total est recouvré par retenue sur note de frais.',
+                             'verification': 'Écritures de recouvrement rapprochées de la liste des doublons, sans '
+                                             'écart.',
+                             'attachment': {'file': 'Recouvrement_doublons.pdf',
+                                            'type': 'memo',
+                                            'title': 'Recouvrement des doublons',
+                                            'meta': [['Émetteur', 'Comptabilité fournisseurs'],
+                                                     ['Transmis par', 'Nadia Rousseau'],
+                                                     ['Date', '{date:-2}']],
+                                            'sections': [['Travaux réalisés',
+                                                          'Chaque collaborateur concerné a été informé, puis le '
+                                                          'montant a été retenu sur ses notes de frais suivantes.'],
+                                                         ['Résultat constaté',
+                                                          'Les 2 739,60 € sont recouvrés et le rapprochement est '
+                                                          'classé dans le dossier de clôture.']]}},
+                            {'description': 'Mettre en place le rapprochement mensuel automatisé entre carte '
+                                            'corporate et notes de frais.',
+                             'due': 50,
+                             'status': 'DONE',
+                             'progress': 'Requête de rapprochement écrite, analyste désigné.',
+                             'completion': 'Le rapprochement de {month:-1} est réalisé par un analyste distinct des '
+                                           'approbateurs.',
+                             'attachment': {'file': 'Rapprochement_carte_notes.pdf',
+                                            'type': 'memo',
+                                            'title': 'Rapprochement mensuel carte et notes de frais',
+                                            'meta': [['Émetteur', 'Comptabilité fournisseurs'],
+                                                     ['Transmis par', 'Nadia Rousseau'],
+                                                     ['Date', '{date:-2}']],
+                                            'sections': [['Travaux réalisés',
+                                                          'Le rapprochement compare les opérations de carte et les '
+                                                          'notes de frais sur le montant, la date et le '
+                                                          'collaborateur.'],
+                                                         ['Résultat constaté',
+                                                          'Le premier rapprochement, portant sur {month:-1}, ne '
+                                                          'relève aucun nouveau doublon.']]}}],
                 'controls': [2],
                 'decision': 'VALIDATE'}],
   'review': {'approve': 'Rapport approuvé. Le constat sur les doublons est retenu avec recouvrement à engager. Le '
@@ -12325,6 +12846,32 @@ MISSIONS = [{'index': 0,
                                   'durable suivra l’écart moyen entre relevés et factures comme indicateur '
                                   'trimestriel, avec une cible inférieure à 2 %.',
                 'severity': 'HIGH',
+                'actions': [{'description': 'Rectifier le bilan des trois relevés sous-déclarés.',
+                             'due': 15,
+                             'status': 'VERIFIED',
+                             'progress': 'Factures rassemblées pour les trois relevés.',
+                             'completion': 'Le bilan est rectifié à partir des factures.',
+                             'verification': 'Bilan rectifié rapproché des factures des trois relevés, sans écart.',
+                             'attachment': {'file': 'Rectification_bilan_energie.pdf',
+                                            'type': 'memo',
+                                            'title': 'Rectification du bilan énergétique',
+                                            'meta': [['Émetteur', 'Développement durable'],
+                                                     ['Transmis par', 'Nadia Rousseau'],
+                                                     ['Date', '{date:-2}']],
+                                            'sections': [['Travaux réalisés',
+                                                          'Les trois relevés estimés ont été remplacés par les '
+                                                          'consommations figurant sur les factures.'],
+                                                         ['Résultat constaté',
+                                                          'Le bilan rectifié a été transmis au comité de '
+                                                          'développement durable.']]}},
+                            {'description': 'Installer le télérelevé sur les compteurs principaux.',
+                             'due': 85,
+                             'status': 'IN_PROGRESS',
+                             'progress': 'Commande passée, première installation prévue sur le site de Lyon.'},
+                            {'description': 'Rapprocher chaque mois les consommations des factures et régulariser '
+                                            'les estimations.',
+                             'due': 35,
+                             'status': 'TODO'}],
                 'controls': [0],
                 'decision': 'VALIDATE'},
                {'title': 'Quatre indicateurs du rapport de durabilité publiés sans pièce probante',
