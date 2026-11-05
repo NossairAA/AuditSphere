@@ -7,6 +7,8 @@ RUN mvn -B -pl services/${SERVICE} -am package -DskipTests
 RUN cp services/${SERVICE}/target/${SERVICE}-*.jar /app.jar
 # Ubuntu 24.04 variant: the 26.04 image ships /usr/bin/pebble, built with a vulnerable Go standard library.
 FROM eclipse-temurin:21-jre-noble@sha256:cd35bb33859641c5374415826a5951845104093eaa401cbe9d3d9023444f1c13
+# CVE-2026-109518: the upstream image still ships apt 2.8.3. Remove this line once it includes the fix.
+RUN apt-get update && apt-get install -y --only-upgrade --no-install-recommends apt libapt-pkg6.0t64 && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app.jar app.jar
 # Sized for container memory limits. Kubernetes values can override this variable.
