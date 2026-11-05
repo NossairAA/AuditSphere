@@ -13,7 +13,7 @@ export function proxy(request: NextRequest) {
     "style-src-attr 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self'",
-    "connect-src 'self'",
+    `connect-src 'self'${process.env.CF_ANALYTICS_TOKEN ? " https://cloudflareinsights.com" : ""}`,
     "object-src 'none'",
     "base-uri 'self'",
     `form-action 'self' ${identityOrigin}`,
