@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import "./globals.css";
 import { demoProfile } from "@/lib/demo";
 export const metadata: Metadata = {
@@ -6,7 +7,15 @@ export const metadata: Metadata = {
   description: "Votre espace de travail pour des audits clairs et traçables.",
 };
 export const dynamic = "force-dynamic";
-export default function Layout({ children }: { children: React.ReactNode }) {
+export default async function Layout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const analyticsToken = process.env.CF_ANALYTICS_TOKEN;
+  const nonce = analyticsToken
+    ? ((await headers()).get("x-nonce") ?? undefined)
+    : undefined;
   return (
     <html lang="fr">
       <body className={demoProfile() ? "demo" : undefined}>
@@ -22,6 +31,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </a>
             </span>
           </div>
+        )}
+        {analyticsToken && (
+          <script
+            type="module"
+            nonce={nonce}
+            src="https://static.cloudflareinsights.com/beacon.min.js"
+            data-cf-beacon={JSON.stringify({ token: analyticsToken })}
+          />
         )}
       </body>
     </html>

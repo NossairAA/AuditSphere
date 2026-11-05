@@ -98,6 +98,23 @@ test("CSP has a fresh nonce and HTTPS responses carry HSTS", () => {
   }
 });
 
+test("CSP allows the analytics endpoint only when a token is configured", () => {
+  const previous = process.env.CF_ANALYTICS_TOKEN;
+  try {
+    delete process.env.CF_ANALYTICS_TOKEN;
+    const without = proxy(new NextRequest("https://audit.example/missions"));
+    expect(without.headers.get("Content-Security-Policy")).toContain("connect-src 'self';");
+    process.env.CF_ANALYTICS_TOKEN = "test-token";
+    const withToken = proxy(new NextRequest("https://audit.example/missions"));
+    expect(withToken.headers.get("Content-Security-Policy")).toContain(
+      "connect-src 'self' https://cloudflareinsights.com;",
+    );
+  } finally {
+    if (previous === undefined) delete process.env.CF_ANALYTICS_TOKEN;
+    else process.env.CF_ANALYTICS_TOKEN = previous;
+  }
+});
+
 
 test("CSP proxy excludes upload and auth bodies before route admission", async () => {
   for (const url of ["/api", "/api/session", "/api/missions/a/controls/b/evidence", "/auth", "/auth/login", "/auth/logout"]) {

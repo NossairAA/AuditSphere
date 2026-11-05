@@ -32,6 +32,7 @@ sequenceDiagram
 - Mutations soumises à une origine exacte et à un jeton CSRF de session.
 - Cookies `HttpOnly`, `SameSite=Lax` et `Secure` en HTTPS.
 - Content Security Policy à nonce, générée à chaque requête.
+- Mesure d'audience facultative par Cloudflare Web Analytics. Sans `CF_ANALYTICS_TOKEN`, aucun script tiers n'est chargé et la CSP n'autorise aucune origine externe pour les scripts ou les requêtes.
 - Limites de débit au niveau du BFF et de la gateway.
 - Le BFF relaie une liste fermée d'API, sans proxy générique.
 

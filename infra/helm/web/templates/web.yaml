@@ -60,6 +60,11 @@ spec:
             # refuse tout accès direct au BFF.
             - name: TRUSTED_PROXY_IP_HEADER
               value: {{ .Values.trustedProxyIpHeaders | quote }}
+            {{- if .Values.cloudflareAnalyticsToken }}
+            # Mesure d'audience. Le jeton est public : il figure dans chaque page servie.
+            - name: CF_ANALYTICS_TOKEN
+              value: {{ .Values.cloudflareAnalyticsToken | quote }}
+            {{- end }}
             {{- if .Values.demo.enabled }}
             # Entrée en un clic du profil demo (ADR-0035). Clé créée par scripts/k3s-setup-keycloak.py :
             # tant qu'elle manque, les boutons restent masqués.
