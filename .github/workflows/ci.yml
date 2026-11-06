@@ -1,5 +1,10 @@
 name: Build and permissions
-on: [push, pull_request]
+# A change limited to image pins is checked by values.yml: rebuilding the images would only change their digests.
+on:
+  push:
+    paths-ignore: [infra/helm/values/**, infra/helm/web/values.yaml]
+  pull_request:
+    paths-ignore: [infra/helm/values/**, infra/helm/web/values.yaml]
 permissions:
   contents: read
 jobs:
@@ -92,3 +97,73 @@ jobs:
         run: |
           printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
           docker push "$IMAGE"
+  pin:
+    # Writes the digests published by main into the Helm values, on a pull request opened by a GitHub App.
+    # The GITHUB_TOKEN cannot open pull requests here, and its events would not start the required checks.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.PIN_APP_CLIENT_ID != ''
+    needs: images
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+      packages: read
+    concurrency:
+      group: pin-images
+    steps:
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: app
+        with:
+          client-id: ${{ vars.PIN_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PIN_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ steps.app.outputs.token }}
+      - name: Skip when main already holds newer sources
+        run: |
+          # Later runs pin newer images. Only pin commits that main has not changed since, outside the pins.
+          if git diff --quiet "$GITHUB_SHA" HEAD -- . ':(exclude)infra/helm/values' ':(exclude)infra/helm/web/values.yaml'; then
+            echo "STALE=false" >> "$GITHUB_ENV"
+          else
+            echo "STALE=true" >> "$GITHUB_ENV"
+            echo "main moved past $GITHUB_SHA, a later run pins it." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Resolve published digests
+        if: env.STALE == 'false'
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          owner=$(printf '%s' "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
+          for name in audit-service api-gateway notification-service remediation-service web; do
+            digest=$(docker buildx imagetools inspect "ghcr.io/$owner/auditsphere-$name:$GITHUB_SHA" --format '{{json .Manifest}}' | jq -r .digest)
+            printf -- '--digest %s=%s\n' "$name" "$digest" >> "$RUNNER_TEMP/digests"
+          done
+      - name: Pin images whose sources changed
+        if: env.STALE == 'false'
+        run: xargs python3 scripts/pin_images.py --sha "$GITHUB_SHA" < "$RUNNER_TEMP/digests" > "$RUNNER_TEMP/pins.md"
+      - name: Open or update the pin pull request
+        if: env.STALE == 'false'
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          APP_SLUG: ${{ steps.app.outputs.app-slug }}
+        run: |
+          if git diff --quiet; then
+            echo "No image to pin." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          cat "$RUNNER_TEMP/pins.md" >> "$GITHUB_STEP_SUMMARY"
+          bot="$APP_SLUG[bot]"
+          git config user.name "$bot"
+          git config user.email "$(gh api "users/$APP_SLUG%5Bbot%5D" --jq .id)+$bot@users.noreply.github.com"
+          title="chore(deploy): pin images built from ${GITHUB_SHA::7}"
+          git switch -C ci/pin-images
+          git commit -qam "$title"
+          git push --force origin ci/pin-images
+          if [ -n "$(gh pr list --head ci/pin-images --state open --json number --jq '.[].number')" ]; then
+            gh pr edit ci/pin-images --title "$title" --body-file "$RUNNER_TEMP/pins.md"
+          else
+            gh pr create --base main --head ci/pin-images --title "$title" --body-file "$RUNNER_TEMP/pins.md"
+          fi

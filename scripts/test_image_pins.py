@@ -61,16 +61,23 @@ class ImagePinTest(unittest.TestCase):
                     self.assertRegex(image, SHA256)
 
     def test_ci_actions_and_scanner_are_immutable(self):
+        workflows = sorted((ROOT / ".github/workflows").glob("*.yml"))
+        self.assertTrue(workflows)
+        for path in workflows:
+            source = path.read_text()
+            for action, comment in re.findall(r"^\s*- uses:\s*(\S+)(.*)$", source, re.MULTILINE):
+                with self.subTest(file=path.name, action=action.split("@")[0]):
+                    self.assertRegex(action, GIT_SHA)
+                    self.assertRegex(comment, r"^\s*# v\d+")
+            runners = re.findall(r"^\s*runs-on:\s*(\S+)", source, re.MULTILINE)
+            self.assertTrue(runners)
+            for runner in runners:
+                with self.subTest(file=path.name, runner=runner):
+                    self.assertNotRegex(runner, r"-latest$")
+        helm = re.search(r"alpine/helm:\S+", (ROOT / ".github/workflows/values.yml").read_text())
+        self.assertIsNotNone(helm)
+        self.assertRegex(helm.group(), SHA256)
         source = (ROOT / ".github/workflows/ci.yml").read_text()
-        for action, comment in re.findall(r"^\s*- uses:\s*(\S+)(.*)$", source, re.MULTILINE):
-            with self.subTest(action=action.split("@")[0]):
-                self.assertRegex(action, GIT_SHA)
-                self.assertRegex(comment, r"^\s*# v\d+")
-        runners = re.findall(r"^\s*runs-on:\s*(\S+)", source, re.MULTILINE)
-        self.assertTrue(runners)
-        for runner in runners:
-            with self.subTest(runner=runner):
-                self.assertNotRegex(runner, r"-latest$")
         scanner = re.search(r"zricethezav/gitleaks:[^\s]+", source)
         self.assertIsNotNone(scanner)
         self.assertRegex(scanner.group(), SHA256)

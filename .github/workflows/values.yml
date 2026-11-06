@@ -1,0 +1,26 @@
+name: Helm values
+# Required check for changes limited to image pins, which ci.yml skips. Runs on every Helm change.
+on:
+  push:
+    paths: [infra/helm/**, scripts/pin_images.py, scripts/test_pin_images.py, scripts/test_image_pins.py]
+  pull_request:
+    paths: [infra/helm/**, scripts/pin_images.py, scripts/test_pin_images.py, scripts/test_image_pins.py]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-26.04
+    env:
+      HELM: alpine/helm:4.3.1@sha256:e3f8d5c462d75470fbb1fce79ad5c20063657096d1f98c0fcea869e2600e2e5e
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: python3 -m unittest discover -s scripts -p 'test_*.py'
+      - name: Render every chart with its values
+        run: |
+          helm() { docker run --rm -v "$PWD:/repo:ro" -w /repo "$HELM" "$@"; }
+          for values in infra/helm/values/*.yaml; do
+            name=$(basename "$values" .yaml)
+            helm template "$name" infra/helm/spring-service --values "$values" --set-string oidc.origin=https://auth.example.test > /dev/null
+          done
+          helm template web infra/helm/web --set-string appOrigin=https://app.example.test --set-string oidcOrigin=https://auth.example.test \
+            --set-file sessionsSql=apps/web/db/001-sessions.sql --set-file encryptedSessionsSql=apps/web/db/002-encrypted-sessions.sql > /dev/null

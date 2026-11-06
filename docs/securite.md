@@ -73,6 +73,7 @@ Ces règles sont vérifiées par des tests d'API et des parcours navigateur, y c
 - Trivy bloque une image qui contient une vulnérabilité élevée ou critique corrigeable.
 - Un SBOM CycloneDX est produit pour chaque image.
 - Les actions GitHub sont épinglées par SHA complet, ce qu'un test Python vérifie. Les images de déploiement le sont par empreinte.
+- L'épinglage automatique passe par une GitHub App au jeton éphémère, limitée au contenu et aux pull requests. Aucun workflow ne détient d'accès au cluster.
 - Seul un push sur `main` publie vers le registre, avec des permissions limitées à ce job.
 
 ## Isolation dans le cluster
