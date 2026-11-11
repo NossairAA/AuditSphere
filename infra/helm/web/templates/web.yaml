@@ -65,6 +65,11 @@ spec:
             - name: CF_ANALYTICS_TOKEN
               value: {{ .Values.cloudflareAnalyticsToken | quote }}
             {{- end }}
+            {{- if .Values.umamiWebsiteId }}
+            # Visiteurs uniques par jour (Umami Cloud). L'identifiant est public : il figure dans chaque page servie.
+            - name: UMAMI_WEBSITE_ID
+              value: {{ .Values.umamiWebsiteId | quote }}
+            {{- end }}
             {{- if .Values.demo.enabled }}
             # Entrée en un clic du profil demo (ADR-0035). Clé créée par scripts/k3s-setup-keycloak.py :
             # tant qu'elle manque, les boutons restent masqués.

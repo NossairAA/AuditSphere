@@ -40,7 +40,7 @@ case "$profile" in demo | production) ;; *) echo "AUDITSPHERE_PROFILE vaut demo 
 : "${APP_ORIGIN:?}"
 helm upgrade --install web "$root/infra/helm/web" --namespace auditsphere \
   --set-string appOrigin="$APP_ORIGIN" --set-string oidcOrigin="$OIDC_ORIGIN" \
-  --set-string cloudflareAnalyticsToken="${CF_ANALYTICS_TOKEN:-}" \
+  --set-string cloudflareAnalyticsToken="${CF_ANALYTICS_TOKEN:-}" --set-string umamiWebsiteId="${UMAMI_WEBSITE_ID:-}" \
   --set demo.enabled="$([ "$profile" = demo ] && echo true || echo false)" \
   --set-file sessionsSql="$root/apps/web/db/001-sessions.sql" \
   --set-file encryptedSessionsSql="$root/apps/web/db/002-encrypted-sessions.sql" \
