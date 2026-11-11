@@ -13,7 +13,12 @@ export default async function Layout({
   children: React.ReactNode;
 }) {
   const analyticsToken = process.env.CF_ANALYTICS_TOKEN;
-  const nonce = analyticsToken
+  const umamiWebsiteId = process.env.UMAMI_WEBSITE_ID;
+  // Umami ignores other hosts, such as the tailnet name or a local server.
+  const umamiDomain = process.env.APP_ORIGIN
+    ? new URL(process.env.APP_ORIGIN).hostname
+    : undefined;
+  const nonce = analyticsToken || umamiWebsiteId
     ? ((await headers()).get("x-nonce") ?? undefined)
     : undefined;
   return (
@@ -38,6 +43,16 @@ export default async function Layout({
             nonce={nonce}
             src="https://static.cloudflareinsights.com/beacon.min.js"
             data-cf-beacon={JSON.stringify({ token: analyticsToken })}
+          />
+        )}
+        {umamiWebsiteId && (
+          <script
+            defer
+            nonce={nonce}
+            src="https://cloud.umami.is/script.js"
+            data-website-id={umamiWebsiteId}
+            data-domains={umamiDomain}
+            data-exclude-search="true"
           />
         )}
       </body>

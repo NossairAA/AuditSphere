@@ -115,6 +115,21 @@ test("CSP allows the analytics endpoint only when a token is configured", () => 
   }
 });
 
+test("CSP allows Umami only when a website id is configured", () => {
+  const previous = process.env.UMAMI_WEBSITE_ID;
+  try {
+    delete process.env.UMAMI_WEBSITE_ID;
+    const without = proxy(new NextRequest("https://audit.example/missions"));
+    expect(without.headers.get("Content-Security-Policy")).not.toContain("gateway.umami.is");
+    process.env.UMAMI_WEBSITE_ID = "test-website";
+    const withId = proxy(new NextRequest("https://audit.example/missions"));
+    expect(withId.headers.get("Content-Security-Policy")).toMatch(/connect-src 'self'[^;]* https:\/\/gateway\.umami\.is;/);
+  } finally {
+    if (previous === undefined) delete process.env.UMAMI_WEBSITE_ID;
+    else process.env.UMAMI_WEBSITE_ID = previous;
+  }
+});
+
 
 test("CSP proxy excludes upload and auth bodies before route admission", async () => {
   for (const url of ["/api", "/api/session", "/api/missions/a/controls/b/evidence", "/auth", "/auth/login", "/auth/logout"]) {

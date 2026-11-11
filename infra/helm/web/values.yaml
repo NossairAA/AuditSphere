@@ -15,6 +15,8 @@ trustedProxyIpHeaders: cf-connecting-ip,x-real-ip
 
 # Mesure d'audience Cloudflare Web Analytics, passée à l'installation depuis .local/k3s.env. Vide : aucun script chargé.
 cloudflareAnalyticsToken: ""
+# Visiteurs uniques par jour avec Umami Cloud, passé à l'installation depuis .local/k3s.env. Vide : aucun script chargé.
+umamiWebsiteId: ""
 
 # Profil demo (ADR-0031) : boutons d'entrée en un clic et bandeau. Passé à l'installation depuis AUDITSPHERE_PROFILE.
 demo:
