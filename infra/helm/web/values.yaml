@@ -1,7 +1,7 @@
 image:
   repository: ghcr.io/nossairaa/auditsphere-web
-  tag: c3dc83dcb910eb0b07a46eb88195b929493325dd
-  digest: sha256:8a265bd58a259a4b6a71ad6e7c8160fae4e9ed523862d5a112f421c6c7971ecb
+  tag: f5dc84a433487942c17b04c301394ce986dfc8ad
+  digest: sha256:3ea8db7da5d6bdd26c601d2efd5e7745039bee3f6f14d7747d243ed55e97b42e
 
 # Origines HTTPS du tailnet, passées à l'installation depuis .local/k3s.env.
 appOrigin: ""

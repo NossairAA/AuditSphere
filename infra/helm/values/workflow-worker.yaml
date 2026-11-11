@@ -1,8 +1,8 @@
 # Worker Temporal seul, même image qu'audit-service, sans HTTP ni base.
 image:
   repository: ghcr.io/nossairaa/auditsphere-audit-service
-  tag: 6eac4e9e2829b2df3d41947e79a8f31362a0b3db
-  digest: sha256:41bfac7f28450cd220ee43a660be4bc718e4507cddd19d579bc8fcb678b09f6b
+  tag: f5dc84a433487942c17b04c301394ce986dfc8ad
+  digest: sha256:ca75e3e897ee64ffa1be5300511c44ff5e363b2b665f57bc867e6b407d44bfa9
 port: 0
 env:
   WORKFLOW_WORKER_ONLY: "true"
